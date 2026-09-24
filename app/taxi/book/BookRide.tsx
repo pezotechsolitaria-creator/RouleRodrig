@@ -115,10 +115,13 @@ type Quote = {
  * the confirmation step — the one place the mistake was visible, and easy to
  * read past.
  */
-function islandWhenLabel(local: string): string {
+function islandWhenLabel(local: string, locale: string): string {
   const iso = islandIsoFromLocal(local);
   if (!iso) return "";
-  return new Date(iso).toLocaleString("en-GB", { timeZone: ISLAND_TZ });
+  // The locale follows the visitor, as /taxi/track already does. Pinned to
+  // en-GB, the one summary line a French customer reads before confirming
+  // came back in English on an otherwise French screen.
+  return new Date(iso).toLocaleString(locale, { timeZone: ISLAND_TZ });
 }
 
 export default function BookRide({
@@ -143,6 +146,9 @@ export default function BookRide({
 }) {
   const { language } = useLanguage();
   const c = RIDES_COPY[language].book;
+  // There is no locale for Kreol; fr-FR is the closer of the two we have, and
+  // it is the same choice /taxi/track and lib/speak.ts already make.
+  const dateLocale = language === "en" ? "en-GB" : "fr-FR";
 
   const [direction, setDirection] = useState<RideDirection>(initialDirection);
   // Arriving with the destination already chosen means step 1 — "what kind of
@@ -239,7 +245,7 @@ export default function BookRide({
         rideQuoteShown({ service, flat: Boolean(quoted.flat) });
       }
     } catch {
-      setQuote({ ok: false, message: "We'll confirm the price with you." });
+      setQuote({ ok: false, message: c.price.confirmWithYou });
     } finally {
       setQuoting(false);
     }
@@ -319,10 +325,10 @@ export default function BookRide({
           <h2 className="mt-4 font-syne text-2xl font-extrabold text-offwhite">
             {c.done.heading}
           </h2>
-          <p className="mt-2 font-dm text-sm text-muted">
-            No need to call anyone. A driver will accept in the next few minutes
-            and you&apos;ll see their name and number here.
-          </p>
+          {/* c.done.body — written in all three languages at
+              lib/rides/copy.i18n.ts and asserted by its own test, while this
+              screen rendered the English literal underneath it. */}
+          <p className="mt-2 font-dm text-sm text-muted">{c.done.body}</p>
           <p className="mt-4 font-bebas text-[11px] tracking-[0.28em] text-yellow">
             {c.done.referenceEyebrow}
           </p>
@@ -340,10 +346,7 @@ export default function BookRide({
           >
             {c.done.follow} <ArrowRight size={18} />
           </Link>
-          <p className="mt-3 font-dm text-xs text-muted">
-            Keep this reference. You&apos;ll need it and this phone number to
-            check on the ride.
-          </p>
+          <p className="mt-3 font-dm text-xs text-muted">{c.done.keepReference}</p>
         </div>
         {/* Payment help, full card: the one screen holding BOTH the reference
             and the final fare, so the WhatsApp message arrives complete. Below
@@ -751,15 +754,15 @@ export default function BookRide({
           <div className="rounded-2xl border border-white/10 bg-dark-card p-4 font-dm text-sm">
             <p className="text-offwhite">
               {dropoff
-                ? `${pickup?.name} → ${dropoff.name}`
-                : `${pickup?.name} · driver for the day`}
+                ? c.summary.route(pickup?.name ?? "", dropoff.name)
+                : c.summary.dayHire(pickup?.name ?? "")}
             </p>
             <p className="mt-0.5 text-muted">
               {whenKind === "now"
                 ? c.step2.whenNow
-                : islandWhenLabel(when)}
+                : islandWhenLabel(when, dateLocale)}
               {" · "}
-              {passengers} {passengers === 1 ? "person" : "people"}
+              {c.summary.passengers(passengers)}
             </p>
           </div>
 
@@ -917,7 +920,7 @@ function PriceCard({
       <div className="rounded-2xl border border-white/12 bg-dark-card px-5 py-4 text-center">
         <p className="flex items-center justify-center gap-2 font-dm text-sm text-offwhite/85">
           <PhoneCall size={15} className="text-yellow" />
-          {quote.message ?? "We'll confirm the price with you."}
+          {quote.message ?? c.price.confirmWithYou}
         </p>
         <p className="mt-1 font-dm text-xs text-muted">{c.price.noCharge}</p>
       </div>

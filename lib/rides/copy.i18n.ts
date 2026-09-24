@@ -160,6 +160,10 @@ const EN = {
       working: "Working out the price…",
       onRequest: "We'll confirm the price with you.",
       noCharge: "Nothing is charged until you agree.",
+      // Shown when quote_ride() cannot price the trip. It was a literal in
+      // BookRide.tsx, in two places, on a screen that is otherwise fully
+      // translated.
+      confirmWithYou: "We'll confirm the price with you.",
       eyebrow: "YOUR FARE",
       unpriced: "Price on request",
       nightRate: "night rate",
@@ -410,6 +414,7 @@ const FR: RidesCopy = {
       working: "Calcul du prix…",
       onRequest: "Nous confirmerons le prix avec vous.",
       noCharge: "Rien n’est débité avant votre accord.",
+      confirmWithYou: "Nous confirmerons le prix avec vous.",
       eyebrow: "VOTRE TARIF",
       unpriced: "Prix sur demande",
       nightRate: "tarif de nuit",
@@ -653,6 +658,7 @@ const CR: RidesCopy = {
       working: "Pe kalkil pri la…",
       onRequest: "Nou pou konfirm pri-la ar ou.",
       noCharge: "Nanye pa debite avan ou dakor.",
+      confirmWithYou: "Nou pou konfirm pri la ar ou.",
       eyebrow: "OU PRI",
       unpriced: "Pri lor demann",
       nightRate: "tarif lanwit",

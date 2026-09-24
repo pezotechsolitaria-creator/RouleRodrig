@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useLanguage } from "@/context/LanguageContext";
 import { ShoppingBag, Bike } from "lucide-react";
-import { fulfilmentChip } from "@/lib/shop/plain-words";
+
 import { centsToShortString } from "@/lib/money";
 
 // Pickup or delivery, decided once and remembered.
@@ -66,7 +66,7 @@ export default function FulfillmentBar({
         <ShoppingBag size={16} className="text-yellow" />
         <p className="font-dm text-sm text-offwhite">
           {t.common.collectionOnly}
-          <span className="ml-1.5 text-muted">— delivery is paused.</span>
+          <span className="ml-1.5 text-muted">{t.common.deliveryPaused}</span>
         </p>
       </div>
     );
@@ -78,8 +78,12 @@ export default function FulfillmentBar({
         {(
           [
             // Shared with the shop cards, the shop filters and the checkout.
-            { id: "pickup" as const, label: fulfilmentChip("pickup"), icon: ShoppingBag },
-            { id: "rr_delivery" as const, label: fulfilmentChip("rr_delivery"), icon: Bike },
+            // fulfilmentChip() is English-only — it is a flat record with no
+            // Language dimension — and these two labels are the second control
+            // a French visitor meets on /food, directly under a heading that
+            // IS translated.
+            { id: "pickup" as const, label: t.common.chipPickup, icon: ShoppingBag },
+            { id: "rr_delivery" as const, label: t.common.chipDelivered, icon: Bike },
           ]
         ).map((opt) => {
           const Icon = opt.icon;
@@ -102,9 +106,11 @@ export default function FulfillmentBar({
       <p className="mt-2 px-1 font-dm text-xs text-muted">
         {hydrated && mode === "rr_delivery" ? (
           <>
-            We bring it to you
-            {deliveryFeeFrom !== null && <> — from Rs {centsToShortString(deliveryFeeFrom)} depending on the area.</>}
-            {" "}You share your location at checkout.
+            {t.common.weBringItToYou}
+            {deliveryFeeFrom !== null && (
+              <> — {`Rs ${centsToShortString(deliveryFeeFrom)}`} {t.common.weBringItFrom}</>
+            )}
+            {" "}{t.common.shareLocationAtCheckout}
           </>
         ) : (
           <>{t.common.collectFromKitchen}</>
