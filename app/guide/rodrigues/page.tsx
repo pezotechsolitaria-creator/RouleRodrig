@@ -7,6 +7,7 @@ import { RODRIGUES_KNOWLEDGE } from "@/lib/rodrigues-knowledge";
 import { breadcrumbLd, touristDestinationLd } from "@/lib/schema";
 import JsonLd from "@/components/JsonLd";
 import AppPageHeader from "@/components/AppPageHeader";
+import HubBacklink from "@/components/nav/HubBacklink";
 
 // Static-ish content page: refresh hourly (nav/footer come from the CMS).
 export const revalidate = 3600;
@@ -269,6 +270,7 @@ export default async function RodriguesGuidePage() {
           </div>
         </div>
       </main>
+      <HubBacklink href="/guide" label="All island guides" />
     </>
   );
 }

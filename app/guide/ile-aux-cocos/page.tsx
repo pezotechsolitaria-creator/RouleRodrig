@@ -5,6 +5,7 @@ import { SITE_URL } from "@/lib/site";
 import { breadcrumbLd } from "@/lib/schema";
 import JsonLd from "@/components/JsonLd";
 import AppPageHeader from "@/components/AppPageHeader";
+import HubBacklink from "@/components/nav/HubBacklink";
 
 // ── ÎLE AUX COCOS ───────────────────────────────────────────────────────────
 //
@@ -295,6 +296,7 @@ export default async function IleAuxCocosPage() {
           </section>
         </article>
       </main>
+      <HubBacklink href="/guide" label="All island guides" />
     </>
   );
 }

@@ -5,6 +5,7 @@ import { SITE_URL } from "@/lib/site";
 import { breadcrumbLd } from "@/lib/schema";
 import JsonLd from "@/components/JsonLd";
 import AppPageHeader from "@/components/AppPageHeader";
+import HubBacklink from "@/components/nav/HubBacklink";
 
 // ── RODRIGUAN FOOD ──────────────────────────────────────────────────────────
 //
@@ -331,6 +332,7 @@ export default async function RodriguanFoodPage() {
           </section>
         </article>
       </main>
+      <HubBacklink href="/guide" label="All island guides" />
     </>
   );
 }

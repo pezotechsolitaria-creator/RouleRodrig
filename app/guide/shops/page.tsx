@@ -6,6 +6,7 @@ import { breadcrumbLd, itemListLd, placeLd } from "@/lib/schema";
 import JsonLd from "@/components/JsonLd";
 import AppPageHeader from "@/components/AppPageHeader";
 import PlaceGuide from "@/components/PlaceGuide";
+import HubBacklink from "@/components/nav/HubBacklink";
 
 export const revalidate = 3600;
 
@@ -81,6 +82,7 @@ export default async function ShopsPage() {
           { href: "/browse/scooter", label: "Rent a scooter to get around" },
         ]}
       />
+      <HubBacklink href="/guide" label="All island guides" />
     </>
   );
 }

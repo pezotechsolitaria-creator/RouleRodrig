@@ -6,6 +6,7 @@ import { realProse } from "@/lib/place-prose";
 import JsonLd from "@/components/JsonLd";
 import AppPageHeader from "@/components/AppPageHeader";
 import PlaceGuide from "@/components/PlaceGuide";
+import HubBacklink from "@/components/nav/HubBacklink";
 
 export const revalidate = 3600;
 
@@ -144,6 +145,7 @@ export default async function BeachesPage() {
           },
         ]}
       />
+      <HubBacklink href="/guide" label="All island guides" />
     </>
   );
 }

@@ -8,6 +8,7 @@ import JsonLd from "@/components/JsonLd";
 import Navbar from "@/components/Navbar";
 import PageLanguage from "@/components/PageLanguage";
 import { ogImages } from "@/lib/share-image";
+import HubBacklink from "@/components/nav/HubBacklink";
 
 export const revalidate = 3600;
 
@@ -288,6 +289,7 @@ export default async function TaxiRodriguesPage() {
           </nav>
         </div>
       </main>
+      <HubBacklink href="/fr" label="Tous nos guides en français" />
     </>
   );
 }

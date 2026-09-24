@@ -6,6 +6,7 @@ import { SITE_URL } from "@/lib/site";
 import { breadcrumbLd, itemListLd } from "@/lib/schema";
 import JsonLd from "@/components/JsonLd";
 import AppPageHeader from "@/components/AppPageHeader";
+import HubBacklink from "@/components/nav/HubBacklink";
 
 export const revalidate = 3600;
 
@@ -239,6 +240,7 @@ export default async function RoutesPage() {
           </nav>
         </div>
       </main>
+      <HubBacklink href="/guide" label="All island guides" />
     </>
   );
 }

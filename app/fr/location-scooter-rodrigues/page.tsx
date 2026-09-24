@@ -7,6 +7,7 @@ import { breadcrumbLd } from "@/lib/schema";
 import JsonLd from "@/components/JsonLd";
 import Navbar from "@/components/Navbar";
 import PageLanguage from "@/components/PageLanguage";
+import HubBacklink from "@/components/nav/HubBacklink";
 
 export const revalidate = 3600;
 
@@ -293,6 +294,7 @@ export default async function LocationScooterPage() {
           </nav>
         </div>
       </main>
+      <HubBacklink href="/fr" label="Tous nos guides en français" />
     </>
   );
 }

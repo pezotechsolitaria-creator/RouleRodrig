@@ -8,6 +8,7 @@ import PlaceGuide from "@/components/PlaceGuide";
 import PageLanguage from "@/components/PageLanguage";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
+import HubBacklink from "@/components/nav/HubBacklink";
 
 export const revalidate = 3600;
 
@@ -234,6 +235,7 @@ export default async function PlagesPage() {
           </Link>
         </div>
       </section>
+      <HubBacklink href="/fr" label="Tous nos guides en français" />
     </>
   );
 }

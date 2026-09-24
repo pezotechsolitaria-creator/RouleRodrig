@@ -6,6 +6,7 @@ import JsonLd from "@/components/JsonLd";
 import AppPageHeader from "@/components/AppPageHeader";
 import HikingGuide, { isHike } from "@/components/HikingGuide";
 import { isGuide } from "@/components/GuideRoster";
+import HubBacklink from "@/components/nav/HubBacklink";
 
 export const revalidate = 3600;
 
@@ -86,6 +87,7 @@ export default async function HikingPage() {
           { href: "/trip-planner", label: "Build a day-by-day plan" },
         ]}
       />
+      <HubBacklink href="/guide" label="All island guides" />
     </>
   );
 }

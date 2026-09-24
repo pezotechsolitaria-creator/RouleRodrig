@@ -6,6 +6,7 @@ import { breadcrumbLd } from "@/lib/schema";
 import JsonLd from "@/components/JsonLd";
 import AppPageHeader from "@/components/AppPageHeader";
 import PageLanguage from "@/components/PageLanguage";
+import HubBacklink from "@/components/nav/HubBacklink";
 
 // ── ÎLE AUX COCOS, EN FRANÇAIS ──────────────────────────────────────────────
 //
@@ -293,6 +294,7 @@ export default async function IleAuxCocosFrPage() {
           </section>
         </article>
       </main>
+      <HubBacklink href="/fr" label="Tous nos guides en français" />
     </>
   );
 }
