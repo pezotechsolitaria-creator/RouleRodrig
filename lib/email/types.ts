@@ -144,6 +144,10 @@ export const EMAIL_TYPES = {
   // login and the email address is optional, so there is no account to look it
   // up in afterwards.
   ride_request_confirmation:        { category: "ride", priority: "high" },
+  // Sent when a ride is marked complete. A taxi customer used to get a
+  // confirmation at the start and silence at the end — the only finished
+  // transaction on the platform that asked nobody for anything.
+  ride_feedback_request:            { category: "ride", priority: "low" },
 
   // ── Account / security ───────────────────────────────────────────────────
   // The day this block anticipated has arrived. email_verification and

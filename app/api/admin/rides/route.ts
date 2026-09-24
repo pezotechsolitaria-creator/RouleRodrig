@@ -254,5 +254,38 @@ export async function PATCH(req: NextRequest) {
   }
   await audit(admin, { action: "ride.status", entityType: "ride_request", entityId: p.rideId,
     diff: { to: p.status } });
+
+  // ── "How was your ride?" ────────────────────────────────────────────────
+  //
+  // A ride was the one finished transaction that asked nobody for anything:
+  // a confirmation at the start and silence at the end. Sent here rather than
+  // from the nightly cron because a ride finishes in an afternoon, and asking
+  // about it tomorrow morning is asking about something half-forgotten.
+  //
+  // Best-effort and awaited: the status is already committed, and this runs in
+  // a serverless function that is killed the moment the handler resolves, so a
+  // floating promise is an email that sometimes never leaves.
+  if (p.status === "completed") {
+    try {
+      const { data: ride } = await admin
+        .from("ride_requests")
+        .select("id, customer_name, customer_email, service")
+        .eq("id", p.rideId)
+        .maybeSingle();
+      const r = ride as Record<string, unknown> | null;
+      if (r?.customer_email) {
+        const { sendRideFeedbackRequest } = await import("@/lib/email");
+        await sendRideFeedbackRequest({
+          id: r.id as string,
+          email: (r.customer_email as string) ?? null,
+          name: (r.customer_name as string) || "there",
+          service: (r.service as string) ?? "",
+        });
+      }
+    } catch (e) {
+      console.error("ride feedback email failed", e);
+    }
+  }
+
   return NextResponse.json(data);
 }

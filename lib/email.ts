@@ -39,6 +39,8 @@ import {
 } from "./email/providers/brevo";
 import { invalidateEmailConfigCache } from "./email/config";
 import { PAYMENT, PAY_HOW } from "./payment-details";
+// One destination for every review button, and the words that ask for it.
+import { REVIEW_ASK, REVIEW_CTA, reviewUrl } from "./reviews";
 // Every booking email a customer receives now carries the same PDF the owner
 // would have made by hand in Receiptly. The adapters are pure and the renderer
 // never throws out of attachmentsFor(), so nothing here can fail an email.
@@ -1586,26 +1588,14 @@ export async function sendFeedbackRequest(
   if (!to) return false;
   const b = await withVehicleName(raw);
   const { wa, logo } = await getBrand();
-  // ── #reviews DOES NOT EXIST ───────────────────────────────────
-  // Checked against the live homepage: the only ids on it are #contact,
-  // #explore, #rr-splash and #rto-compact. So every "Leave a review" button
-  // this platform has ever emailed dropped the customer at the top of the
-  // homepage with no idea what to do next — which is the whole review funnel,
-  // silently broken, on a site whose reviews section reads
-  // "Be the first to leave a review".
-  //
-  // #contact is the section that actually holds the reviews and the button
-  // that opens the form. GOOGLE_REVIEW_URL still wins when it is set, and a
-  // Google Business Profile review link is the better destination once one
-  // exists — see the profile recommendation in the audit.
-  const reviewUrl = process.env.GOOGLE_REVIEW_URL || `${SITE_URL}/#contact`;
   const body = `
     ${paragraph(`Hi ${b.name}, we hope you loved exploring Rodrigues! 🌴 How was your ride with the ${b.scooter}?`)}
-    ${paragraph(`A quick review means the world to a small island business — it takes about 30 seconds and helps other travellers discover us.`)}
+    ${paragraph(REVIEW_ASK.en)}
     ${sepFr()}
     ${frHeading("Merci d'avoir roulé avec nous !")}
-    ${paragraph(`Bonjour ${b.name}, nous espérons que vous avez adoré Rodrigues ! 🌴 Comment s'est passée votre balade avec le ${b.scooter} ? Un petit avis compte énormément pour une petite entreprise locale — cela prend 30 secondes et aide d'autres voyageurs à nous découvrir.`)}
-    <div style="text-align:center">${primaryButton(reviewUrl, "⭐ Leave a review · Laisser un avis")}</div>
+    ${paragraph(`Bonjour ${b.name}, nous espérons que vous avez adoré Rodrigues ! 🌴 Comment s'est passée votre balade avec le ${b.scooter} ?`)}
+    ${paragraph(REVIEW_ASK.fr)}
+    <div style="text-align:center">${primaryButton(reviewUrl(), REVIEW_CTA)}</div>
     ${wa ? `<div style="text-align:center">${waButton(wa, `Hi Roule Rodrigues! Here's my feedback on the ${b.scooter}: `, "💬 WhatsApp")}</div>` : ""}`;
   const type = vehicleEmailType(
     "feedback_request",
@@ -2271,25 +2261,14 @@ export async function sendPlaceFeedbackRequest(
 ): Promise<boolean> {
   if (!b.email) return false;
   const { wa, logo } = await getBrand();
-  // ── #reviews DOES NOT EXIST ───────────────────────────────────
-  // Checked against the live homepage: the only ids on it are #contact,
-  // #explore, #rr-splash and #rto-compact. So every "Leave a review" button
-  // this platform has ever emailed dropped the customer at the top of the
-  // homepage with no idea what to do next — which is the whole review funnel,
-  // silently broken, on a site whose reviews section reads
-  // "Be the first to leave a review".
-  //
-  // #contact is the section that actually holds the reviews and the button
-  // that opens the form. GOOGLE_REVIEW_URL still wins when it is set, and a
-  // Google Business Profile review link is the better destination once one
-  // exists — see the profile recommendation in the audit.
-  const reviewUrl = process.env.GOOGLE_REVIEW_URL || `${SITE_URL}/#contact`;
   const body = `
-    ${paragraph(`Hi ${b.name}, how was <strong>${b.place_name}</strong>? We'd love to hear about it — a quick review helps other travellers and the local business. 💛`)}
+    ${paragraph(`Hi ${b.name}, how was <strong>${b.place_name}</strong>? We'd love to hear about it. 💛`)}
+    ${paragraph(REVIEW_ASK.en)}
     ${sepFr()}
     ${frHeading("Merci de votre visite !")}
-    ${paragraph(`Bonjour ${b.name}, comment s'est passé <strong>${b.place_name}</strong> ? Nous serions ravis d'avoir votre retour — un petit avis aide d'autres voyageurs et l'entreprise locale. 💛`)}
-    <div style="text-align:center">${primaryButton(reviewUrl, "⭐ Leave a review · Laisser un avis")}</div>
+    ${paragraph(`Bonjour ${b.name}, comment s'est passé <strong>${b.place_name}</strong> ? Nous serions ravis d'avoir votre retour. 💛`)}
+    ${paragraph(REVIEW_ASK.fr)}
+    <div style="text-align:center">${primaryButton(reviewUrl(), REVIEW_CTA)}</div>
     ${wa ? `<div style="text-align:center">${waButton(wa, `Hi Roule Rodrigues! Here's my feedback on ${b.place_name}: `, "💬 WhatsApp")}</div>` : ""}`;
   const type = placeEmailType("feedback_request", b.category);
   return send({
@@ -2538,6 +2517,63 @@ export async function sendRideEmails(
 }
 
 // ── Instant enquiry auto-reply (bilingual) ───────────────────────────────
+/**
+ * "How was the trip?" — the day a ride is marked complete.
+ *
+ * Rides were the one finished transaction that asked nobody for anything. The
+ * scooter and the excursion have had a feedback request since launch; a taxi
+ * customer got a confirmation at the start and silence at the end, even though
+ * they are the customer most likely to have just spent forty minutes with
+ * somebody from the island.
+ *
+ * Sent on the status change rather than by the nightly cron, because a ride
+ * finishes in an afternoon: asking tomorrow morning is asking about something
+ * already half-forgotten, and the cron has no ride pass to hang it on.
+ *
+ * `low` priority, like every other feedback request — this is the first mail
+ * the quota engine should drop to protect a QR code or a payment receipt.
+ */
+export async function sendRideFeedbackRequest(b: {
+  id: string;
+  email: string | null;
+  name: string;
+  service: RideService | string;
+}): Promise<boolean> {
+  if (!b.email) return false;
+  const { wa, logo } = await getBrand();
+  // Derived exactly as create_ride_request() derives it in SQL, so the
+  // customer sees the same reference here as on the tracking page.
+  const ref = "RR-" + b.id.replace(/-/g, "").slice(0, 6).toUpperCase();
+  const meta = RIDE_SERVICE_META[b.service as RideService];
+  const what = (meta ? meta.label : "ride").toLowerCase();
+
+  const body = `
+    ${paragraph(`Hi ${escapeHtml(b.name)}, we hope your ${escapeHtml(what)} went well. 🚕`)}
+    ${paragraph(REVIEW_ASK.en)}
+    ${sepFr()}
+    ${frHeading("Merci d'avoir voyagé avec nous !")}
+    ${paragraph(`Bonjour ${escapeHtml(b.name)}, nous espérons que votre course s'est bien passée. 🚕`)}
+    ${paragraph(REVIEW_ASK.fr)}
+    <div style="text-align:center">${primaryButton(reviewUrl(), REVIEW_CTA)}</div>
+    ${wa ? `<div style="text-align:center">${waButton(wa, `Hi Roule Rodrigues! Here's my feedback on ride ${ref}: `, "💬 WhatsApp")}</div>` : ""}`;
+
+  return send({
+    to: b.email,
+    subject: "How was your ride? · Votre avis ? 🚕",
+    html: shell({
+      preheader: "A 30-second review helps other travellers · Votre avis compte.",
+      eyebrow: "Your feedback · Votre avis",
+      title: "Thanks for travelling with us!",
+      body,
+      logo,
+    }),
+    type: "ride_feedback_request",
+    key: keyFor("ride_feedback_request", b.id),
+    relatedType: "ride",
+    relatedId: b.id,
+  });
+}
+
 export async function sendEnquiryAck(
   to: string,
   name: string | null,
@@ -2910,10 +2946,22 @@ export async function sendOrderNotificationEmail(o: {
       : []),
     ...(o.details ?? []),
   ];
+  // ── THE ONE ORDER EMAIL THAT ENDS SOMETHING ────────────────────────────
+  //
+  // "Collected" is the last thing a shop or kitchen customer ever hears about
+  // an order, and until now it closed the transaction and asked for nothing.
+  // The scooter and the excursion have asked for a review since launch.
+  //
+  // Decided HERE, by the email's own type, rather than passed in by each
+  // caller: three different routes emit this type (merchant, /admin/food,
+  // /admin/marketplace-ops) and a rule that lives at three call sites is a
+  // rule two of them will eventually miss.
+  const asksForReview = o.type === "marketplace_order_completed";
   const body = `
     ${paragraph(o.message)}
     ${pairs.length ? detailCard(rows(pairs)) : ""}
-    ${o.cta ? `<div style="text-align:center">${primaryButton(o.cta.url, o.cta.label)}</div>` : ""}`;
+    ${o.cta ? `<div style="text-align:center">${primaryButton(o.cta.url, o.cta.label)}</div>` : ""}
+    ${asksForReview ? `${paragraph(REVIEW_ASK.en)}<div style="text-align:center">${primaryButton(reviewUrl(), REVIEW_CTA)}</div>` : ""}`;
   return send({
     to: o.to,
     subject: o.subject,
