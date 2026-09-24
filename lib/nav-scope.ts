@@ -34,6 +34,14 @@ export const CONSOLE_PREFIXES = [
   "/partner", // app/partner/layout.tsx
   "/kitchen", // app/kitchen/KitchenBoard.tsx — a cook mid-service does not
   // want "Order food" and a mascot over the order they are cooking.
+  //
+  // /errands renders the SAME <DriverDashboard> as /driver and was never
+  // listed, so an approved errand runner opening their job board got the
+  // visitor's floating tab bar ("Order food", "Ti Roulé", the shop tabs)
+  // pinned over the bottom of it and the full marketing footer — sponsors,
+  // legal links, cross-sells — printed underneath. /driver, the identical
+  // screen, got neither. The prefix covers /errands/join too.
+  "/errands", // app/errands/page.tsx — DriverDashboard, only="errand"
 ] as const;
 
 /**

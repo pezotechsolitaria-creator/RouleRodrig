@@ -3,6 +3,7 @@ import { verifySession, COOKIE_NAME } from "@/lib/auth";
 import { getPrivileged } from "@/lib/supabase/admin";
 import { isUuid } from "@/lib/file-signature";
 import { PAYMENT_WINDOW_HOURS } from "@/lib/holds";
+import { vehicleName } from "@/lib/vehicle-name";
 
 // ── The owner's answer to "is this actually available?" (M91) ──────────────
 //
@@ -95,7 +96,13 @@ export async function POST(req: NextRequest) {
         id,
         email: (row.email as string) ?? null,
         name: (row.name as string) ?? "there",
-        scooter: (row.scooter as string) ?? "your vehicle",
+        // THE DISPLAY NAME, not the fleet id. Every vehicle the owner adds is
+        // keyed `veh-${Date.now()}`, and this column stores that key — so the
+        // approval email read "Good news, veh-1783380348440 is free for your
+        // dates". POST /api/bookings already resolves it for the FIRST email,
+        // which is why the confirmation says "Suzuki Swift (Latest Gen)" and
+        // every later message said a timestamp.
+        scooter: (await vehicleName((row.scooter as string) ?? "")) || "your vehicle",
         start_date: (row.start_date as string) ?? "",
         end_date: (row.end_date as string) ?? "",
         amountDue: typeof row.deposit_amount === "number" ? row.deposit_amount : null,
@@ -133,7 +140,7 @@ export async function POST(req: NextRequest) {
       id,
       email: (row.email as string) ?? null,
       name: (row.name as string) ?? "there",
-      scooter: (row.scooter as string) ?? "the vehicle",
+      scooter: (await vehicleName((row.scooter as string) ?? "")) || "the vehicle",
       start_date: (row.start_date as string) ?? "",
       end_date: (row.end_date as string) ?? "",
       note: note || null,

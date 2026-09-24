@@ -1,4 +1,5 @@
 import type { RecommendedPlace, ServiceType } from "@/lib/defaults";
+import { placePrice, type Priced } from "./place-detail";
 
 // ── ONE ENGINE, THREE MARKETPLACES ─────────────────────────────────────────
 //
@@ -229,13 +230,24 @@ export function matchesFilter(place: RecommendedPlace, filterKey: string): boole
  * unpriced vertical, because "from Rs 0" in a search result is worse than no
  * price at all — it reads as either free or broken, and both cost the click.
  *
- * Reads depositAmount, which is what the owner actually fills in per listing
- * and what the booking charges. A title priced from anything else would be a
- * number no customer is ever asked for.
+ * Reads placePrice(), which is the owner's own priceNote first and
+ * depositAmount only as a fallback.
+ *
+ * It read depositAmount alone, and lib/place-detail.ts was written to stop
+ * exactly that: on Île aux Cocos the deposit is Rs 1,000 against a note of
+ * Rs 2,000, so the site's most-searched product published HALF its real price
+ * as a schema.org Offer while the page beside it showed the full one. That fix
+ * shipped to PlaceDetail.tsx and to nothing else, so every title, FAQ and
+ * Offer generated here kept the old number.
+ *
+ * It also silently dropped whole verticals: massage and hiking set a priceNote
+ * and no depositAmount, so they published no "from Rs …" in their title, no
+ * "How much does it cost?" — the highest-intent question on the page — and no
+ * Offer node at all, while their own cards showed Rs 1,999 and Rs 2,500.
  */
-export function fromPriceOf(places: { depositAmount?: number | null }[]): number | null {
+export function fromPriceOf(places: Priced[]): number | null {
   const prices = places
-    .map((p) => (typeof p.depositAmount === "number" ? p.depositAmount : null))
+    .map((p) => placePrice(p))
     .filter((n): n is number => n !== null && n > 0);
   return prices.length ? Math.min(...prices) : null;
 }
@@ -282,7 +294,9 @@ export function experienceFaq(
   const from = fromPriceOf(places);
 
   if (from !== null) {
-    const cheapest = places.find((p) => p.depositAmount === from);
+    // Matched on the SAME function the figure came from, or the name beside
+    // the price belongs to a different listing.
+    const cheapest = places.find((p) => placePrice(p) === from);
     faq.push({
       q: `How much does ${thing} cost in Rodrigues?`,
       a: `${copy.title} starts at ${rs(from)} per person${

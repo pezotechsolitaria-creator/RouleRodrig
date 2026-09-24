@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getPrivileged } from "@/lib/supabase/admin";
 import { guard } from "@/lib/rate-limit";
+import { vehicleName } from "@/lib/vehicle-name";
 
 // Guest booking lookup — no account. A visitor enters the reference from their
 // confirmation (RR-XXXXXX = the first 6 hex of the booking id) plus the email
@@ -74,5 +75,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "No booking found for that reference and email." }, { status: 404 });
   }
 
-  return NextResponse.json({ ok: true, booking: { ...b, ref: refOf(b.id) } });
+  // ── THE VEHICLE'S NAME, NOT ITS FLEET ID ────────────────────────────────
+  //
+  // Every vehicle the owner adds is keyed `veh-${Date.now()}`, and
+  // bookings.scooter stores that key — which lookup_booking returns raw as
+  // `item`. So /manage-booking's "Vehicle" row read "veh-1783380348440", and
+  // a customer checking they had booked the right car could not tell.
+  //
+  // Resolved here rather than on the page: this endpoint is the one place the
+  // value enters the browser, and vehicleName() falls back to the id if the
+  // fleet cannot be read, so a content hiccup can never blank the row.
+  const item =
+    b.kind === "vehicle" && b.item ? await vehicleName(b.item) : b.item;
+
+  return NextResponse.json({ ok: true, booking: { ...b, item, ref: refOf(b.id) } });
 }

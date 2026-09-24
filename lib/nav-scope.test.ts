@@ -1,3 +1,5 @@
+import { readdirSync, readFileSync, statSync } from "node:fs";
+import { join, relative } from "node:path";
 import { describe, it, expect } from "vitest";
 import {
   showsVisitorNav,
@@ -114,12 +116,59 @@ describe("every console screen is registered", () => {
       "/merchant",
       "/organizer",
       "/driver",
+      "/errands",
       "/partner",
       "/kitchen",
     ]) {
       expect(isConsole(p), `${p} must be a console`).toBe(true);
       expect(showsVisitorNav(p), `${p} must not show visitor tabs`).toBe(false);
     }
+  });
+
+  // ── DERIVED, NOT RETYPED ──────────────────────────────────────────────────
+  //
+  // The list above is a second hand-maintained copy of CONSOLE_PREFIXES, so it
+  // only ever covered the consoles somebody remembered to type TWICE. /errands
+  // renders the same <DriverDashboard> as /driver and was in neither, so this
+  // whole describe block passed green while an approved runner got the
+  // visitor's tab bar and the marketing footer over their job list.
+  //
+  // This finds the consoles instead of being told about them: any route that
+  // mounts one of the known console shells has to be registered as one.
+  it("finds every page that mounts a console shell, including new ones", () => {
+    const SHELLS = [
+      "DriverDashboard", "AdminShell", "MerchantNav", "KitchenBoard",
+    ];
+    const APP = join(process.cwd(), "app");
+
+    const pages: string[] = [];
+    const walk = (dir: string) => {
+      for (const e of readdirSync(dir)) {
+        const full = join(dir, e);
+        if (statSync(full).isDirectory()) walk(full);
+        else if (e === "page.tsx") pages.push(full);
+      }
+    };
+    walk(APP);
+    expect(pages.length).toBeGreaterThan(50); // tripwire
+
+    const missed: string[] = [];
+    for (const f of pages) {
+      const src = readFileSync(f, "utf8");
+      if (!SHELLS.some((c) => src.includes(c))) continue;
+      // app/x/y/page.tsx -> /x/y, with (groups) removed. Split on BOTH
+      // separators: node:path gives backslashes on Windows, and splitting on
+      // "/" alone leaves the whole path in one segment and a route of "/".
+      const route =
+        "/" +
+        relative(APP, f)
+          .split(/[\\/]/)
+          .slice(0, -1)
+          .filter((seg) => !(seg.startsWith("(") && seg.endsWith(")")))
+          .join("/");
+      if (!isConsole(route)) missed.push(route);
+    }
+    expect(missed).toEqual([]);
   });
 
   it("still shows the tab bar on ordinary visitor pages", () => {

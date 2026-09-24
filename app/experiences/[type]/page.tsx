@@ -246,7 +246,12 @@ export default async function ExperiencePage({ params }: { params: Promise<{ typ
               ...places.map((p) =>
                 experienceLd({
                   name: p.name,
-                  price: typeof p.depositAmount === "number" ? p.depositAmount : null,
+                  // placePrice(), not depositAmount. The deposit is what holds
+                  // the booking, not what the trip costs — on Île aux Cocos
+                  // Rs 1,000 against a Rs 2,000 note — so this published half
+                  // the real price as the Offer, and nothing at all for the
+                  // verticals that set a note and no deposit.
+                  price: placePrice(p),
                   description: p.description || undefined,
                   image: p.image || undefined,
                   url: `${SITE_URL}${placeHref(p)}`,

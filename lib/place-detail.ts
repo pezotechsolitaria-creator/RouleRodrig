@@ -37,8 +37,22 @@ export function priceFromNote(note?: string | null): number | null {
   return Number.isFinite(n) && n > 0 ? n : null;
 }
 
+/**
+ * The two fields that decide a price.
+ *
+ * Narrower than RecommendedPlace on purpose: these functions read nothing
+ * else, and a caller holding a partial listing — a test fixture, a projection
+ * from a query — should not have to invent an id and a description to ask what
+ * something costs.
+ */
+export type Priced = {
+  priceNote?: string | null;
+  /** Null as well as undefined: several callers read it straight from a row. */
+  depositAmount?: number | null;
+};
+
 /** What a customer pays. The note wins; the deposit is a fallback. */
-export function placePrice(p: RecommendedPlace): number | null {
+export function placePrice(p: Priced): number | null {
   return (
     priceFromNote(p.priceNote) ??
     (typeof p.depositAmount === "number" && p.depositAmount > 0
@@ -48,7 +62,7 @@ export function placePrice(p: RecommendedPlace): number | null {
 }
 
 /** What holds the booking, when that is genuinely less than the price. */
-export function placeDeposit(p: RecommendedPlace): number | null {
+export function placeDeposit(p: Priced): number | null {
   return typeof p.depositAmount === "number" && p.depositAmount > 0
     ? p.depositAmount
     : null;
