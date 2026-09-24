@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   MapPin,
@@ -187,6 +187,15 @@ export default function BookRide({
       : service === "ferry"
         ? c.step2.fixedEnd.ferry
         : "";
+  // The two ends, readable from an effect that must NOT re-run when they
+  // change — the direction effect needs the value at the moment of the flip.
+  const pickupRef = useRef(pickup);
+  const dropoffRef = useRef(dropoff);
+  useEffect(() => {
+    pickupRef.current = pickup;
+    dropoffRef.current = dropoff;
+  }, [pickup, dropoff]);
+
   // Which side the known place sits on. Everything else reads this.
   const fixedIsPickup = Boolean(fixedKey) && direction === "from";
   const fixedIsDropoff = Boolean(fixedKey) && direction === "to";
@@ -204,12 +213,28 @@ export default function BookRide({
       lat: null,
       lng: null,
     };
+    // ── THE FREE END MOVES ACROSS; IT IS NOT THROWN AWAY ──────────────────
+    //
+    // This used to set the known place on one side and null() the other, so
+    // tapping "To the airport" after searching for your hotel wiped the hotel
+    // and reopened an empty picker. /transfers OPENS on "From the airport", so
+    // choosing where you are going is the visitor's first real task, and the
+    // direction pair sits directly above the pickers — exactly where a mis-tap
+    // happens.
+    //
+    // A reversed journey still cannot keep the airport at both ends: the free
+    // end is whatever was on the side that is ABOUT to become fixed, and the
+    // fixed place overwrites it.
+    const freeEnd = direction === "from" ? pickupRef.current : dropoffRef.current;
+    const carried = freeEnd && freeEnd.id !== "fixed" && freeEnd.name !== fixedKey
+      ? freeEnd
+      : null;
     if (direction === "from") {
       setPickup(place);
-      setDropoff(null);
+      setDropoff(carried);
     } else {
       setDropoff(place);
-      setPickup(null);
+      setPickup(carried);
     }
   }, [fixedKey, direction]);
 

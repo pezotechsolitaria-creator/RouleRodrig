@@ -12,15 +12,31 @@ import type { Language } from "@/lib/i18n";
 // a key added to `en` alone is typed as present and undefined at runtime for
 // fr and cr — a crash on .map(), not a fallback.
 //
-// Every figure is from the live listings. From Rs 700 per person is Balade en
-// mer and Peche Traditionelle; Ile aux Cocos is Rs 2,000. The booking answer
+// Every figure is from the live listings — and the cost answer now DERIVES its
+// two, because they drifted. It said "from around Rs 700 ... to Rs 2,000 for
+// the Ile aux Cocos excursion" while the card grid directly above showed
+// "Sunrise hike from Anse aux Anglais - Rs 2,500 per person" and Ile aux Cocos
+// at "Rs 1999/Person". The page contradicted itself in the one paragraph a
+// price-shopping visitor reads, and the same text was emitted as FAQPage
+// schema. The booking answer
 // describes the availability-first flow the API actually implements: a request
 // is created, the owner confirms availability, and only an approved booking
 // gets a payment deadline.
 
 export type FaqItem = { question: string; answer: string };
 
-const EN: FaqItem[] = [
+/** The cheapest and dearest experience currently listed, in whole rupees. */
+export type PriceRange = { min: number; max: number };
+
+/**
+ * Used only when the caller has no listings to measure. The caller that
+ * matters — the hub itself — has them and passes the real ones.
+ */
+export const FALLBACK_RANGE: PriceRange = { min: 700, max: 2500 };
+
+const rs = (n: number) => `Rs ${n.toLocaleString("en-US")}`;
+
+const EN = (range: PriceRange): FaqItem[] => [
   {
     question: "What is there to do on Rodrigues?",
     answer:
@@ -29,7 +45,7 @@ const EN: FaqItem[] = [
   {
     question: "How much does an experience cost?",
     answer:
-      "Prices are per person and shown on every listing — from around Rs 700 for an hour on the water to Rs 2,000 for the Île aux Cocos excursion. Nothing is added on top: you pay the provider's price.",
+      `Prices are per person and shown on every listing — from ${rs(range.min)} for an hour on the water to ${rs(range.max)} for a full day out. Nothing is added on top: you pay the provider's price.`,
   },
   {
     question: "Do I pay straight away when I book?",
@@ -48,7 +64,7 @@ const EN: FaqItem[] = [
   },
 ];
 
-const FR: FaqItem[] = [
+const FR = (range: PriceRange): FaqItem[] => [
   {
     question: "Que faire à Rodrigues ?",
     answer:
@@ -57,7 +73,7 @@ const FR: FaqItem[] = [
   {
     question: "Combien coûte une activité ?",
     answer:
-      "Les prix sont par personne et figurent sur chaque annonce — à partir d'environ Rs 700 pour une heure en mer, jusqu'à Rs 2 000 pour l'excursion à l'Île aux Cocos. Rien n'est ajouté : vous payez le prix du prestataire.",
+      `Les prix sont par personne et figurent sur chaque annonce — à partir de ${rs(range.min)} pour une heure en mer, jusqu'à ${rs(range.max)} pour une journée complète. Rien n'est ajouté : vous payez le prix du prestataire.`,
   },
   {
     question: "Faut-il payer immédiatement à la réservation ?",
@@ -78,8 +94,11 @@ const FR: FaqItem[] = [
 
 /** Kreol falls back to FRENCH, not English — see lib/taxi-faq.ts for why, and
  *  replace with real Kreol wording when the owner supplies it. */
-export function experiencesFaq(language: Language): FaqItem[] {
-  return language === "en" ? EN : FR;
+export function experiencesFaq(
+  language: Language,
+  range: PriceRange = FALLBACK_RANGE,
+): FaqItem[] {
+  return language === "en" ? EN(range) : FR(range);
 }
 
 export function experiencesFaqHeading(language: Language): string {

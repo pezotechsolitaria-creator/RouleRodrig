@@ -532,7 +532,16 @@ export default function ListYourBusinessPage() {
 
               <button
                 type="submit"
-                disabled={state === "loading" || !agreed}
+                /* NOT disabled on !agreed. An applicant who filled eight
+                   fields and uploaded a licence and an insurance document
+                   without noticing the small terms checkbox met a greyed-out
+                   button and no reason - the exact failure the booking form
+                   was rewritten to remove. The handler above already holds the
+                   right sentence ("Please accept the Partner Agreement to
+                   continue.") and could never reach the screen. This is the
+                   only front door for a taxi driver, an event organiser or a
+                   delivery partner. */
+                disabled={state === "loading"}
                 className="w-full sm:w-auto flex items-center justify-center gap-2 bg-yellow text-dark font-syne font-bold text-sm px-7 py-3.5 rounded-full hover:bg-yellow-dark transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 {state === "loading"

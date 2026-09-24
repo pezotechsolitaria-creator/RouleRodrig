@@ -137,6 +137,9 @@ const EN = {
     tryRemoving:
       "Try removing a filter, or open a shelf that has stock right now.",
     nothingListed: "Nothing is listed here yet.",
+    // The second line when the shelf is genuinely empty rather than filtered.
+    // It used to repeat nothingListed under a heading that said the opposite.
+    checkBackSoon: "We are still signing up sellers here — check back soon.",
     clearFilters: "Clear filters",
     browseEverything: "Browse everything",
   },
@@ -411,6 +414,7 @@ const FR: ShopCopy = {
     tryRemoving:
       "Essayez d’enlever un filtre, ou ouvrez un rayon qui a du stock en ce moment.",
     nothingListed: "Rien n’est encore en ligne ici.",
+    checkBackSoon: "Nous recrutons encore des vendeurs ici — revenez bientôt.",
     clearFilters: "Effacer les filtres",
     browseEverything: "Voir tout",
   },
@@ -653,6 +657,7 @@ const CR: ShopCopy = {
     tryRemoving:
       "Esey tir enn filt, ouswa ouver enn reyon ki ena stok la mem.",
     nothingListed: "Pankor ena nanye isi.",
+    checkBackSoon: "Nou pe ankor rod vander isi — revini biento.",
     clearFilters: "Efas bann filt",
     browseEverything: "Get tou",
   },

@@ -182,10 +182,22 @@ function NoResults({
     <div className="mt-3 rounded-xl border border-white/10 bg-dark-card px-6 py-10 text-center">
       <PackageSearch size={22} className="mx-auto text-muted" />
       <h2 className="mt-3 font-syne text-base font-bold text-offwhite">
-        {f.q ? <TName k="listing.nothingFor" v={f.q} /> : <T k="listing.nothingMatches" />}
+        {/* The heading fell through to "Nothing matches those filters" even
+            with no query and no filters set — one line above a body that
+            correctly said "Nothing is listed here yet". The two contradicted
+            each other, and the heading sent the visitor hunting for a filter
+            that does not exist. This is the landing page for three of the six
+            /marketplace hub cards. */}
+        {f.q ? (
+          <TName k="listing.nothingFor" v={f.q} />
+        ) : filtering ? (
+          <T k="listing.nothingMatches" />
+        ) : (
+          <T k="listing.nothingListed" />
+        )}
       </h2>
       <p className="mx-auto mt-1 max-w-sm font-dm text-xs text-muted">
-        {filtering ? <T k="listing.tryRemoving" /> : <T k="listing.nothingListed" />}
+        {filtering ? <T k="listing.tryRemoving" /> : <T k="listing.checkBackSoon" />}
       </p>
 
       <div className="mt-4 flex flex-wrap justify-center gap-2">

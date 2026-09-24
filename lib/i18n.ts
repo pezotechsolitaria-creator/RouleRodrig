@@ -271,6 +271,12 @@ const translations = {
       holdingUntil: (when: string) =>
         `We're holding it for you until ${when}. After that it goes back to other customers.`,
       payBelow: "Pay below to confirm it.",
+      // The hold stops the instant payment_due_by passes (lib/holds.ts), but
+      // only the nightly cron flips the status — so for up to a day the page
+      // offered a live Pay button for a vehicle already back in the pool.
+      windowPassedTitle: "The hold on this one has ended",
+      windowPassedBody:
+        "We could only keep it until the time above, so it has gone back to other customers. Nothing was charged. Those dates may well still be free — ask us and we will look again.",
       lookUpAnother: "Look up another",
     },
 
@@ -1233,6 +1239,9 @@ const translations = {
       holdingUntil: (when: string) =>
         `Nous le gardons pour vous jusqu'au ${when}. Passé ce délai, il repart aux autres clients.`,
       payBelow: "Payez ci-dessous pour le confirmer.",
+      windowPassedTitle: "La réservation n'est plus tenue",
+      windowPassedBody:
+        "Nous ne pouvions la garder que jusqu'à l'heure indiquée ci-dessus ; elle est repartie vers d'autres clients. Rien ne vous a été débité. Ces dates sont peut-être encore libres — écrivez-nous et nous reregardons.",
       lookUpAnother: "Suivre une autre réservation",
     },
     contact: {
@@ -2145,6 +2154,9 @@ const translations = {
       holdingUntil: (when: string) =>
         `Nou gard li pou ou ziska ${when}. Apre sa, li retourn pou lezot kliyan.`,
       payBelow: "Pey anba pou konfirmen li.",
+      windowPassedTitle: "Nou nepli pe gard li",
+      windowPassedBody:
+        "Nou ti kapav gard li zis ziska ler ki ekrir lao la, apre li retourn pou lezot kliyan. Nanye pa finn debite. Kitfwa sa bann dat la ankor lib — ekrir nou ek nou pou regarde.",
       lookUpAnother: "Swiv enn lot rezervasion",
     },
     contact: {

@@ -59,6 +59,11 @@ export default function ManageBookingPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [booking, setBooking] = useState<Booking | null>(null);
+  // Whether the payment window on an approved booking has already run out.
+  // The status is flipped by a nightly cron, so the row can say "approved"
+  // for hours after the vehicle has gone back into the pool.
+  const windowLapsed =
+    !!booking?.paymentDueBy && Date.parse(booking.paymentDueBy) < Date.now();
   const emailRef = useRef<HTMLInputElement | null>(null);
   // Reported up by the PayPal button and the receipt upload, which already
   // show their own red line. The page holds them so its ONE help card can
@@ -400,7 +405,23 @@ export default function ManageBookingPage() {
             {/* Approved → pay, WITH the deadline stated. A reservation that
                 expires silently is the defect the marketplace already has;
                 repeating it here would be inexcusable. */}
-            {booking.status === "approved" && !booking.depositPaid && booking.deposit != null && booking.deposit > 0 && (
+            {/* ── A LAPSED HOLD IS NOT AN OFFER ────────────────────────────
+                An approved row stops holding the vehicle the instant
+                payment_due_by passes (lib/holds.ts), but only the nightly cron
+                flips the status. So for up to a day this said "We're holding
+                it for you until [a time already past]" above a live PayPal
+                button and the bank details, for a vehicle back in the pool and
+                possibly already taken by somebody else. */}
+            {booking.status === "approved" && !booking.depositPaid && windowLapsed && (
+              <div className="mt-5 border-t border-white/[0.08] pt-5">
+                <div className="rounded-xl border border-white/15 bg-white/[0.04] p-3.5">
+                  <p className="font-syne text-sm font-bold text-offwhite">{M.windowPassedTitle}</p>
+                  <p className="mt-1 font-dm text-xs leading-relaxed text-muted">{M.windowPassedBody}</p>
+                </div>
+              </div>
+            )}
+
+            {booking.status === "approved" && !booking.depositPaid && !windowLapsed && booking.deposit != null && booking.deposit > 0 && (
               <div className="mt-5 border-t border-white/[0.08] pt-5">
                 <div className="mb-4 rounded-xl border border-green-500/30 bg-green-500/[0.07] p-3.5">
                   <p className="font-syne text-sm font-bold text-green-300">{M.approvedTitle}</p>

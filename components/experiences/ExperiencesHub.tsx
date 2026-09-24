@@ -13,7 +13,7 @@ import { useLanguage } from "@/context/LanguageContext";
 import JsonLd from "@/components/JsonLd";
 import { SITE_URL } from "@/lib/site";
 import { faqPageLd } from "@/lib/schema";
-import { experiencesFaq, experiencesFaqHeading } from "@/lib/experiences-faq";
+import { experiencesFaq, experiencesFaqHeading, FALLBACK_RANGE } from "@/lib/experiences-faq";
 import { EXPERIENCES } from "@/lib/experiences";
 import { loc } from "@/lib/localize";
 import { placeHref } from "@/lib/place-href";
@@ -21,6 +21,7 @@ import AutoPhotos from "@/components/AutoPhotos";
 import DuskSequence, { useDusk } from "@/components/DuskSequence";
 import { useActiveWorld } from "@/context/ExperienceWorldContext";
 import { forWorld, WORLD_COPY } from "@/lib/worlds";
+import { placePrice } from "@/lib/place-detail";
 
 // ── The Experiences hub ─────────────────────────────────────────────────────
 //
@@ -113,6 +114,22 @@ export default function ExperiencesHub({ places }: { places: RecommendedPlace[] 
   // sees it first here without any further work.
   const activeWorld = useActiveWorld();
   const worldPlaces = useMemo(() => forWorld(places, activeWorld), [places, activeWorld]);
+  // ── THE FAQ QUOTES THE LISTINGS, NOT A FIGURE FROM LAST TIME ────────────
+  //
+  // It used to say "from around Rs 700 ... to Rs 2,000 for the Ile aux Cocos
+  // excursion" while the cards directly above showed a Rs 2,500 sunrise hike
+  // and Ile aux Cocos at Rs 1,999. Derived from the same placePrice() the
+  // cards use, so the paragraph and the grid cannot disagree again — and the
+  // FAQPage schema below is built from the same range.
+  const priceRange = useMemo(() => {
+    const prices = places
+      .map((p) => placePrice(p))
+      .filter((n): n is number => n !== null && n > 0);
+    return prices.length
+      ? { min: Math.min(...prices), max: Math.max(...prices) }
+      : FALLBACK_RANGE;
+  }, [places]);
+
 
   const inMode = useMemo(
     () => worldPlaces.filter((p) => matchesMode(p.timeOfDay, mode)),
@@ -328,7 +345,7 @@ export default function ExperiencesHub({ places }: { places: RecommendedPlace[] 
           </nav>
 
           <section className="mt-12">
-            <JsonLd data={faqPageLd(`${SITE_URL}/experiences`, experiencesFaq("en"))} />
+            <JsonLd data={faqPageLd(`${SITE_URL}/experiences`, experiencesFaq("en", priceRange))} />
             <h2 className="font-syne text-sm font-extrabold uppercase tracking-wide">
               {experiencesFaqHeading(language)}
             </h2>
@@ -336,7 +353,7 @@ export default function ExperiencesHub({ places }: { places: RecommendedPlace[] 
               className="mt-3 border-y"
               style={{ borderColor: "var(--x-line)" }}
             >
-              {experiencesFaq(language).map((f) => (
+              {experiencesFaq(language, priceRange).map((f) => (
                 <details
                   key={f.question}
                   className="group border-b last:border-b-0 py-3"

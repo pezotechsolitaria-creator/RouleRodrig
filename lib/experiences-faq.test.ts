@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { experiencesFaq, experiencesFaqHeading } from "./experiences-faq";
+import { experiencesFaq, experiencesFaqHeading, FALLBACK_RANGE } from "./experiences-faq";
 import { faqPageLd } from "./schema";
 
 // ── /experiences HAD STRUCTURE AND NOTHING TO SAY (M151) ────────────────────
@@ -48,11 +48,31 @@ describe("every claim traces to a live listing", () => {
     }
   });
 
-  it("quotes the real price floor and ceiling", () => {
-    // Balade en mer and Peche Traditionelle are Rs 700 per person; Ile aux
-    // Cocos is Rs 2,000. Both are stated, so neither is a number nobody honours.
+  it("quotes the range it is GIVEN, rather than a figure from last time", () => {
+    // It used to hardcode "from around Rs 700 ... to Rs 2,000 for the Ile aux
+    // Cocos excursion" while the card grid directly above showed a Rs 2,500
+    // sunrise hike and Ile aux Cocos at Rs 1,999 — the page contradicting
+    // itself in the one paragraph a price-shopping visitor reads, and the same
+    // text emitted as FAQPage schema.
+    const quoted = experiencesFaq("en", { min: 850, max: 3200 })
+      .map((f) => f.answer).join(" ");
+    expect(quoted).toContain("Rs 850");
+    expect(quoted).toContain("Rs 3,200");
+    expect(quoted).not.toContain("Rs 2,000");
+  });
+
+  it("does the same in French", () => {
+    const quoted = experiencesFaq("fr", { min: 850, max: 3200 })
+      .map((f) => f.answer).join(" ");
+    expect(quoted).toContain("Rs 850");
+    expect(quoted).toContain("Rs 3,200");
+  });
+
+  it("falls back to a real pair when the caller has nothing to measure", () => {
+    // Better a figure from the last check than an empty sentence — and the
+    // caller that matters passes the live range.
+    expect(FALLBACK_RANGE.min).toBeLessThan(FALLBACK_RANGE.max);
     expect(en).toContain("Rs 700");
-    expect(en).toContain("Rs 2,000");
   });
 
   it("describes the availability-first flow the API actually implements", () => {
@@ -79,17 +99,19 @@ describe("the hub renders what it marks up", () => {
     .replace(/^\s*\/\/.*$/gm, "");
 
   it("renders the questions visibly, which Google's FAQ rule requires", () => {
-    expect(src).toMatch(/experiencesFaq\(language\)\.map\(/);
+    expect(src).toMatch(/experiencesFaq\(language, priceRange\)\.map\(/);
     expect(src).toMatch(/\{f\.question\}/);
     expect(src).toMatch(/\{f\.answer\}/);
   });
 
   it("marks up the English list, which is what a crawler renders", () => {
-    expect(src).toMatch(/faqPageLd\(`\$\{SITE_URL\}\/experiences`, experiencesFaq\("en"\)\)/);
+    // The schema is built from the SAME range as the visible text, or the two
+    // can disagree about the price of the same page.
+    expect(src).toMatch(/faqPageLd\(`\$\{SITE_URL\}\/experiences`, experiencesFaq\("en", priceRange\)\)/);
   });
 
   it("puts the FAQ under the grid, not above it", () => {
-    expect(src.indexOf("experiencesFaq(language).map(")).toBeGreaterThan(
+    expect(src.indexOf("experiencesFaq(language, priceRange).map(")).toBeGreaterThan(
       src.indexOf("shown.map("),
     );
   });
