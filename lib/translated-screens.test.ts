@@ -75,10 +75,15 @@ describe("the ride screens render the copy that exists for them", () => {
 describe("the food fulfilment switch speaks the visitor's language", () => {
   const SRC = read("components", "food", "FulfillmentBar.tsx");
 
-  it("reads its labels from the dictionary", () => {
+  it("reads every string from the dictionary that already had them", () => {
+    // FOOD_COPY.fulfilment has carried all of these in three languages from
+    // the start. The component rendered English literals beside two strings it
+    // DID take from a dictionary, so /food showed a translated heading above
+    // "Collect in person / Delivered to you".
+    expect(SRC).toContain("FOOD_COPY[language].fulfilment");
     for (const key of [
-      "t.common.chipPickup", "t.common.chipDelivered", "t.common.deliveryPaused",
-      "t.common.weBringItToYou", "t.common.shareLocationAtCheckout",
+      "f.pickup", "f.delivery", "f.deliveryPaused", "f.deliveryNote",
+      "f.deliveryFee(", "f.deliveryShare", "f.collectionOnly", "f.pickupNote",
     ]) {
       expect(SRC, key).toContain(key);
     }
@@ -87,12 +92,22 @@ describe("the food fulfilment switch speaks the visitor's language", () => {
   it("no longer hardcodes the only place the delivery fee appears", () => {
     // "We bring it to you — from Rs 150 depending on the area" was the one
     // statement of the fee before checkout, and it was English-only.
-    expect(SRC).not.toContain("We bring it to you\n");
-    expect(SRC).not.toContain("delivery is paused.<");
-    // Checked as an IMPORT, not as a substring: the comment above the fix
-    // names the function, and a test that greps prose fails on its own
+    expect(SRC).not.toContain("We bring it to you");
+    expect(SRC).not.toContain("You share your location at checkout");
+    // Checked as an IMPORT, not a substring: the comment above the fix names
+    // the old helper, and a test that greps prose fails on its own
     // explanation.
     expect(SRC).not.toContain('from "@/lib/shop/plain-words"');
+  });
+
+  it("did not grow a second copy of strings that already existed", () => {
+    // The first attempt at this added chipPickup/chipDelivered/deliveryPaused
+    // to lib/i18n.ts — duplicating FOOD_COPY.fulfilment, which is exactly the
+    // drift this whole pass is about.
+    const I18N = read("lib", "i18n.ts");
+    for (const dup of ["chipPickup", "chipDelivered", "weBringItToYou"]) {
+      expect(I18N, dup).not.toContain(dup);
+    }
   });
 });
 

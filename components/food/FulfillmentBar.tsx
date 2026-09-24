@@ -5,6 +5,11 @@ import { useLanguage } from "@/context/LanguageContext";
 import { ShoppingBag, Bike } from "lucide-react";
 
 import { centsToShortString } from "@/lib/money";
+// FOOD_COPY.fulfilment has carried all of this in English, French and Kreol
+// from the start. This component rendered English literals beside two strings
+// it DID take from the dictionary — so /food showed "Vous avez envie de quoi ?"
+// above "Collect in person / Delivered to you".
+import { FOOD_COPY } from "@/lib/food/copy.i18n";
 
 // Pickup or delivery, decided once and remembered.
 //
@@ -41,7 +46,8 @@ export default function FulfillmentBar({
   deliveryEnabled: boolean;
   deliveryFeeFrom: number | null;
 }) {
-  const { t } = useLanguage();
+  const { language } = useLanguage();
+  const f = FOOD_COPY[language].fulfilment;
   const [mode, setMode] = useState<FoodFulfillment>("pickup");
   // SSR and the first paint cannot see localStorage, so rendering the stored
   // choice immediately would flash the wrong pill. Same reasoning as the cart's
@@ -65,8 +71,8 @@ export default function FulfillmentBar({
       <div className="flex items-center gap-2 rounded-2xl border border-white/10 bg-dark-card px-4 py-3">
         <ShoppingBag size={16} className="text-yellow" />
         <p className="font-dm text-sm text-offwhite">
-          {t.common.collectionOnly}
-          <span className="ml-1.5 text-muted">{t.common.deliveryPaused}</span>
+          {f.collectionOnly}
+          <span className="ml-1.5 text-muted">{f.deliveryPaused}</span>
         </p>
       </div>
     );
@@ -82,8 +88,8 @@ export default function FulfillmentBar({
             // Language dimension — and these two labels are the second control
             // a French visitor meets on /food, directly under a heading that
             // IS translated.
-            { id: "pickup" as const, label: t.common.chipPickup, icon: ShoppingBag },
-            { id: "rr_delivery" as const, label: t.common.chipDelivered, icon: Bike },
+            { id: "pickup" as const, label: f.pickup, icon: ShoppingBag },
+            { id: "rr_delivery" as const, label: f.delivery, icon: Bike },
           ]
         ).map((opt) => {
           const Icon = opt.icon;
@@ -106,14 +112,12 @@ export default function FulfillmentBar({
       <p className="mt-2 px-1 font-dm text-xs text-muted">
         {hydrated && mode === "rr_delivery" ? (
           <>
-            {t.common.weBringItToYou}
-            {deliveryFeeFrom !== null && (
-              <> — {`Rs ${centsToShortString(deliveryFeeFrom)}`} {t.common.weBringItFrom}</>
-            )}
-            {" "}{t.common.shareLocationAtCheckout}
+            {f.deliveryNote}
+            {deliveryFeeFrom !== null && <> {f.deliveryFee(centsToShortString(deliveryFeeFrom))}</>}
+            {" "}{f.deliveryShare}
           </>
         ) : (
-          <>{t.common.collectFromKitchen}</>
+          <>{f.pickupNote}</>
         )}
       </p>
     </div>
