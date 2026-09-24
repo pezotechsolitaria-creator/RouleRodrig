@@ -17,13 +17,25 @@ export default async function DriverApplyPage() {
   // asking for one after the form would lose the answers.
   if (!user) redirect("/login?next=/driver/apply");
 
-  // An approved driver has no business on this page — send them to work.
+  // An approved DELIVERY driver has no business on this page — send them to
+  // work. Somebody approved for errands only does: this form is the one
+  // self-service way to set can_deliver, and it updates the existing row.
+  //
+  // Checking `status` alone slammed the last door on them. An applicant who
+  // came through /errands/join gets can_deliver=false by default, and once
+  // approved BOTH doors closed — /driver/apply sent them to /driver, and
+  // /errands/join sent them to /errands — so a runner who bought a scooter and
+  // wanted parcel work had to phone the owner. Admin was the only other writer.
+  //
+  // /errands/join already handles the mirror case, with a comment explaining
+  // it. This is the same rule from the other side.
   const { data: existing } = await supabase
     .from("delivery_drivers")
-    .select("status")
+    .select("status, can_deliver")
     .eq("user_id", user.id)
     .maybeSingle();
-  if (existing?.status === "approved") redirect("/driver");
+  const row = existing as { status?: string | null; can_deliver?: boolean } | null;
+  if (row?.status === "approved" && row.can_deliver) redirect("/driver");
 
   return (
     <main className="min-h-screen bg-dark px-4 pb-28 pt-6 text-offwhite">

@@ -605,6 +605,9 @@ const translations = {
       disclaimer:
         "Taxi drivers are independent third parties listed for your convenience — Roule Rodrigues is not a transport operator and is not responsible for their service.",
       feedback: "DRIVER FEEDBACK",
+      // The review dialog's close button. It was a hardcoded English
+      // aria-label on an otherwise translated page.
+      close: "Close",
       review: "review",
       reviews: "reviews",
       loadingReviews: "Loading reviews…",
@@ -1529,6 +1532,7 @@ const translations = {
       disclaimer:
         "Les chauffeurs de taxi sont des tiers indépendants listés pour votre commodité — Roule Rodrigues n'est pas un opérateur de transport et n'est pas responsable de leur service.",
       feedback: "AVIS CHAUFFEUR",
+      close: "Fermer",
       review: "avis",
       reviews: "avis",
       loadingReviews: "Chargement des avis…",
@@ -2437,6 +2441,7 @@ const translations = {
       disclaimer:
         "Bann chofer taksi zot bann tiers indepandan liste pou ou konvenians — Roule Rodrigues pa enn operater transpor ek nou pa responsab pou zot servis.",
       feedback: "LAVI CHOFER",
+      close: "Ferme",
       review: "lavi",
       reviews: "lavi",
       loadingReviews: "Pe sarz bann lavi…",

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useId, useRef, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { track } from "@vercel/analytics";
 import { useLanguage } from "@/context/LanguageContext";
@@ -184,6 +184,24 @@ function DriverReviewsModal({
     }
   }
 
+  // Escape closes it, focus moves in on open and returns to whatever opened it
+  // on close. Without the last one, dismissing the dialog dropped the keyboard
+  // user back at the top of the document.
+  const panelRef = useRef<HTMLDivElement | null>(null);
+  const headingId = useId();
+  useEffect(() => {
+    const opener = document.activeElement as HTMLElement | null;
+    panelRef.current?.focus();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      opener?.focus?.();
+    };
+  }, [onClose]);
+
   return (
     <motion.div
       className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
@@ -192,7 +210,20 @@ function DriverReviewsModal({
       exit={{ opacity: 0 }}
       onClick={onClose}
     >
+      {/* ── A DIALOG THAT SAYS SO ─────────────────────────────────────────
+          This was a plain motion.div: no role, no aria-modal, no Escape, no
+          focus move and no focus restore. A keyboard or screen-reader user who
+          opened "Rate" was stuck — Tab walked straight through into the driver
+          grid behind the backdrop, nothing announced that a dialog had opened,
+          and the only way out was a mouse click. The repo already does this
+          properly in app/deliver/[id]/RequestTracker.tsx and in the six
+          /admin/invoices dialogs. */}
       <motion.div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={headingId}
+        tabIndex={-1}
         initial={{ opacity: 0, scale: 0.94, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.94, y: 20 }}
@@ -205,7 +236,7 @@ function DriverReviewsModal({
             <p className="font-bebas text-yellow text-[10px] tracking-[0.3em]">
               {tx.feedback}
             </p>
-            <h3 className="font-syne font-extrabold text-offwhite text-xl">
+            <h3 id={headingId} className="font-syne font-extrabold text-offwhite text-xl">
               {driver.name}
             </h3>
             {driver.rating_count ? (
@@ -221,7 +252,7 @@ function DriverReviewsModal({
           <button
             onClick={onClose}
             className="text-muted hover:text-offwhite p-1 -mr-1 -mt-1"
-            aria-label="Close"
+            aria-label={tx.close}
           >
             <X size={20} />
           </button>

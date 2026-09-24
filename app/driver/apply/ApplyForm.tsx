@@ -87,16 +87,31 @@ export default function ApplyForm({
   }
 
   if (done || existingStatus === "pending") {
+    // ── THE PANEL FOLLOWS THE DOOR THEY CAME THROUGH ────────────────────
+    //
+    // This form is shared by /driver/apply and /errands/join, and this panel
+    // was hardcoded for drivers. So somebody who had just applied to queue at
+    // the bank on foot was told "You'll be able to take deliveries as soon as
+    // it's approved", and the only button pushed them to /driver — a console
+    // headed "Deliveries" that opens by stating what their vehicle may carry.
+    //
+    // It also renders for the WHOLE pending window, so it was the last thing
+    // every errand applicant saw, every time they checked.
+    const errandOnly = canRunErrands && !canDeliver;
+    const home = errandOnly ? "/errands" : "/driver";
     return (
       <div className="rounded-2xl border border-green-500/25 bg-green-500/[0.06] p-6 text-center">
         <CheckCircle2 size={28} className="mx-auto text-green-400" />
         <h2 className="mt-3 font-syne text-xl font-bold">Application received</h2>
         <p className="mx-auto mt-2 max-w-sm font-dm text-sm text-muted">
-          Roulé Rodrigues will check it and get in touch. You&apos;ll be able to take deliveries as soon as
-          it&apos;s approved — nothing to do until then.
+          Roulé Rodrigues will check it and get in touch.{" "}
+          {errandOnly
+            ? "You'll be able to take errands as soon as it's approved"
+            : "You'll be able to take deliveries as soon as it's approved"}
+          {" "}— nothing to do until then.
         </p>
-        <Button variant="outline" className="mt-5" onClick={() => router.push("/driver")}>
-          Back to my dashboard
+        <Button variant="outline" className="mt-5" onClick={() => router.push(home)}>
+          {errandOnly ? "Back to my errands" : "Back to my dashboard"}
         </Button>
       </div>
     );

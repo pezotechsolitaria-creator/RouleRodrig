@@ -54,7 +54,47 @@ export default async function ErrandsPage() {
 
   const row = me as { status?: string | null; can_run_errands?: boolean } | null;
   if (!row) redirect("/errands/join");
-  if (row.status !== "approved") redirect("/driver");
+  // Not approved YET: say so here rather than bouncing them to /driver. The
+  // account page shows the "My errands" card as soon as can_run_errands is
+  // set, whatever the status — so a person still waiting tapped a card
+  // labelled errands and landed on a console headed "Deliveries" that opens
+  // by telling them what their vehicle may carry. The comment block at the
+  // top of this file forbids exactly that.
+  if (row.status !== "approved") {
+    return (
+      <main className="min-h-screen bg-dark px-4 pb-28 pt-6 text-offwhite">
+        <div className="mx-auto max-w-lg">
+          <ConsoleBackLink />
+          <p className="mt-3 font-bebas text-[11px] tracking-[0.3em] text-yellow">
+            ROULÉ RODRIGUES
+          </p>
+          <h1 className="mt-1 font-syne text-2xl font-extrabold">Errands</h1>
+          <div className="mt-6 rounded-2xl border border-white/10 bg-dark-card p-5">
+            <div className="flex items-start gap-3">
+              <Clock size={18} className="mt-0.5 shrink-0 text-yellow" />
+              <div>
+                <p className="font-syne text-sm font-bold text-offwhite">
+                  We have your application
+                </p>
+                <p className="mt-1 font-dm text-sm leading-relaxed text-muted">
+                  Somebody checks every one by hand, usually within a day. The
+                  moment it is approved this page fills with jobs you can quote
+                  for — nothing else is needed from you.
+                </p>
+              </div>
+            </div>
+          </div>
+          <Link
+            href="/account"
+            className="mt-4 inline-flex items-center gap-1.5 font-dm text-sm text-muted transition-colors hover:text-yellow"
+          >
+            Back to my account
+          </Link>
+        </div>
+      </main>
+    );
+  }
+  // Approved, but for deliveries rather than errands: /driver IS their console.
   if (!row.can_run_errands) redirect("/driver");
 
   return (
