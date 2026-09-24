@@ -151,6 +151,19 @@ export default async function RoutesPage() {
               >
                 Rent a scooter <ArrowRight size={16} />
               </Link>
+              {/* Car too. Three of the four rides here are half-day crossings of
+                  the island — Port Mathurin to Pointe Coton, the 52-Contours
+                  loop, Anse aux Anglais to Mourouk — and every one of them is a
+                  drive as readily as a ride. This page sends people to a scooter
+                  and said nothing about the car, on the one screen where
+                  somebody is deciding HOW to see the island, and in the rainy
+                  season the answer is usually the car. */}
+              <Link
+                href="/browse/car"
+                className="inline-flex items-center gap-2 rounded-full border border-white/20 px-6 py-3 font-syne font-bold text-white text-sm transition-colors hover:bg-white/10"
+              >
+                Rent a car <ArrowRight size={16} />
+              </Link>
               <Link
                 href="/guide/beaches"
                 className="inline-flex items-center gap-2 rounded-full border border-white/20 px-6 py-3 font-syne font-bold text-white text-sm transition-colors hover:bg-white/10"
