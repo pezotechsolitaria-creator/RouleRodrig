@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { SITE_URL } from "@/lib/site";
+import { SITE_URL, SITE_NAME } from "@/lib/site";
 import { breadcrumbLd, itemListLd } from "@/lib/schema";
 import JsonLd from "@/components/JsonLd";
 import MarketHeader from "@/components/shop/MarketHeader";
@@ -39,7 +39,7 @@ export async function generateMetadata({
   const { category } = await params;
   const cat = await loadCategory(category);
   if (!cat) return {};
-  const title = `${cat.name} in Rodrigues | Roulé Rodrigues`;
+  const title = `${cat.name} in Rodrigues | ${SITE_NAME}`;
   const description = `Buy ${cat.name.toLowerCase()} from Rodrigues Island shops and producers. Pick up in person or get it delivered island-wide.`;
   return {
     title,

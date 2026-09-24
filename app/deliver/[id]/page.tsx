@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
 // A request id sitting in a search index is somebody's delivery, their village
 // and their phone number waiting for the other half to be guessed.
 export const metadata: Metadata = {
-  title: "Your delivery request | Roulé Rodrigues",
+  title: "Your delivery request | Roule Rodrigues",
   robots: { index: false, follow: false, nocache: true },
 };
 

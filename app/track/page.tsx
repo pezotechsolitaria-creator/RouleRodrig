@@ -25,7 +25,7 @@ import TrackLookup, { TrackIntro, TrackCovers, TrackAccountCard } from "./TrackL
 // request on the server, there is nothing to read the language from, and this
 // page is noindex — a browser tab is its only reader.
 export const metadata: Metadata = {
-  title: "Track your booking or order | Roulé Rodrigues",
+  title: "Track your booking or order | Roule Rodrigues",
   description:
     "Track anything you have booked or ordered on Roulé Rodrigues — scooter and car rentals, boat trips, massages, shop orders, food and event tickets.",
   alternates: { canonical: `${SITE_URL}/track` },

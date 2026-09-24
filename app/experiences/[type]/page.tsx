@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import BackLink from "@/components/BackLink";
 import { getFleetView } from "@/lib/site-data";
-import { SITE_URL } from "@/lib/site";
+import { SITE_NAME, SITE_URL } from "@/lib/site";
 import { SERVICE_TYPES, type ServiceType } from "@/lib/defaults";
 import { EXPERIENCES, experiencesOfType, fromPriceOf, experienceFaq } from "@/lib/experiences";
 import { breadcrumbLd, itemListLd, experienceLd, sellerLd } from "@/lib/schema";
@@ -130,8 +130,8 @@ export async function generateMetadata({
   const from = fromPriceOf(places);
 
   const title = from
-    ? `${copy.title} from Rs ${from.toLocaleString("en-US")} | Roulé Rodrigues`
-    : `${copy.title} | Roulé Rodrigues`;
+    ? `${copy.title} from Rs ${from.toLocaleString("en-US")} | ${SITE_NAME}`
+    : `${copy.title} | ${SITE_NAME}`;
 
   const description = from
     ? `${copy.description} From Rs ${from.toLocaleString("en-US")} per person.`

@@ -60,7 +60,7 @@ export async function generateMetadata({
   const url = `${SITE_URL}/shop/${p.store.slug}/${p.slug}`;
 
   return {
-    title: `${p.name} — ${p.store.name} | Roulé Rodrigues`,
+    title: `${p.name} — ${p.store.name} | Roule Rodrigues`,
     description,
     // Its OWN canonical. Without this the root layout's is inherited and every
     // product declares itself a duplicate of the homepage, which de-indexes the

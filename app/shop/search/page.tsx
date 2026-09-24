@@ -17,7 +17,7 @@ import { readFilters } from "@/lib/marketplace/urls";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Search the Rodrigues Marketplace | Roulé Rodrigues",
+  title: "Search the Rodrigues Marketplace | Roule Rodrigues",
   description: "Search products from Rodrigues Island shops and producers.",
   alternates: { canonical: `${SITE_URL}/shop/search` },
   robots: { index: false, follow: true },

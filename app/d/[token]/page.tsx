@@ -11,7 +11,7 @@ import DriverHome from "./DriverHome";
 // Short route so it survives being pasted into WhatsApp and read out over a
 // phone. noindex because a token in a search index is somebody else's identity.
 export const metadata: Metadata = {
-  title: "My rides | Roulé Rodrigues",
+  title: "My rides | Roule Rodrigues",
   robots: { index: false, follow: false, nocache: true },
 };
 

@@ -5,7 +5,7 @@ import TrackRide from "./TrackRide";
 // noindex: this page is only ever useful to somebody holding a reference, and a
 // search result for it would be a page that can do nothing for the visitor.
 export const metadata: Metadata = {
-  title: "Follow your ride | Roulé Rodrigues",
+  title: "Follow your ride | Roule Rodrigues",
   robots: { index: false, follow: false },
 };
 

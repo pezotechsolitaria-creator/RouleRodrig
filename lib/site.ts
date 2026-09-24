@@ -40,6 +40,24 @@ export const CONTACT_EMAIL = "bookings@roulerodrig.com";
 // If the hours change, change them here — the schema and the contact line
 // follow. If they ever become seasonal, this becomes a field in site content
 // so the owner can edit it without a deploy.
+/**
+ * The brand, as search engines and AI engines should see it.
+ *
+ * ── WHY THIS IS A CONSTANT AND NOT A TYPED STRING ──────────────────────────
+ * A crawl on 24 Sep 2026 found the site publishing TWO brands: 39 page titles
+ * said "Roule Rodrigues" and 9 said "Roulé Rodrigues". Nothing owned the
+ * string, so it was hand-typed in 35 places and drifted.
+ *
+ * Unaccented is canonical, and not by preference — it is what the Google
+ * Business Profile is registered as and what lib/schema.ts already publishes in
+ * the Organization node. A page title that disagrees with the business's own
+ * listing splits the entity that sameAs and hasMap exist to consolidate.
+ *
+ * The accented form stays welcome in VISIBLE prose, where it reads better and
+ * is how the island writes it. This constant is for titles and structured data.
+ */
+export const SITE_NAME = "Roule Rodrigues";
+
 export const OPENING_HOURS = {
   /** schema.org dayOfWeek values. Every day, so the full week. */
   days: [

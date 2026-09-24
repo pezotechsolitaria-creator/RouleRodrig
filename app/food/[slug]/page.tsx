@@ -57,7 +57,7 @@ export async function generateMetadata({
     description,
     alternates: { canonical: `${SITE_URL}/food/${dish.slug}` },
     openGraph: {
-      title: `${dish.name} | Roulé Rodrigues`,
+      title: `${dish.name} | Roule Rodrigues`,
       description,
       url: `${SITE_URL}/food/${dish.slug}`,
       type: "website",

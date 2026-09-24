@@ -13,7 +13,7 @@ import DriverSignIn from "./DriverSignIn";
 // noindex: nothing here should be discoverable by search, and there is nothing
 // on it worth ranking.
 export const metadata: Metadata = {
-  title: "Driver sign in · Roulé Rodrigues",
+  title: "Driver sign in · Roule Rodrigues",
   robots: { index: false, follow: false },
 };
 

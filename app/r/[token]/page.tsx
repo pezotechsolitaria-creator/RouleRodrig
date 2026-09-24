@@ -13,7 +13,7 @@ import RideOfferScreen from "./RideOfferScreen";
 // noindex, nofollow: a live token in a search index would be a job anybody could
 // take.
 export const metadata: Metadata = {
-  title: "Ride offer | Roulé Rodrigues",
+  title: "Ride offer | Roule Rodrigues",
   robots: { index: false, follow: false, nocache: true },
 };
 

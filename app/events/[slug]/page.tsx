@@ -42,7 +42,7 @@ export async function generateMetadata({
   const url = `${SITE_URL}/events/${event.slug}`;
 
   return {
-    title: `${event.name} — ${when} | Roulé Rodrigues`,
+    title: `${event.name} — ${when} | Roule Rodrigues`,
     description,
     alternates: { canonical: url },
     // A finished or cancelled event has no business in the index: searchers

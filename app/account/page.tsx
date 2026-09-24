@@ -32,7 +32,7 @@ import Navbar from "@/components/Navbar";
 // signed-in person could reveal it.
 
 export const metadata: Metadata = {
-  title: "My account | Roulé Rodrigues",
+  title: "My account | Roule Rodrigues",
   description: "Your orders, bookings and tickets, your shop or driver dashboard, and your settings — all in one place.",
   robots: { index: false, follow: false },
 };

@@ -15,7 +15,7 @@ import LegalDoc, { Section, P } from "@/components/LegalDoc";
 // and never gets fixed.
 
 export const metadata: Metadata = {
-  title: "Legal Notice | Roulé Rodrigues",
+  title: "Legal Notice | Roule Rodrigues",
   description:
     "Legal identity of the operator of roulerodrig.com: company details, contact and hosting.",
   alternates: { canonical: "/legal/notice" },

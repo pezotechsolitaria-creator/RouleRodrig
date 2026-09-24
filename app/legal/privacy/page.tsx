@@ -22,7 +22,7 @@ import LegalDoc, { Section, P, UL } from "@/components/LegalDoc";
 // the code actually does, and nothing is listed that the product does not do.
 
 export const metadata: Metadata = {
-  title: "Privacy Policy | Roulé Rodrigues",
+  title: "Privacy Policy | Roule Rodrigues",
   description:
     "What Roulé Rodrigues collects, why, who sees it, and how to have it deleted.",
   alternates: { canonical: "/legal/privacy" },

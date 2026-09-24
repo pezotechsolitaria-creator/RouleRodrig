@@ -4,7 +4,7 @@ import type { Metadata } from "next";
 // page not worth indexing. The metadata lives in a layout because the page
 // itself is a client component and cannot export it.
 export const metadata: Metadata = {
-  title: "Saved products | Roulé Rodrigues Marketplace",
+  title: "Saved products | Roule Rodrigues Marketplace",
   robots: { index: false, follow: true },
 };
 

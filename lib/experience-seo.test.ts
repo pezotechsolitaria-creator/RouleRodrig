@@ -60,7 +60,14 @@ describe("the experiences page metadata", () => {
 
   it("keeps the plain title when nothing is priced", () => {
     // A vertical with no prices must not invent a figure to look consistent.
-    expect(src).toMatch(/from\s*\?[\s\S]{0,200}:\s*`\$\{copy\.title\} \| Roulé Rodrigues`/);
+    //
+    // The brand is now ${SITE_NAME} rather than a literal: the site was
+    // publishing two spellings — 39 titles "Roule Rodrigues", 9 "Roulé
+    // Rodrigues" — and this template generates six of the indexed ones, so a
+    // literal here was six titles disagreeing with the Google Business Profile
+    // at once. The assertion's real subject is the priceless BRANCH, which is
+    // unchanged; only where the brand comes from moved.
+    expect(src).toMatch(/from\s*\?[\s\S]{0,200}:\s*`\$\{copy\.title\} \| \$\{SITE_NAME\}`/);
   });
 
   it("shares the real photograph, not the generic site card", () => {

@@ -20,7 +20,7 @@ import BookingHeading from "@/app/taxi/book/BookingHeading";
 // So `service` is a variant on ONE booking screen, and ?service=airport just
 // preselects it. One flow to maintain, one to test, one for a customer to learn.
 export const metadata: Metadata = {
-  title: "Book a taxi or transfer in Rodrigues | Roulé Rodrigues",
+  title: "Book a taxi or transfer in Rodrigues | Roule Rodrigues",
   description:
     "Book a taxi, airport transfer or ferry transfer in Rodrigues in under a minute. See the fare before you book, pay your driver directly. No account needed.",
   alternates: { canonical: `${SITE_URL}/taxi/book` },

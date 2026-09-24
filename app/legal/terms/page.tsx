@@ -34,7 +34,7 @@ import LegalDoc, { Section, P, UL } from "@/components/LegalDoc";
 // term the business would be held to.
 
 export const metadata: Metadata = {
-  title: "Terms & Conditions | Roulé Rodrigues",
+  title: "Terms & Conditions | Roule Rodrigues",
   description:
     "The terms governing rentals, food and shop orders, event tickets, taxi and private hire, delivery and experiences booked through Roulé Rodrigues.",
   alternates: { canonical: "/legal/terms" },

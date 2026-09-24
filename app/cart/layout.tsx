@@ -12,7 +12,7 @@ import type { Metadata } from "next";
 // about renting a scooter. Tabs are how people find their way back to a
 // half-finished purchase.
 export const metadata: Metadata = {
-  title: "Your bag | Roulé Rodrigues",
+  title: "Your bag | Roule Rodrigues",
   robots: { index: false, follow: false },
 };
 

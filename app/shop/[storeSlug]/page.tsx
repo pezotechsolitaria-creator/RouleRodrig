@@ -61,7 +61,7 @@ export async function generateMetadata({ params }: { params: Promise<{ storeSlug
     store.tagline || store.description || `Buy from ${store.name} in Rodrigues — pick up in person or get it delivered.`;
   const url = `${SITE_URL}/shop/${store.slug}`;
   return {
-    title: `${store.name} — Rodrigues | Roulé Rodrigues Marketplace`,
+    title: `${store.name} — Rodrigues | Roule Rodrigues Marketplace`,
     description,
     // Its OWN canonical. Without this the root layout's is inherited, so every
     // storefront declares itself a duplicate of the homepage — which

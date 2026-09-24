@@ -36,11 +36,11 @@ const DESCRIPTION =
   "Who runs Roulé Rodrigues: a Rodrigues-based team in Baie aux Huîtres renting scooters and cars, and running the island's marketplace, food ordering, taxis and travel guides.";
 
 export const metadata: Metadata = {
-  title: "About Roulé Rodrigues — the Local Team",
+  title: "About Roule Rodrigues — the Local Team",
   description: DESCRIPTION,
   alternates: { canonical: `${SITE_URL}/about` },
   openGraph: {
-    title: "About Roulé Rodrigues",
+    title: "About Roule Rodrigues",
     description: DESCRIPTION,
     url: `${SITE_URL}/about`,
     type: "website",

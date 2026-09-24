@@ -66,7 +66,7 @@ const DESCRIPTION =
   "Order food in Rodrigues — grilled lobster, octopus and fish from island kitchens. Book a day ahead, collect or have it delivered, pay cash at handover.";
 
 export const metadata: Metadata = {
-  title: "Order food in Rodrigues | Roulé Rodrigues",
+  title: "Order food in Rodrigues | Roule Rodrigues",
   description: DESCRIPTION,
   alternates: {
     canonical: `${SITE_URL}/food`,
@@ -79,7 +79,7 @@ export const metadata: Metadata = {
     },
   },
   openGraph: {
-    title: "Order food in Rodrigues | Roulé Rodrigues",
+    title: "Order food in Rodrigues | Roule Rodrigues",
     description: DESCRIPTION,
     url: `${SITE_URL}/food`,
     type: "website",
