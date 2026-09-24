@@ -11,7 +11,15 @@ import CheckoutHeading from "./CheckoutHeading";
 import { toCartDomain, type CartDomain } from "@/lib/cart/domains";
 import { resolveHoldWindows } from "@/lib/orders/hold-window";
 
-export const metadata: Metadata = { robots: { index: false, follow: false } };
+export const metadata: Metadata = {
+  // A TAB NEEDS A NAME. With only `robots` here the page inherited the root
+  // layout's "Roule Rodrigues | Scooter & Car Rental, Rodrigues Island", so
+  // somebody who left this tab to open their banking app came back to a tab
+  // about renting a scooter and could not find their half-finished order.
+  // app/cart/layout.tsx was written for exactly this and says "Your bag".
+  title: "Checkout | Roule Rodrigues",
+  robots: { index: false, follow: false },
+};
 
 // GUEST CHECKOUT (M20).
 //

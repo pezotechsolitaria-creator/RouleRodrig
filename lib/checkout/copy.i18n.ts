@@ -161,6 +161,32 @@ const EN = {
       deliveryOff: "Delivery isn't running right now.",
       /** Title passed to PickupLocationCard; the card's own words are its own. */
       pickupTitle: "You'll collect from",
+      // ── THE THREE OPTIONS ────────────────────────────────────────────────
+      //
+      // These came from FULFILMENT in lib/shop/plain-words.ts, which has no
+      // Language dimension — so a French customer read "Paiement", "ARTICLES",
+      // "MODE DE LIVRAISON", "Dans quelle partie de Rodrigues livrons-nous ?"
+      // and then chose between three options that were the only English block
+      // left on the page. It is the one irreversible decision on the screen.
+      //
+      // They live HERE rather than in plain-words because that file is also
+      // read by app/shop/[storeSlug]/[productSlug], which is server-rendered:
+      // the chosen language lives in localStorage, so the server cannot know
+      // it, and that page's words have to keep matching its own JSON-LD.
+      options: {
+        pickup: {
+          label: "I'll collect it myself",
+          hint: "Go to the shop and pick it up. Nothing extra to pay.",
+        },
+        customer_delivery: {
+          label: "Someone will collect it for me",
+          hint: "You send a friend, a taxi or your own driver. Nothing extra to pay.",
+        },
+        rr_delivery: {
+          label: "Roulé Rodrigues delivers it",
+          hint: "We bring it to you. The fee depends on where you are.",
+        },
+      },
     },
 
     zone: {
@@ -457,6 +483,20 @@ const FR: CheckoutCopy = {
         `${s.thisCap} n’utilise pas notre équipe de livraison.`,
       deliveryOff: "La livraison ne fonctionne pas en ce moment.",
       pickupTitle: "À récupérer ici",
+      options: {
+        pickup: {
+          label: "Je viens le chercher moi-même",
+          hint: "Passez au magasin le récupérer. Rien de plus à payer.",
+        },
+        customer_delivery: {
+          label: "Quelqu'un viendra le chercher pour moi",
+          hint: "Vous envoyez un proche, un taxi ou votre chauffeur. Rien de plus à payer.",
+        },
+        rr_delivery: {
+          label: "Roulé Rodrigues le livre",
+          hint: "Nous vous l'apportons. Les frais dépendent de votre secteur.",
+        },
+      },
     },
 
     zone: {
@@ -716,6 +756,20 @@ const CR: CheckoutCopy = {
         `${s.thisCap} pa servi nou lekip livrezon.`,
       deliveryOff: "Livrezon pa pe marse aster la.",
       pickupTitle: "Pou al pran isi",
+      options: {
+        pickup: {
+          label: "Mo pou al pran li momem",
+          hint: "Al kot laboutik pran li. Pena narien anplis pou pey.",
+        },
+        customer_delivery: {
+          label: "Enn dimounn pou al pran li pou mwa",
+          hint: "Ou avoy enn kamarad, enn taxi ou ou sofer. Pena narien anplis pou pey.",
+        },
+        rr_delivery: {
+          label: "Roulé Rodrigues livre li",
+          hint: "Nou amenn li kot ou. Fre la depann kot ou ete.",
+        },
+      },
     },
 
     zone: {

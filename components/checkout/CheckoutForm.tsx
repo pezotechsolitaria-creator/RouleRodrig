@@ -45,7 +45,11 @@ type Zone = { id: string; name: string; covers: string | null; fee: number };
 //
 // The pickup hint is still overridden at the render site from
 // lib/food/vocabulary.ts, because that is the one line that names the seller.
-const FULFILLMENT_COPY = FULFILMENT;
+// The OPTION ORDER comes from plain-words, which is the one place it is
+// decided and is shared with /shop; the WORDS come from the checkout's own
+// dictionary, because this form knows the reader's language and that file
+// cannot (it is also read by a server-rendered product page).
+const FULFILLMENT_ORDER = Object.keys(FULFILMENT) as Fulfillment[];
 
 export default function CheckoutForm({
   domain, storeId, defaultName, defaultPhone, signedInEmail, holdWindows,
@@ -645,7 +649,7 @@ export default function CheckoutForm({
       <fieldset>
         <legend className="font-bebas text-[11px] tracking-[0.3em] text-yellow">{c.form.fulfilment.legend}</legend>
         <div className="mt-2 space-y-2">
-          {(Object.keys(FULFILLMENT_COPY) as Fulfillment[]).map((f) => {
+          {FULFILLMENT_ORDER.map((f) => {
             // A shut delivery window disables ONLY rr_delivery — pickup and a
             // customer's own driver still work, which is exactly what the RPC
             // allows, so the UI never blocks something the server would accept.
@@ -689,10 +693,10 @@ export default function CheckoutForm({
                 />
                 <span>
                   <span className={`block font-dm text-sm ${fulfillment === f ? "text-yellow" : "text-offwhite"}`}>
-                    {FULFILLMENT_COPY[f].label}
+                    {c.form.fulfilment.options[f].label}
                   </span>
                   <span className="block font-dm text-xs text-muted">
-                    {f === "pickup" ? v.pickupHint : FULFILLMENT_COPY[f].hint}
+                    {f === "pickup" ? v.pickupHint : c.form.fulfilment.options[f].hint}
                   </span>
                   {/* Never disable a control without saying why. */}
                   {reason && <span className="mt-0.5 block font-dm text-xs text-orange-300">{reason}</span>}

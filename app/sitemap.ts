@@ -292,6 +292,32 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: "daily",
       priority: 0.9,
     },
+    // ── THE THREE HUBS THAT WERE NEVER LISTED ─────────────────────────────
+    //
+    // All three are indexable, linked from the site's own navigation, and
+    // carry real hand-written content and their own titles — and none of them
+    // was in this file, so a crawler only ever reached them by following a
+    // link rather than being told they exist.
+    //
+    // /marketplace answers "what can this site actually do for me" for
+    // somebody who does not already know which of eight routes they wanted;
+    // /marketplace/wash is a service vertical with its own booking flow; and
+    // /order is the hub the food, shop and ticket paths all start from.
+    {
+      url: `${SITE_URL}/marketplace`,
+      changeFrequency: "weekly",
+      priority: 0.8,
+    },
+    {
+      url: `${SITE_URL}/marketplace/wash`,
+      changeFrequency: "weekly",
+      priority: 0.7,
+    },
+    {
+      url: `${SITE_URL}/order`,
+      changeFrequency: "weekly",
+      priority: 0.7,
+    },
     // Categories above shops: a category page is the one that can rank for
     // "Rodrigues honey", and it links to both the products and their sellers.
     ...categoryPages,

@@ -16,7 +16,15 @@ import { centsToDecimalString, centsToDisplay } from "@/lib/money";
 import OrdersFilterBar from "@/components/orders/OrdersFilterBar";
 import { Badge } from "@/components/ui/badge";
 
-export const metadata: Metadata = { robots: { index: false, follow: false } };
+export const metadata: Metadata = {
+  // A TAB NEEDS A NAME. With only `robots` here the page inherited the root
+  // layout's "Roule Rodrigues | Scooter & Car Rental, Rodrigues Island", so
+  // somebody who left this tab to open their banking app came back to a tab
+  // about renting a scooter and could not find their half-finished order.
+  // app/cart/layout.tsx was written for exactly this and says "Your bag".
+  title: "Your orders | Roule Rodrigues",
+  robots: { index: false, follow: false },
+};
 
 const PAGE_SIZE = 20;
 const VALID_STATUSES = new Set(Object.keys(STATUS_LABEL));

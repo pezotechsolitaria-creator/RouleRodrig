@@ -42,11 +42,16 @@ const DESCRIPTION =
   "Buy from local shops, book a car wash, or have something delivered anywhere on Rodrigues. One place for everything Roule Rodrigues can get done for you.";
 
 export const metadata: Metadata = {
-  title: "Rodrigues Marketplace — buy it, book it, get it done | Roule Rodrigues",
+  // "Rodrigues Marketplace" belongs to /shop, whose own h1 claims it: "Rodrigues
+  // Marketplace — buy from the island's shops". Both pages carried that title,
+  // so two indexable URLs competed for one phrase and the site's own navigation
+  // pointed the word at whichever it happened to mean. This page's h1 has always
+  // said what it actually is.
+  title: "Buy it. Book it. Get it done. | Roule Rodrigues",
   description: DESCRIPTION,
   alternates: { canonical: `${SITE_URL}/marketplace` },
   openGraph: {
-    title: "Rodrigues Marketplace | Roule Rodrigues",
+    title: "Buy it. Book it. Get it done. | Roule Rodrigues",
     description: DESCRIPTION,
     url: `${SITE_URL}/marketplace`,
     type: "website",

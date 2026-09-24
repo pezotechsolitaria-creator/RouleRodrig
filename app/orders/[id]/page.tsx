@@ -25,7 +25,15 @@ import type { PickupCode } from "@/lib/orders/pickup";
 import DeliveryStatusCard from "@/components/orders/DeliveryStatusCard";
 import OrderAlerts from "@/components/orders/OrderAlerts";
 
-export const metadata: Metadata = { robots: { index: false, follow: false } };
+export const metadata: Metadata = {
+  // A TAB NEEDS A NAME. With only `robots` here the page inherited the root
+  // layout's "Roule Rodrigues | Scooter & Car Rental, Rodrigues Island", so
+  // somebody who left this tab to open their banking app came back to a tab
+  // about renting a scooter and could not find their half-finished order.
+  // app/cart/layout.tsx was written for exactly this and says "Your bag".
+  title: "Your order | Roule Rodrigues",
+  robots: { index: false, follow: false },
+};
 
 // The untyped Supabase client can't statically parse a 4-embed select string
 // (falls back to an unusable GenericStringError type) — same workaround as

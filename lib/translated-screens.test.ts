@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { RIDES_COPY } from "./rides/copy.i18n";
+import { CHECKOUT_COPY } from "./checkout/copy.i18n";
 
 const read = (...p: string[]) => readFileSync(join(process.cwd(), ...p), "utf8");
 
@@ -120,5 +121,48 @@ describe("the French pages declare their language before any JavaScript", () => 
     // dynamic rendering to win one attribute. Asserted as an import, because
     // the file's own comment explains that choice in prose.
     expect(SRC).not.toContain('from "next/headers"');
+  });
+});
+
+describe("the checkout asks its one irreversible question in the reader's language", () => {
+  const SRC = read("components", "checkout", "CheckoutForm.tsx");
+
+  it("takes the option words from the checkout dictionary", () => {
+    // They came from FULFILMENT in lib/shop/plain-words.ts, which has no
+    // Language dimension — so /checkout read "Paiement", "ARTICLES", "MODE DE
+    // LIVRAISON", "Dans quelle partie de Rodrigues livrons-nous ?" and then
+    // offered three options that were the only English block on the page.
+    expect(SRC).toContain("c.form.fulfilment.options[f].label");
+    expect(SRC).toContain("c.form.fulfilment.options[f].hint");
+  });
+
+  it("still takes the option ORDER from the one place it is decided", () => {
+    // The words are the checkout's; the set of options is not, and must stay
+    // in step with /shop and with what create_order() will accept.
+    expect(SRC).toContain("Object.keys(FULFILMENT)");
+  });
+
+  it("has all three options in all three languages, genuinely translated", () => {
+    for (const lang of ["en", "fr", "cr"] as const) {
+      const o = CHECKOUT_COPY[lang].form.fulfilment.options;
+      for (const kind of ["pickup", "customer_delivery", "rr_delivery"] as const) {
+        expect(o[kind].label.length, `${lang}.${kind}`).toBeGreaterThan(5);
+        expect(o[kind].hint.length, `${lang}.${kind}`).toBeGreaterThan(10);
+      }
+      if (lang !== "en") {
+        const en = CHECKOUT_COPY.en.form.fulfilment.options;
+        expect(o.rr_delivery.hint, lang).not.toBe(en.rr_delivery.hint);
+      }
+    }
+  });
+
+  it("leaves the server-rendered product page's words alone", () => {
+    // app/shop/[storeSlug]/[productSlug] is server-rendered and the chosen
+    // language lives only in localStorage, so it cannot know it — and its
+    // words have to keep matching its own JSON-LD. plain-words stays the
+    // English source for that surface.
+    const PLAIN = read("lib", "shop", "plain-words.ts");
+    expect(PLAIN).toContain("export const FULFILMENT");
+    expect(PLAIN).not.toContain("Language");
   });
 });

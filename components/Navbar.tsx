@@ -69,7 +69,19 @@ export default function Navbar({
   // directly: Explore → Island guide → Routes → Taxi → FAQ → Contact.
   const navLinks = [
     { label: t.explore.nav, href: "/#explore" },
-    { label: t.nav.map,      href: "/guide/rodrigues" },
+    // ── THE LABEL AND THE DESTINATION NOW AGREE ─────────────────────────
+    //
+    // This said t.nav.map — "Island Map", "Carte de l'Île", "Kar Zil" — and
+    // went to the written guide, on all 24 pages that render this header, and
+    // on /map itself it navigated the visitor away from the map they were
+    // looking at. The comment above always said the slot was the island
+    // GUIDE; only the label key was never changed.
+    //
+    // /map got its own entry at the same time. It is the richest page on the
+    // site — more rendered text than any other — it is in the sitemap, and
+    // the only link to it anywhere was one line inside the hiking guide.
+    { label: t.nav.guide,    href: "/guide/rodrigues" },
+    { label: t.nav.map,      href: "/map" },
     ...(showRoutes ? [{ label: t.nav.routes, href: "/guide/routes" }] : []),
     { label: t.nav.taxi,     href: "/taxi" },
     { label: "FAQ",          href: "/faq" },
