@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import LangLink from "@/components/nav/LangLink";
 import { ArrowRight } from "lucide-react";
 import { getContent } from "@/lib/content";
 import { loc } from "@/lib/localize";
@@ -223,12 +224,11 @@ export default async function QueFaireRodriguesPage() {
                   </li>
                 ))}
               </ul>
-              <Link
-                href="/experiences"
+              <LangLink lang="fr" href="/experiences"
                 className="mt-6 inline-flex items-center gap-2 font-dm text-sm text-yellow/80 hover:text-yellow transition-colors"
               >
                 Voir toutes les activités <ArrowRight size={14} />
-              </Link>
+              </LangLink>
             </section>
           )}
 
@@ -379,12 +379,11 @@ export default async function QueFaireRodriguesPage() {
                 </li>
               ))}
               <li>
-                <Link
-                  href="/experiences"
+                <LangLink lang="fr" href="/experiences"
                   className="inline-flex items-center gap-2 font-dm text-sm text-muted hover:text-offwhite transition-colors"
                 >
                   Read this page in English <ArrowRight size={14} />
-                </Link>
+                </LangLink>
               </li>
             </ul>
           </nav>

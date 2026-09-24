@@ -92,6 +92,12 @@ validateEnv();
 // QR images and map tiles keep working. 'unsafe-inline' on style/script is
 // required by Next's inline bootstrap + framer-motion inline styles (we have
 // no nonce pipeline yet — tracked as a future hardening step).
+const IS_DEV = process.env.NODE_ENV === "development";
+
+/** What production serves, and what lib/csp.test.ts reads. */
+const SCRIPT_SRC =
+  "script-src 'self' 'unsafe-inline' https://va.vercel-scripts.com https://vercel.live https://www.paypal.com https://www.paypalobjects.com https://*.paypal.com https://*.posthog.com";
+
 const ContentSecurityPolicy = [
   "default-src 'self'",
   "base-uri 'self'",
@@ -114,7 +120,25 @@ const ContentSecurityPolicy = [
   "style-src 'self' 'unsafe-inline'",
   // PayPal's Smart Buttons load their SDK from paypal.com/paypalobjects.com and
   // open the checkout in an iframe, so both need script-src + frame-src grants.
-  "script-src 'self' 'unsafe-inline' https://va.vercel-scripts.com https://vercel.live https://www.paypal.com https://www.paypalobjects.com https://*.paypal.com https://*.posthog.com",
+  //
+  // ── WHY DEV GETS 'unsafe-eval' AND PRODUCTION NEVER DOES ──────────────────
+  //
+  // `next dev` serves every module wrapped in eval() — that is how the dev
+  // bundler does source maps and hot reload. This policy applies in dev too,
+  // so the browser refused main-app.js with "Evaluating a string as JavaScript
+  // violates the following Content Security Policy directive" and NOTHING ON
+  // THE SITE HYDRATED. Not a component: the whole app. The language switcher
+  // did nothing, every <Link> fell back to a full page load, and any bug that
+  // only appears once React is running was invisible locally.
+  //
+  // It cost this session an hour of chasing a fix that was correct, in a page
+  // that was never going to run it. Anyone who has tried to debug something
+  // interactive against `npm run dev` here has paid the same price.
+  //
+  // The grant is a separate expression rather than a word in the literal so
+  // the two cannot be confused: what ships is SCRIPT_SRC, unchanged, and
+  // lib/csp.test.ts fails if 'unsafe-eval' ever appears inside it.
+  IS_DEV ? `${SCRIPT_SRC} 'unsafe-eval'` : SCRIPT_SRC,
   // youtube-nocookie / youtube / vimeo: the hero and promo carousel accept a
   // YouTube or Vimeo link and render it as a muted background embed. Listed
   // explicitly rather than opening frame-src to https:, because an iframe is a

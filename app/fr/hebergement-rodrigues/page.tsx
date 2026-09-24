@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import LangLink from "@/components/nav/LangLink";
 import { ArrowRight, Check, MessageCircle } from "lucide-react";
 import { getFleetView } from "@/lib/site-data";
 import { fromPriceOf } from "@/lib/experiences";
@@ -221,12 +222,11 @@ export default async function HebergementRodriguesPage() {
             </ul>
 
             <div className="mt-9 flex flex-wrap gap-3">
-              <Link
-                href="/browse/stays"
+              <LangLink lang="fr" href="/browse/stays"
                 className="inline-flex items-center gap-2 rounded-full bg-yellow px-6 py-3 font-syne font-bold text-dark text-sm transition-transform hover:scale-[1.03]"
               >
                 Voir les hébergements &amp; réserver <ArrowRight size={16} />
-              </Link>
+              </LangLink>
               <a
                 href={waHref}
                 target="_blank"

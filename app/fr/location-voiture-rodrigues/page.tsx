@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import LangLink from "@/components/nav/LangLink";
 import { ArrowRight, Check, MessageCircle } from "lucide-react";
 import { getFleetView, fleetFromPrice } from "@/lib/site-data";
 import { resolveTerms, isMissing } from "@/lib/legal";
@@ -235,12 +236,11 @@ export default async function LocationVoiturePage() {
             </ul>
 
             <div className="mt-9 flex flex-wrap gap-3">
-              <Link
-                href="/browse/car"
+              <LangLink lang="fr" href="/browse/car"
                 className="inline-flex items-center gap-2 rounded-full bg-yellow px-6 py-3 font-syne font-bold text-dark text-sm transition-transform hover:scale-[1.03]"
               >
                 Voir les voitures &amp; réserver <ArrowRight size={16} />
-              </Link>
+              </LangLink>
               <a
                 href={waHref}
                 target="_blank"
@@ -304,12 +304,11 @@ export default async function LocationVoiturePage() {
                 </Link>
               </li>
               <li>
-                <Link
-                  href="/browse/car"
+                <LangLink lang="fr" href="/browse/car"
                   className="inline-flex items-center gap-2 font-dm text-sm text-muted hover:text-offwhite transition-colors"
                 >
                   Read this page in English <ArrowRight size={14} />
-                </Link>
+                </LangLink>
               </li>
             </ul>
           </nav>

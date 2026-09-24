@@ -66,3 +66,43 @@ describe("Content Security Policy", () => {
     expect(directive("default-src")).toBe("'self'");
   });
 });
+
+// ── THE POLICY THAT BROKE LOCAL DEVELOPMENT ─────────────────────────────────
+//
+// `next dev` wraps every module in eval(), and this policy applies in dev, so
+// the browser refused main-app.js and NOTHING hydrated — not one component,
+// the whole app. The switcher did nothing, every <Link> did a full page load,
+// and no client-side behaviour could be verified locally at all. A fix could
+// be correct and look dead.
+//
+// The grant is therefore dev-only, and these assertions are the whole reason
+// it is safe: what production serves is one named constant, and the dev branch
+// is the only thing that may name the grant.
+
+describe("the eval grant is development-only", () => {
+  const PROD_SCRIPT_SRC = directive("script-src") ?? "";
+
+  it("what production serves has no eval grant in it", () => {
+    expect(PROD_SCRIPT_SRC).not.toBe("");
+    expect(PROD_SCRIPT_SRC).not.toContain("unsafe-eval");
+  });
+
+  it("the only mention of it is gated on NODE_ENV", () => {
+    const code = CONFIG.replace(/^\s*\/\/.*$/gm, "");
+    const lines = code.split("\n").filter((l) => l.includes("unsafe-eval"));
+    // Exactly one, and it is the conditional. Two would mean somebody added a
+    // second path to it — which is how a dev-only grant reaches production.
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toContain("IS_DEV ?");
+    expect(code).toContain('const IS_DEV = process.env.NODE_ENV === "development"');
+  });
+
+  it("still carries the third-party scripts checkout needs", () => {
+    // The constant was extracted out of the array; this is the guard that the
+    // extraction dropped nothing on the way.
+    for (const host of ["paypal.com", "va.vercel-scripts.com", "posthog.com"]) {
+      expect(PROD_SCRIPT_SRC, host).toContain(host);
+    }
+    expect(PROD_SCRIPT_SRC).toContain("'self'");
+  });
+});

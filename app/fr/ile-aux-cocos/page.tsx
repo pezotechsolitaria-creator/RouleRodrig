@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import LangLink from "@/components/nav/LangLink";
 import { getContent } from "@/lib/content";
 import { SITE_URL } from "@/lib/site";
 import { breadcrumbLd } from "@/lib/schema";
@@ -237,12 +238,11 @@ export default async function IleAuxCocosFrPage() {
               c&apos;est ainsi que la permission se règle.
             </p>
             <div className="mt-4 flex flex-wrap gap-2">
-              <Link
-                href="/browse/tours"
+              <LangLink lang="fr" href="/browse/tours"
                 className="flex min-h-12 items-center justify-center rounded-xl bg-yellow px-5 font-dm text-sm font-bold text-dark"
               >
                 Voir l&apos;excursion
-              </Link>
+              </LangLink>
               <Link
                 href="/fr/guide-rodrigues"
                 className="flex min-h-12 items-center justify-center rounded-xl border border-white/15 px-5 font-dm text-sm text-offwhite"

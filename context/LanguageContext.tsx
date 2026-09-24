@@ -12,6 +12,22 @@ import { languageTag, translations } from "@/lib/i18n";
 
 const LS_KEY = "rr_language";
 
+// ── "SAVED" IS NOT "CHOSEN" ─────────────────────────────────────────────────
+//
+// `hasChosen` used to mean "rr_language has a value", which is true of
+// everybody: the pre-paint script in app/layout.tsx writes one on the very
+// first load, inferred from navigator.language. The flag was therefore
+// permanently true and told its only caller nothing — a guard that never
+// guarded. Proven by driving it: with storage cleared, one visit to a French
+// page left rr_language="en" before a single button was pressed.
+//
+// This key is written by setLanguage and by nothing else, so it records the
+// one thing rr_language cannot: that a human pressed the switcher. Anybody who
+// pressed it before this key existed reads as un-pressed, and the cost of that
+// is one French CTA tap setting their chrome to French — visible, reversible
+// with the same switcher, and at most once.
+const PRESSED_KEY = "rr_language_by";
+
 // ── The same choice, where the SERVER can see it ───────────────────────────
 //
 // localStorage is invisible to the server, and that single fact decided which
@@ -83,10 +99,10 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   // Restore saved language on mount
   useEffect(() => {
     try {
+      setHasChosen(localStorage.getItem(PRESSED_KEY) === "user");
       const saved = localStorage.getItem(LS_KEY) as Language | null;
       if (saved && ["en", "fr", "cr"].includes(saved)) {
         setLang(saved);
-        setHasChosen(true);
         // Backfill for everyone who chose a language before the cookie existed.
         // Without this, a returning visitor keeps getting English server pages
         // forever, because the only record of their choice is one the server
@@ -127,6 +143,8 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     setHasChosen(true);
     try {
       localStorage.setItem(LS_KEY, lang);
+      // The press itself, which is what nothing else can write.
+      localStorage.setItem(PRESSED_KEY, "user");
     } catch {
       /* ignore */
     }
