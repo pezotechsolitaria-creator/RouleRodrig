@@ -85,6 +85,36 @@ export default async function TransfersPage() {
   const airport = fares.airport != null ? money(fares.airport) : null;
   const ferry = fares.ferry != null ? money(fares.ferry) : null;
 
+  // Built here so the visible <dl> below and the FAQPage markup are ONE list.
+  // Two lists maintained separately is how a site ends up publishing a question
+  // nobody can read — the exact fault the category pages were fixed for.
+  const airportFaq: { q: string; a: string }[] = [
+    ...(airport
+      ? [
+          {
+            q: "How much is a transfer from Plaine Corail airport?",
+            a: `${airport} flat, from the airport to any address on Rodrigues. It is one agreed fare for the whole journey rather than a meter, and it is confirmed with you before you book.${ferry ? ` The ferry terminal at Port Mathurin is ${ferry}.` : ""}`,
+          },
+        ]
+      : []),
+    {
+      q: "Can I book an airport transfer before I arrive in Rodrigues?",
+      a: "Yes, and it is the point of this page. Give us your flight, how many passengers and how much luggage, and the driver is arranged before you land rather than found in the arrivals hall.",
+    },
+    {
+      q: "Will the driver meet me at arrivals?",
+      a: "Ask for it when you book and the driver waits inside the terminal with your name. Otherwise they meet you at the pick-up area outside.",
+    },
+    {
+      q: "What is the airport in Rodrigues called?",
+      a: "Plaine Corail, code RRG. It is officially Sir Gaétan Duval Airport and the operator still uses that name, so you will hear both — they are the same place.",
+    },
+    {
+      q: "Can I book the return trip to the airport as well?",
+      a: "Yes, the same way. Book it when you arrange the arrival, or later once your plans firm up.",
+    },
+  ];
+
   return (
     <>
       {/* Was the marketing <Navbar>: fixed, 78px, and on a phone it carried no
@@ -138,6 +168,24 @@ export default async function TransfersPage() {
         }}
       />
 
+      {/* FAQPage, from the SAME airportFaq array the <dl> below renders — so
+          the markup can only ever describe questions a visitor can read. That
+          is Google's requirement and it is the fault this site has already been
+          bitten by: /browse/stays and /browse/tours once published eight
+          driving-licence questions that appeared nowhere in their text. */}
+      <JsonLd
+        data={{
+          "@context": "https://schema.org",
+          "@type": "FAQPage",
+          "@id": `${SITE_URL}/transfers#faq`,
+          mainEntity: airportFaq.map((f) => ({
+            "@type": "Question",
+            name: f.q,
+            acceptedAnswer: { "@type": "Answer", text: f.a },
+          })),
+        }}
+      />
+
       <main className="min-h-[calc(100vh-3.5rem)] bg-dark px-4 pb-10 pt-3 text-offwhite">
         <div className="mx-auto max-w-lg">
           <BookingHeading variant="transfer" />
@@ -188,6 +236,32 @@ export default async function TransfersPage() {
               </p>
             </div>
           ) : null}
+
+          {/* ── THE QUESTIONS SOMEBODY LANDING AT PLAINE CORAIL ACTUALLY ASKS ──
+              This page carried 176 words and no FAQ at all, on the query every
+              arriving visitor types. /taxi beside it has carried FAQPage for
+              weeks.
+
+              Every answer below is a fact this page already establishes — the
+              flat fare from ride_pricing, the meet-and-greet and flight
+              reference the ride engine supports, and the airport's two names.
+              Nothing is invented to fill the block, and the fare question is
+              omitted entirely when the fare read failed, exactly as the price
+              card above is. An FAQ that quotes a price the page could not load
+              is the one thing worse than having no FAQ. */}
+          <section className="mt-9">
+            <h2 className="font-syne text-lg font-bold text-offwhite">
+              Airport transfers, answered
+            </h2>
+            <dl className="mt-4 space-y-5">
+              {airportFaq.map((f) => (
+                <div key={f.q}>
+                  <dt className="font-dm text-sm font-bold text-offwhite">{f.q}</dt>
+                  <dd className="mt-1.5 font-dm text-sm leading-relaxed text-muted">{f.a}</dd>
+                </div>
+              ))}
+            </dl>
+          </section>
         </div>
       </main>
     </>
