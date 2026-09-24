@@ -38,7 +38,14 @@ export default function WorldFonts({ children }: { children: ReactNode }) {
       <noscript
         dangerouslySetInnerHTML={{
           __html:
-            "<style>.rr-cur-reveal{opacity:1!important;transform:none!important}.rr-cur-rise{opacity:1!important;animation:none!important}</style>",
+            // rr-cur-cine is the third rule because the two beside it were
+            // not enough. Measured on the live /curated today: 26 elements
+            // carrying an inline opacity:0 — 21 of them the individual letters
+            // of the headline — and not one of them matched either selector,
+            // because those are the CSS path's classes and /curated renders
+            // the cinematic one. The promise above held for the scroll
+            // reveals and failed for the first thing on the page.
+            "<style>.rr-cur-reveal{opacity:1!important;transform:none!important}.rr-cur-rise{opacity:1!important;animation:none!important}.rr-cur-cine{opacity:1!important;transform:none!important}</style>",
         }}
       />
       {children}

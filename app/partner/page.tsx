@@ -189,8 +189,7 @@ export default function PartnerPage() {
             {t.partnerPortal.yourReferrals}
           </h1>
           <p className="text-muted text-sm mt-3 max-w-lg">
-            Enter your partner code to see every booking sent through your link.
-            No login needed.
+            {t.partnerPortal.enterCode}
           </p>
         </div>
 
@@ -262,10 +261,10 @@ export default function PartnerPage() {
             {/* Stat cards */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               {[
-                { label: "Total bookings", value: data.stats.total, icon: TrendingUp, accent: "text-offwhite" },
-                { label: "Confirmed", value: data.stats.confirmed, icon: CheckCircle, accent: "text-green-400" },
-                { label: "Completed", value: data.stats.completed, icon: CheckCircle, accent: "text-blue-400" },
-                { label: "Rental value", value: `Rs ${data.stats.totalValue.toLocaleString()}`, icon: Wallet, accent: "text-yellow" },
+                { label: t.partnerPortal.statTotal, value: data.stats.total, icon: TrendingUp, accent: "text-offwhite" },
+                { label: t.partnerPortal.statConfirmed, value: data.stats.confirmed, icon: CheckCircle, accent: "text-green-400" },
+                { label: t.partnerPortal.statCompleted, value: data.stats.completed, icon: CheckCircle, accent: "text-blue-400" },
+                { label: t.partnerPortal.statValue, value: `Rs ${data.stats.totalValue.toLocaleString()}`, icon: Wallet, accent: "text-yellow" },
               ].map((s) => (
                 <div key={s.label} className="bg-dark-card border border-dark-border rounded-2xl p-5">
                   <s.icon size={16} className="text-muted/40 mb-3" />
@@ -279,7 +278,7 @@ export default function PartnerPage() {
             <div className="bg-dark-card border border-yellow/20 rounded-2xl p-5">
               <p className="font-bebas text-yellow text-[10px] tracking-[0.3em] mb-1">{t.partnerPortal.yourLink}</p>
               <p className="text-muted/70 text-xs mb-4">
-                Share this link or print the QR for your reception. Every guest who uses it is
+                {t.partnerPortal.shareLine}{" "}
                 counted automatically.
               </p>
               <div className="flex flex-col md:flex-row gap-5">
@@ -318,7 +317,7 @@ export default function PartnerPage() {
                       onClick={copyLink}
                       className="flex items-center gap-1.5 text-xs border border-dark-border hover:border-yellow/40 text-muted hover:text-yellow px-3 py-2 rounded-full transition-colors"
                     >
-                      <Copy size={12} /> {copied ? "Copied!" : "Copy link"}
+                      <Copy size={12} /> {copied ? t.partnerPortal.copied : t.partnerPortal.copyLink}
                     </button>
                     <a
                       href={waShare}

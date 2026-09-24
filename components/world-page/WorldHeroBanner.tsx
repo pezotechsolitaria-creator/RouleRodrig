@@ -274,6 +274,16 @@ export default function WorldHeroBanner({
             animate={{ opacity: hideWords ? 0 : 1, y: hideWords ? -8 : 0 }}
             transition={{ duration: INTRO.DISSOLVE, ease: [0.22, 1, 0.36, 1] }}
           >
+            {/* ── rr-cur-cine: what these look like with no JavaScript ─────
+                Every framer node below starts at inline opacity:0, and the
+                noscript rule in WorldFonts.tsx only un-hid .rr-cur-reveal and
+                .rr-cur-rise — the CSS path's classes. So the cinematic hero,
+                which is the one /curated actually renders, served its eyebrow,
+                its headline, its italic ending and its sub-line all invisible
+                to anything that does not run the animation: a crawler, a
+                reader with scripts off, or simply a visitor whose framer chunk
+                failed. The class carries no styles of its own, so with JS on
+                it cannot fight the animation it is insuring. */}
             {eyebrow && (
               <p
                 className={cinematic ? "rr-cur-eyebrow" : "rr-cur-rise rr-cur-eyebrow"}
@@ -281,7 +291,7 @@ export default function WorldHeroBanner({
               >
                 {cinematic ? (
                   <motion.span
-                    className="inline-block"
+                    className="inline-block rr-cur-cine"
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.7, delay: INTRO.START }}
@@ -321,7 +331,7 @@ export default function WorldHeroBanner({
                     <motion.span
                       key={j}
                       aria-hidden
-                      className="inline-block"
+                      className="inline-block rr-cur-cine"
                       initial={{ opacity: 0, y: 22, scale: 0.97 }}
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       transition={{
@@ -342,7 +352,7 @@ export default function WorldHeroBanner({
                         left to right the way it is meant to be read. */}
                     <motion.em
                       aria-hidden
-                      className="inline-block"
+                      className="inline-block rr-cur-cine"
                       initial={{ opacity: 0, y: 22, scale: 0.97 }}
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       transition={{
@@ -374,7 +384,7 @@ export default function WorldHeroBanner({
             {sub && (
               <motion.p
                 className={`mt-2 line-clamp-2 max-w-md font-dm text-[13px] leading-snug lg:text-base lg:leading-relaxed ${
-                  cinematic ? "" : "rr-cur-rise"
+                  cinematic ? "rr-cur-cine" : "rr-cur-rise"
                 }`}
                 style={{
                   ["--rr-d" as string]: "720ms",

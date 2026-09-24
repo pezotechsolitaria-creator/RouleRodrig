@@ -820,6 +820,18 @@ const translations = {
       codeNotFound: "Code not found",
       checkCode: "Double-check your partner code, or contact us to get set up.",
       error: "Something went wrong. Please try again.",
+      // Hardcoded English until now, inside French chrome: the one instruction
+      // that says what to do, all four stat labels, the sharing sentence and
+      // the copy button. A hotel partner reading in French got a page that
+      // changed language halfway down.
+      enterCode: "Enter your partner code to see every booking sent through your link. No login needed.",
+      statTotal: "Total bookings",
+      statConfirmed: "Confirmed",
+      statCompleted: "Completed",
+      statValue: "Rental value",
+      shareLine: "Share this link or print the QR for your reception. Every guest who uses it is",
+      copyLink: "Copy link",
+      copied: "Copied!",
     },
     account: {
       whereIsOrder: "WHERE IS MY ORDER?",
@@ -1744,6 +1756,14 @@ const translations = {
       codeNotFound: "Code introuvable",
       checkCode: "Vérifiez votre code partenaire, ou contactez-nous pour être enregistré.",
       error: "Une erreur est survenue. Merci de réessayer.",
+      enterCode: "Saisissez votre code partenaire pour voir chaque réservation envoyée via votre lien. Sans connexion.",
+      statTotal: "Réservations totales",
+      statConfirmed: "Confirmées",
+      statCompleted: "Terminées",
+      statValue: "Valeur des locations",
+      shareLine: "Partagez ce lien ou imprimez le QR pour votre réception. Chaque client qui l'utilise est",
+      copyLink: "Copier le lien",
+      copied: "Copié !",
     },
     account: {
       whereIsOrder: "OÙ EST MA COMMANDE ?",
@@ -2649,6 +2669,14 @@ const translations = {
       codeNotFound: "Pa finn trouv kod la",
       checkCode: "Verifie ou kod partener, ouswa kontakt nou pou nou anrezistre ou.",
       error: "Enn problem inn arive. Reseye souple.",
+      enterCode: "Met ou kod partener pou get tou bann rezervasion ki finn pas par ou lien. Pena bizin konekte.",
+      statTotal: "Total rezervasion",
+      statConfirmed: "Konfirme",
+      statCompleted: "Fini",
+      statValue: "Valer lokasion",
+      shareLine: "Partaz sa lien la ou imprim QR la pou ou resepsion. Sak kliyan ki servi li",
+      copyLink: "Kopye lien",
+      copied: "Kopye!",
     },
     account: {
       whereIsOrder: "KOT MO KOMAND ETE ?",
