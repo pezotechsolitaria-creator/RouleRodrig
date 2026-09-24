@@ -113,3 +113,55 @@ describe("the page actually uses it", () => {
     expect(page).not.toMatch(/dish\.descriptor \?\?\s*\n?\s*dish\.description\?\.slice/);
   });
 });
+
+// ── THE SNIPPET THAT ENDED ON A DANGLING BRACKET ────────────────────────────
+//
+// The Rs 2,500 flagship dish shipped this as its meta description AND its
+// og:description: "…your choice of one beer, water, or fresh local
+// juice(lemonade". A Google snippet and a WhatsApp preview for the most
+// expensive thing on the site, cut mid-word inside an open parenthesis.
+describe("a clipped description reads like a sentence", () => {
+  const long = (tail: string) => "A".repeat(120) + " " + tail;
+
+  it("never leaves a bracket it opened", () => {
+    const out = dishMetaDescription({
+      name: "Lobster",
+      description: long("with beer, water or fresh local juice(lemonade or orange) on the side"),
+    });
+    const opens = (out.match(/\(/g) ?? []).length;
+    const closes = (out.match(/\)/g) ?? []).length;
+    expect(opens).toBe(closes);
+    expect(out).not.toMatch(/\([^)]*$/);
+  });
+
+  it("says that it cut something", () => {
+    const out = dishMetaDescription({ name: "Lobster", description: long("and more words that will not fit at all") });
+    expect(out.endsWith("…")).toBe(true);
+  });
+
+  it("stays inside the limit WITH the ellipsis", () => {
+    // The first version of this fix came back at 156 against a 155 budget.
+    for (const tail of ["x", "some trailing words", "juice(lemonade or orange"]) {
+      const out = dishMetaDescription({ name: "Lobster", description: long(tail) });
+      expect(out.length, tail).toBeLessThanOrEqual(155);
+    }
+  });
+
+  it("keeps the first whole sentence rather than cutting inside it", () => {
+    // dishMetaDescription composes the name, the descriptor, the prose and
+    // the kitchen and clips the WHOLE thing, so the cut usually lands past
+    // this sentence rather than inside it. What matters is that the sentence
+    // survives intact.
+    const out = dishMetaDescription({
+      name: "Lobster",
+      description: "Grilled over flame and served with rice. " + "B".repeat(200),
+    });
+    expect(out).toContain("served with rice.");
+    expect(out).not.toMatch(/served with ric$|served wit$/);
+  });
+
+  it("leaves a short description exactly alone", () => {
+    const out = dishMetaDescription({ name: "Rougaille", description: "Tomato, onion, thyme." });
+    expect(out).not.toContain("…");
+  });
+});

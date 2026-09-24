@@ -6,6 +6,7 @@ import BrowseTabs from "@/components/BrowseTabs";
 import BrowseBackBar from "@/components/BrowseBackBar";
 import FoodConcierge from "@/components/FoodConcierge";
 import ScrollToTop from "@/components/ScrollToTop";
+import { ogImages } from "@/lib/share-image";
 
 // The WhatsApp food concierge — moved here from /food, not retired.
 //
@@ -25,6 +26,21 @@ export const metadata: Metadata = {
   description:
     "Tell our local food concierge what you fancy on WhatsApp and we'll recommend the perfect spot and book your table — fresh seafood, Creole home cooking and hidden gems. Free to use.",
   alternates: { canonical: `${SITE_URL}/food/concierge` },
+  // ── IT WAS ADVERTISING SCOOTER RENTAL ──────────────────────────────────
+  //
+  // With no openGraph of its own the root layout supplied the whole preview,
+  // so this page shared as "Roule Rodrigues | Vehicle Rentals & Island
+  // Experiences" over the homepage hero photo. This is the page /food
+  // redirects to when the catalogue is empty, it is the one food product with
+  // signed restaurant partners, and its entire distribution is somebody
+  // pasting the link into WhatsApp.
+  openGraph: {
+    title: "Food Concierge — Where to Eat on Rodrigues",
+    description:
+      "Tell our local food concierge what you fancy on WhatsApp and we'll recommend the perfect spot and book your table.",
+    url: `${SITE_URL}/food/concierge`,
+    images: ogImages("Food concierge — where to eat on Rodrigues"),
+  },
 };
 
 export default async function FoodConciergePage() {

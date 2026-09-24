@@ -11,6 +11,7 @@ import AddressLink from "@/components/AddressLink";
 import FoodCard from "@/components/food/FoodCard";
 import FoodCartBar from "@/components/food/FoodCartBar";
 import { T, TCount } from "@/components/food/FoodCopy";
+import { ogImages } from "@/lib/share-image";
 
 // The kitchen page (M168).
 //
@@ -60,7 +61,12 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
       title,
       description,
       url: `${SITE_URL}/food/k/${kitchen.slug}`,
-      images: kitchen.coverUrl ? [{ url: kitchen.coverUrl }] : undefined,
+      // A page-level openGraph REPLACES the root one wholesale in Next.js, so
+      // `undefined` here did not fall back to the site default — it shipped no
+      // image at all. Chez Banane has no cover photo, so the only restaurant
+      // page on the site shared on WhatsApp as a grey text link, beside dish
+      // pages that do have one. WhatsApp is how a restaurant link travels here.
+      images: kitchen.coverUrl ? [{ url: kitchen.coverUrl }] : ogImages(title),
     },
   };
 }

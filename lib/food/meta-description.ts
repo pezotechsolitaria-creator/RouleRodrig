@@ -42,13 +42,48 @@ export type DishForMeta = {
   kitchenName?: string | null;
 };
 
-/** Trim to a whole word, never mid-syllable, and never with a dangling comma. */
+/**
+ * Trim to a whole word, never mid-syllable, and never mid-thought.
+ *
+ * The Rs 2,500 flagship dish used to ship this as both its meta description
+ * and its og:description:
+ *
+ *   "…your choice of one beer, water, or fresh local juice(lemonade"
+ *
+ * — a Google snippet and a WhatsApp preview for the most expensive thing on
+ * the site, ending on a dangling bracket. The old version backed up to the
+ * last space and stripped trailing punctuation, which is most of the job; it
+ * never closed a bracket it had opened and never said it had cut anything.
+ */
 function clip(s: string, max = MAX_DESCRIPTION): string {
   const t = s.replace(/\s+/g, " ").trim();
   if (t.length <= max) return t;
+
   const cut = t.slice(0, max);
-  const lastSpace = cut.lastIndexOf(" ");
-  return (lastSpace > max * 0.6 ? cut.slice(0, lastSpace) : cut).replace(/[\s,;·—-]+$/, "");
+
+  // A whole sentence is always better than a whole word. Only take one if it
+  // leaves a snippet worth reading rather than three words.
+  const lastStop = Math.max(cut.lastIndexOf(". "), cut.lastIndexOf("! "), cut.lastIndexOf("? "));
+  if (lastStop > max * 0.5) return cut.slice(0, lastStop + 1);
+
+  // One character shorter, because an ellipsis is about to be added and the
+  // budget is the whole string. Without this the result came back at 156
+  // against a 155 limit — which the existing test caught.
+  const room = cut.slice(0, max - 1);
+  const lastSpace = room.lastIndexOf(" ");
+  let out = (lastSpace > max * 0.6 ? room.slice(0, lastSpace) : room);
+
+  // An unclosed bracket: drop back to where it opened. "juice(lemonade" reads
+  // as a typo; "juice" reads as an edit.
+  const open = out.lastIndexOf("(");
+  if (open > -1 && out.indexOf(")", open) === -1) {
+    out = out.slice(0, open);
+  }
+
+  out = out.replace(/[\s,;:·—-]+$/, "");
+  // Say that something was removed, which is what stops a reader assuming the
+  // sentence simply ended badly.
+  return out ? `${out}…` : out;
 }
 
 /**
