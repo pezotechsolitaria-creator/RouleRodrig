@@ -114,6 +114,7 @@ export default function RateProductsCard({
                   name={p.name}
                   slug={p.slug}
                   className="h-11 w-11 shrink-0 rounded-lg"
+                size={44}
                 />
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-dm text-sm font-medium text-offwhite">{p.name}</p>

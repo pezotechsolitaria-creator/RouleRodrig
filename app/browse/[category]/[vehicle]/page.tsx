@@ -100,7 +100,27 @@ export default async function VehiclePage({ params }: Props) {
   const photos = item.images?.length ? item.images : item.image ? [item.image] : [];
   const conditions = pickConditions(content.faq?.items, category);
   const from = priceNumber(item.price);
-  const out = item.available === false || item.soldOutToday === true;
+  // ── TWO DIFFERENT STATES, NOT ONE ─────────────────────────────────────────
+  //
+  // These were a single `out` flag, and they are opposite situations:
+  //
+  //   withdrawn   the owner has switched this vehicle off. It is not coming
+  //               back this week, the booking form filters it out entirely,
+  //               and nothing the visitor does can reserve it.
+  //   busyToday   it exists and is rented right now. Picking dates is exactly
+  //               the right next move.
+  //
+  // Conflated, a withdrawn vehicle told the visitor "Fully booked TODAY — pick
+  // your dates", kept a live "Book the {vehicle}" button, and sent them to a
+  // form built from `fleet.filter(s => s.available !== false)` — so the ?v=
+  // prefill matched nothing and they landed on an empty "Choose a vehicle…"
+  // with no explanation of why.
+  //
+  // Nothing is withdrawn in the fleet today, so this has never fired. It would
+  // have fired on the owner's first use of the switch.
+  const withdrawn = item.available === false;
+  const busyToday = item.soldOutToday === true;
+  const out = withdrawn || busyToday;
 
   return (
     <>
@@ -127,6 +147,10 @@ export default async function VehiclePage({ params }: Props) {
               price: from ?? null,
               category,
               url,
+              // Without this, schema.ts defaults to InStock — so a vehicle
+              // the owner had switched off told Google it was available, on a
+              // page that is in the sitemap.
+              available: item.available !== false,
             }),
           },
           // ── FAQPage, and it is honest here ────────────────────────────
@@ -205,7 +229,9 @@ export default async function VehiclePage({ params }: Props) {
 
           {out && (
             <p className="mt-3 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-2.5 font-dm text-sm text-red-200">
-              Fully booked today — pick your dates and we will tell you the moment it is free.
+              {withdrawn
+                ? `This ${category === "car" ? "car" : "scooter"} is not available to rent at the moment. Message us and we will tell you what else is free for your dates.`
+                : "Fully booked today — pick your dates and we will tell you the moment it is free."}
             </p>
           )}
 
@@ -354,12 +380,25 @@ export default async function VehiclePage({ params }: Props) {
               Without the parameter this button delivered a customer who had
               already chosen a vehicle to an empty "Choose a vehicle…" form.
               The fragment stays last so the native scroll to #booking fires. */}
-          <Link
-            href={`/browse/${category}?v=${item.id}#booking`}
-            className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-yellow px-5 py-4 font-syne text-base font-bold text-dark transition hover:brightness-110"
-          >
-            Book the {vehicleName(item)} <ChevronRight size={17} />
-          </Link>
+          {/* A WITHDRAWN vehicle gets the way out instead of the way in: the
+              booking form cannot accept it, so "Book the {vehicle}" is a
+              button that leads to an empty form. Busy-today keeps its Book
+              link, because picking dates is genuinely the next step. */}
+          {withdrawn ? (
+            <Link
+              href={`/browse/${category}`}
+              className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl border border-white/15 px-5 py-4 font-syne text-base font-bold text-offwhite transition hover:border-yellow/40 hover:text-yellow"
+            >
+              See what else is available <ChevronRight size={17} />
+            </Link>
+          ) : (
+            <Link
+              href={`/browse/${category}?v=${item.id}#booking`}
+              className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-yellow px-5 py-4 font-syne text-base font-bold text-dark transition hover:brightness-110"
+            >
+              Book the {vehicleName(item)} <ChevronRight size={17} />
+            </Link>
+          )}
         </div>
       </main>
 

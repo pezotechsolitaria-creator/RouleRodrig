@@ -105,6 +105,7 @@ export default function BuyAgainCard({
                 slug={p.slug}
                 categoryName={p.categoryName}
                 className="h-11 w-11 shrink-0 rounded-lg"
+                size={44}
               />
               <div className="min-w-0 flex-1">
                 <Link

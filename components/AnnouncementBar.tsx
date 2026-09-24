@@ -34,7 +34,20 @@ export default function AnnouncementBar({ announcement }: { announcement: Announ
   const msg = messages[idx % messages.length];
 
   return (
-    <div className={`fixed top-0 left-0 right-0 z-[60] h-11 overflow-hidden ${colorCls} shadow-md`}>
+    // ── NORMAL FLOW, NOT FIXED ──────────────────────────────────────────
+    //
+    // This was `fixed top-0 z-[60]`, which app/layout.tsx already described as
+    // normal flow — the comment there says it "scrolls away with the page,
+    // which means the sticky navbar keeps its top-0 and no surface needs
+    // offset arithmetic". The component never did that.
+    //
+    // Nobody noticed because it renders nothing until the owner ticks
+    // `active`. The moment he did, a 44px bar at z-[60] would have pinned
+    // itself over the top of every header on the site: the homepage's sticky
+    // header sits at z-40 and the Navbar at z-50, both at top-0, so the logo,
+    // the world switcher, the language picker and the account button all go
+    // untappable at once — sitewide, on the owner's first use of the feature.
+    <div className={`relative z-[60] h-11 overflow-hidden ${colorCls} shadow-md`}>
       {/* moving shine for attention */}
       <div className="pointer-events-none absolute inset-0 opacity-30">
         <div className="absolute -inset-y-2 -left-1/3 w-1/3 bg-white/30 blur-md animate-[marquee_3s_linear_infinite]" />

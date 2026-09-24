@@ -34,8 +34,18 @@ export default async function ExplorePage() {
   // owner-set price hint (priceNote) — nothing is fabricated.
 
   // Guided tours & activities (bookable places).
+  //
+  // THE SAME BAR THE HUB USES, and for the same reason it gives: a listing
+  // with no name and no photo is an admin placeholder, not an experience.
+  // Four of the ten live activity rows are exactly that, and without this
+  // guard they rendered here as four blank cards — no name, no description,
+  // no image, just an "Activity" chip — each linking to /experiences/hiking,
+  // which filters those same rows out, so the ?place= deep link opened
+  // nothing. They were also counted in the "37" above and published as four
+  // ItemList entries with "name": "", which is enough to disqualify the whole
+  // list from rich results.
   const activities: ExploreItem[] = content.recommended.items
-    .filter((p) => p.category === "activity")
+    .filter((p) => p.category === "activity" && p.name.trim() && (p.image || p.images?.[0]))
     .map((p) => ({
       id: `place-${p.id}`,
       name: p.name,

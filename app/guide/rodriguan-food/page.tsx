@@ -53,12 +53,23 @@ export const metadata: Metadata = {
   },
 };
 
+// ── A DISH LINKS ONLY IF IT IS ACTUALLY ON THE MENU ─────────────────────────
+//
+// Ourite, Farata and Boulettes each carried an href — /food/ourite-rougaille,
+// /food/farata-rougaille, /food/boulettes — and all three 404. They are the
+// three most tappable words on a 7,000-character page whose whole job is to
+// make somebody want to eat here, and every one of them ended on the
+// not-found screen. /food/[slug] serves only the dishes the kitchen actually
+// lists, and the kitchen has never listed those.
+//
+// They read as plain text now, like the five that never claimed otherwise.
+// The page already ends with a real "see what is cooking" link to /food, which
+// is the honest way to send a hungry reader somewhere.
 /** Each of these is on the site's own menu, so the definitions have to be right. */
 const DISHES: { name: string; what: string; href?: string }[] = [
   {
     name: "Ourite",
     what: "Octopus — the word is Mauritian and Rodriguan Creole, pieuvre in French. It is the island's signature ingredient, most often as ourite rougaille or a curry, and sometimes dried.",
-    href: "/food/ourite-rougaille",
   },
   {
     name: "Rougaille",
@@ -79,12 +90,10 @@ const DISHES: { name: string; what: string; href?: string }[] = [
   {
     name: "Farata",
     what: "A layered flatbread, thicker and chewier than a roti, served with curries, chutneys and pickles.",
-    href: "/food/farata-rougaille",
   },
   {
     name: "Boulettes",
     what: "Dumplings of Chinese origin, most often boulette chouchou — chayote, also called niouk yen — served in broth or as a salad.",
-    href: "/food/boulettes",
   },
   {
     name: "Mine frite",
