@@ -183,8 +183,14 @@ export default function FoodCard({
           </p>
         )}
 
+        {/* break-words because a descriptor is whatever the kitchen typed, and
+            what Chez Banane typed is "Octopus•Fish•Crab•Chicken" — one
+            unbreakable 155px token in a 126px card, so line-clamp-2 had nothing
+            to wrap and the last course ran off the edge. */}
         {item.descriptor && (
-          <p className="mt-1 line-clamp-2 font-dm text-xs leading-snug text-muted">{item.descriptor}</p>
+          <p className="mt-1 line-clamp-2 break-words font-dm text-xs leading-snug text-muted">
+            {item.descriptor}
+          </p>
         )}
 
         {/* THE PRICE NEVER BREAKS IN HALF.

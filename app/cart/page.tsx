@@ -207,12 +207,14 @@ function CartSection({ domain, basket }: { domain: CartDomain; basket: Basket })
 
   return (
     <section>
-      <div className="flex items-baseline justify-between gap-3">
+      {/* Wraps rather than truncates. "Votre commande de repas" needs 335px and
+          had 194 of them next to "Ajouter d'autres plats", so the basket you
+          are looking at was introduced as "Votre comma…". A heading is the one
+          string on a screen that has to survive being read. */}
+      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
         <h2 className="inline-flex min-w-0 items-baseline gap-2 font-syne text-base font-extrabold text-offwhite">
-          <Icon size={16} className="translate-y-0.5 text-yellow" />
-          <span className="truncate">
-            {domain === "shop" ? basket.storeName : c.section[domain].title}
-          </span>
+          <Icon size={16} className="translate-y-0.5 shrink-0 text-yellow" />
+          <span>{domain === "shop" ? basket.storeName : c.section[domain].title}</span>
         </h2>
         <Link href={backHref} className="shrink-0 font-dm text-xs text-yellow hover:underline">
           {c.section[domain].browseLabel}
@@ -243,9 +245,21 @@ function CartSection({ domain, basket }: { domain: CartDomain; basket: Basket })
               const unavailable = !item.isActive || item.productStatus !== "active";
               const insufficientStock = !unavailable && item.stockQuantity < item.requestedQuantity;
               return (
+                /* ── THE STEPPER DROPS BELOW ON A PHONE ────────────────────
+                   Measured at 375px: the row is 343 wide, the thumbnail takes
+                   56 and the quantity controls 136, which left the name 102px
+                   for a word that needed 177. "Beach Experience Package" read
+                   "Beach Experi…" — and the cart is the one screen where the
+                   customer is checking they are buying the right thing.
+
+                   Four 32px controls cannot share a line with a product name
+                   at that width, so on a phone they take their own row,
+                   right-aligned under the name, and the name gets 251px. From
+                   sm: up the three columns sit on one line exactly as before.
+                   line-clamp-2 catches the names that are longer still. */
                 <div
                   key={item.variantId}
-                  className="flex items-center gap-3 rounded-xl border border-white/10 bg-dark-card p-3"
+                  className="grid grid-cols-[3.5rem_1fr] items-center gap-x-3 gap-y-2.5 rounded-xl border border-white/10 bg-dark-card p-3 sm:grid-cols-[3.5rem_1fr_auto]"
                 >
                   <ProductThumb
                     imageUrl={item.imageUrl}
@@ -253,8 +267,8 @@ function CartSection({ domain, basket }: { domain: CartDomain; basket: Basket })
                     slug={item.variantId}
                     className="h-14 w-14 shrink-0 rounded-lg"
                   />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate font-dm text-sm font-medium text-offwhite">{item.productName}</p>
+                  <div className="min-w-0">
+                    <p className="line-clamp-2 font-dm text-sm font-medium text-offwhite">{item.productName}</p>
                     {item.variantName && <p className="truncate font-dm text-xs text-muted">{item.variantName}</p>}
                     <p className="mt-0.5 font-dm text-sm font-semibold text-yellow">
                       Rs {centsToDecimalString(item.price)}
@@ -268,7 +282,7 @@ function CartSection({ domain, basket }: { domain: CartDomain; basket: Basket })
                       </p>
                     )}
                   </div>
-                  <div className="flex shrink-0 items-center gap-1">
+                  <div className="col-span-2 flex shrink-0 items-center justify-end gap-1 sm:col-span-1">
                     <button
                       aria-label={c.fewer(item.productName)}
                       onClick={() => updateQuantity(item.variantId, item.requestedQuantity - 1)}

@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { ShoppingBag, ArrowRight } from "lucide-react";
 import { useCart } from "@/lib/cart/CartContext";
 import { centsToDecimalString } from "@/lib/money";
+import { FOOD_COPY } from "@/lib/food/copy.i18n";
 import type { ResolvedCartItem } from "@/app/api/cart/resolve/route";
 
 // The sticky "N items · Rs X · View order" bar.
@@ -23,7 +24,19 @@ import type { ResolvedCartItem } from "@/app/api/cart/resolve/route";
 // a number that is occasionally a lie.
 
 export default function FoodCartBar() {
-  const { t } = useLanguage();
+  // ── THE COPY WAS ALREADY WRITTEN, IN THREE LANGUAGES ──────────────────────
+  //
+  // FOOD_COPY.cartBar holds both of these strings in English, French and Kreol
+  // and had NO consumer: this bar read t.common.viewYourOrder — whose only
+  // caller in the repo was this line — and printed "from {kitchen}" as an
+  // English literal, so a French visitor with a French cart read "from Chez
+  // Banane" on the one control standing between them and paying.
+  //
+  // common.viewYourOrder is gone rather than left beside cartBar.viewOrder.
+  // Two translations of one sentence in two files is how they drift, which is
+  // the same mistake FulfillmentBar had to be pulled back from.
+  const { language } = useLanguage();
+  const cb = FOOD_COPY[language].cartBar;
   const { cart, hydrated, itemCount } = useCart("food");
   const [total, setTotal] = useState<number | null>(null);
   const [kitchen, setKitchen] = useState<string | null>(null);
@@ -80,15 +93,42 @@ export default function FoodCartBar() {
             {itemCount}
           </span>
         </span>
+        {/* ── THE TOTAL SITS UNDER THE LABEL, NOT BESIDE IT ─────────────────
+            Measured at 375px with one dish in the cart: the bar was 96px tall
+            and the label column was 88 pixels wide, because "Rs 1000.00" in
+            extrabold Syne is 143 of them and the only flexible column was the
+            text. "View your order" broke across three lines beside a price
+            that did not move. French is longer again.
+
+            The four things cannot share one line at that width — 36 for the
+            bag, 143 for the total, 17 for the arrow and the gaps leave about
+            97px for a label that needs 120, or 150 in French. So the total
+            drops to the second line and shares it with the kitchen name,
+            which is the part that can afford to truncate. One layout at every
+            width: a phone-only variant would mean two copies of the same
+            number in the markup.
+
+            The total itself stays centsToDecimalString. lib/money.ts is
+            explicit that the short form is for cards and rails, never for
+            money anybody has to reconcile — and this is the number the
+            customer checks against what they are about to be charged. */}
         <span className="min-w-0 flex-1">
-          <span className="block font-syne text-sm font-extrabold leading-tight">{t.common.viewYourOrder}</span>
-          {kitchen && <span className="block truncate font-dm text-xs opacity-70">from {kitchen}</span>}
-        </span>
-        {total !== null && (
-          <span className="font-syne text-base font-extrabold tabular-nums">
-            Rs {centsToDecimalString(total)}
+          <span className="block truncate font-syne text-sm font-extrabold leading-tight">
+            {cb.viewOrder}
           </span>
-        )}
+          {(kitchen || total !== null) && (
+            <span className="mt-0.5 flex items-baseline justify-between gap-2">
+              {kitchen && (
+                <span className="truncate font-dm text-xs opacity-70">{cb.fromKitchen(kitchen)}</span>
+              )}
+              {total !== null && (
+                <span className="ml-auto shrink-0 font-syne text-base font-extrabold tabular-nums">
+                  Rs {centsToDecimalString(total)}
+                </span>
+              )}
+            </span>
+          )}
+        </span>
         <ArrowRight size={17} className="shrink-0" />
       </Link>
     </div>
