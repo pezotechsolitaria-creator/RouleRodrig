@@ -1044,7 +1044,10 @@ export async function sendVehicleUnavailable(b: {
     ${paragraph(`${b.name}, we're sorry — <strong>${b.scooter}</strong> isn't free for ${fmtDate(b.start_date)} → ${fmtDate(b.end_date)}. You have not been charged anything.`)}
     ${b.note ? paragraph(`<strong style="color:${C.ink}">From us:</strong> ${escapeHtml(b.note)}`) : ""}
     ${paragraph(`We'd still like to get you on the road. Reply to this email or message us on WhatsApp and we'll find you something that works for those dates.`)}
-    ${paragraph(`<a href="${SITE_URL}/browse/scooters" style="color:${C.ink};font-weight:600">See what else is available</a>`)}
+    ${/* /browse/scooter, singular. The plural 404s, and this was the ONLY
+          recovery link in the one email that tells somebody their booking
+          could not be met. */ ""}
+    ${paragraph(`<a href="${SITE_URL}/browse/scooter" style="color:${C.ink};font-weight:600">See what else is available</a>`)}
     ${sepFr()}
     ${frHeading("Indisponible")}
     ${paragraph(`${b.name}, nous sommes désolés — <strong>${b.scooter}</strong> n'est pas libre du ${fmtDate(b.start_date)} au ${fmtDate(b.end_date)}. Rien ne vous a été débité.`)}

@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowRight, Clock } from "lucide-react";
 import { getContent } from "@/lib/content";
+import { twitterImages } from "@/lib/share-image";
 import { SITE_URL } from "@/lib/site";
 import { BLOG_POSTS, getPost } from "@/lib/blog";
 import { blogPostingLd, breadcrumbLd } from "@/lib/schema";
@@ -53,7 +54,12 @@ export async function generateMetadata({
       modifiedTime: post.updated,
       images: [`${SITE_URL}/og-image.jpg`],
     },
-    twitter: { card: "summary_large_image", title: post.metaTitle, description: post.description },
+    // Images repeated for twitter: the root layout sets them, and a page-level
+    // `twitter` block replaces that block wholesale exactly as openGraph does.
+    twitter: {
+      card: "summary_large_image", title: post.metaTitle,
+      description: post.description, images: twitterImages(),
+    },
   };
 }
 

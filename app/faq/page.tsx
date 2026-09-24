@@ -7,6 +7,7 @@ import { breadcrumbLd } from "@/lib/schema";
 import JsonLd from "@/components/JsonLd";
 import Navbar from "@/components/Navbar";
 import Faq from "@/components/Faq";
+import { ogImages } from "@/lib/share-image";
 
 // The FAQ moved off the homepage (now a lean action dashboard) to its own page,
 // reachable from the nav/hamburger. Static-ish: refresh hourly.
@@ -23,6 +24,7 @@ export const metadata: Metadata = {
     title: "FAQ | Roule Rodrigues",
     description: DESCRIPTION,
     url: `${SITE_URL}/faq`,
+    images: ogImages(),
   },
 };
 

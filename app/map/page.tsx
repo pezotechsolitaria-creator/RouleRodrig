@@ -7,6 +7,7 @@ import JsonLd from "@/components/JsonLd";
 import Navbar from "@/components/Navbar";
 import MapSection from "@/components/MapSection";
 import { rankIslandPlaces } from "@/lib/places/popular-server";
+import { ogImages } from "@/lib/share-image";
 
 // The interactive island map now has its own flagship page (a Quick Access tile
 // links here), instead of being a homepage section. Static-ish: refresh hourly.
@@ -23,6 +24,7 @@ export const metadata: Metadata = {
     title: "Rodrigues Island Map | Roule Rodrigues",
     description: DESCRIPTION,
     url: `${SITE_URL}/map`,
+    images: ogImages(),
   },
 };
 

@@ -8,6 +8,7 @@ import { breadcrumbLd, itemListLd } from "@/lib/schema";
 import { SITE_URL } from "@/lib/site";
 import { getContent } from "@/lib/content";
 import { GUIDE_PAGES } from "@/lib/nav/hubs";
+import { ogImages } from "@/lib/share-image";
 
 export const revalidate = 3600;
 
@@ -34,6 +35,7 @@ export const metadata: Metadata = {
     title: "Rodrigues Island guides | Roule Rodrigues",
     description: DESCRIPTION,
     url: `${SITE_URL}/guide`,
+    images: ogImages(),
   },
 };
 

@@ -5,6 +5,7 @@ import JsonLd from "@/components/JsonLd";
 import { getPublishedWorld } from "@/lib/world-docs/store";
 import { buildWorldView } from "@/lib/world-docs/page-data";
 import WorldPage from "@/components/world-page/WorldPage";
+import { ogImages } from "@/lib/share-image";
 
 // Ten minutes. The catalogue behind this page changes when the owner edits it,
 // and publishing a world busts this path explicitly (see the worlds API), so
@@ -33,6 +34,7 @@ export async function generateMetadata(): Promise<Metadata> {
       description,
       url: `${SITE_URL}/curated`,
       type: "website",
+      images: ogImages(),
     },
   };
 }

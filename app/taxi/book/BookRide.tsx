@@ -32,6 +32,7 @@ import { useLanguage } from "@/context/LanguageContext";
 import { RIDES_COPY } from "@/lib/rides/copy.i18n";
 import { toE164National } from "@/lib/phone";
 import { rideQuoteShown, rideRequestSubmitted } from "@/lib/analytics/flows";
+import { ISLAND_TZ, islandIsoFromLocal } from "@/lib/island-time";
 
 // ── THE CUSTOMER BOOKS THEIR OWN RIDE ───────────────────────────────────────
 //
@@ -105,6 +106,20 @@ type Quote = {
   message?: string;
   reason?: string;
 };
+
+/**
+ * The review screen shows back exactly what was typed.
+ *
+ * It used to parse the wall clock in the device's zone and then format it in
+ * the island's, so a visitor on Paris time typed 14:30 and was shown 16:30 on
+ * the confirmation step — the one place the mistake was visible, and easy to
+ * read past.
+ */
+function islandWhenLabel(local: string): string {
+  const iso = islandIsoFromLocal(local);
+  if (!iso) return "";
+  return new Date(iso).toLocaleString("en-GB", { timeZone: ISLAND_TZ });
+}
 
 export default function BookRide({
   initialService,
@@ -212,10 +227,10 @@ export default function BookRide({
           dropoffLng: dropoff?.lng ?? null,
           passengers,
           luggage,
-          when:
-            whenKind === "scheduled" && when
-              ? new Date(when).toISOString()
-              : null,
+          // The island's clock, not the device's. See lib/island-time.ts:
+          // new Date("2026-10-01T14:30") resolves in the BROWSER's zone, so a
+          // phone still set to Paris booked a pickup two hours late.
+          when: whenKind === "scheduled" ? islandIsoFromLocal(when) : null,
         }),
       });
       const quoted = await r.json();
@@ -245,10 +260,7 @@ export default function BookRide({
         body: JSON.stringify({
           service,
           whenKind,
-          scheduledAt:
-            whenKind === "scheduled" && when
-              ? new Date(when).toISOString()
-              : null,
+          scheduledAt: whenKind === "scheduled" ? islandIsoFromLocal(when) : null,
           pickupLabel: pickup?.name ?? "",
           pickupLat: pickup?.lat ?? null,
           pickupLng: pickup?.lng ?? null,
@@ -745,9 +757,7 @@ export default function BookRide({
             <p className="mt-0.5 text-muted">
               {whenKind === "now"
                 ? c.step2.whenNow
-                : new Date(when).toLocaleString("en-GB", {
-                    timeZone: "Indian/Mauritius",
-                  })}
+                : islandWhenLabel(when)}
               {" · "}
               {passengers} {passengers === 1 ? "person" : "people"}
             </p>

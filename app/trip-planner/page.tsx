@@ -6,6 +6,7 @@ import { breadcrumbLd } from "@/lib/schema";
 import JsonLd from "@/components/JsonLd";
 import Navbar from "@/components/Navbar";
 import TripPlanner from "@/components/TripPlanner";
+import { ogImages } from "@/lib/share-image";
 
 // The AI trip planner moved off the homepage (now a lean action dashboard) to
 // its own page, reached from the Quick Access strip and Ti Roulé.
@@ -22,6 +23,7 @@ export const metadata: Metadata = {
     title: "Rodrigues trip planner | Roule Rodrigues",
     description: DESCRIPTION,
     url: `${SITE_URL}/trip-planner`,
+    images: ogImages(),
   },
 };
 

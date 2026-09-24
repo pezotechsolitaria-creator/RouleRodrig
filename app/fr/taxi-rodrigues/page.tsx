@@ -7,6 +7,7 @@ import { breadcrumbLd } from "@/lib/schema";
 import JsonLd from "@/components/JsonLd";
 import Navbar from "@/components/Navbar";
 import PageLanguage from "@/components/PageLanguage";
+import { ogImages } from "@/lib/share-image";
 
 export const revalidate = 3600;
 
@@ -62,6 +63,7 @@ export const metadata: Metadata = {
     url: `${SITE_URL}/fr/taxi-rodrigues`,
     type: "website",
     locale: "fr_FR",
+    images: ogImages(),
   },
 };
 

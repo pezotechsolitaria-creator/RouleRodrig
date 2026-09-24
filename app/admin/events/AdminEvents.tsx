@@ -11,6 +11,7 @@ import {
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { islandIsoFromLocal } from "@/lib/island-time";
 
 // Creating an event, and getting it live.
 //
@@ -61,13 +62,12 @@ const PHASE_STYLE: Record<string, string> = {
 };
 
 /** `datetime-local` gives "2026-08-22T19:30" with no zone. The island runs on
- *  one timezone, so this is read as Mauritius time (UTC+4) and sent as a proper
- *  offset — never as a bare local string the server would have to guess about. */
-function toIsoWithOffset(local: string): string | null {
-  if (!local) return null;
-  const d = new Date(`${local}:00+04:00`);
-  return Number.isNaN(d.getTime()) ? null : d.toISOString();
-}
+ *  one timezone, so it is read as Mauritius time — never as a bare local
+ *  string the server would have to guess about, and never in the browser's own
+ *  zone. The "+04:00" this used to concatenate was right for today and would
+ *  have been wrong through the 2008-2009 summer; islandIsoFromLocal() asks the
+ *  tz database instead. */
+const toIsoWithOffset = islandIsoFromLocal;
 
 export default function AdminEvents() {
   const [rows, setRows] = useState<AdminEvent[] | null>(null);

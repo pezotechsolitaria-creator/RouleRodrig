@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { ogImages } from "@/lib/share-image";
 
 // The URL stays /list-your-scooter — it's indexed and linked, so changing it
 // would break inbound links for no gain. The metadata now reflects the full
@@ -19,6 +20,7 @@ export const metadata: Metadata = {
     description: "Get your Rodrigues business in front of tourists actively planning their trip.",
     url: "/list-your-scooter",
     type: "website",
+    images: ogImages(),
   },
 };
 

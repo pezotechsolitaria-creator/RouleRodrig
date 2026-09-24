@@ -5,6 +5,7 @@ import Image from "next/image";
 import { AlertTriangle, Check, Link2, Search } from "lucide-react";
 import type { WorldCard, EditorialLabel } from "@/lib/world-docs/types";
 import { Disclosure, Field, ImageField, LocalizedField, RowTools, inputCls } from "./fields";
+import { islandIsoFromLocal } from "@/lib/island-time";
 
 export interface PickerCatalogue {
   places: { id: string; name: string; category: string; serviceType: string | null; isTour: boolean; image: string }[];
@@ -322,7 +323,7 @@ export default function CardEditor({
               className={`${inputCls} w-auto`}
               value={card.publishAt ? card.publishAt.slice(0, 16) : ""}
               onChange={(e) =>
-                set({ publishAt: e.target.value ? new Date(e.target.value).toISOString() : undefined })
+                set({ publishAt: islandIsoFromLocal(e.target.value) ?? undefined })
               }
             />
           )}

@@ -10,6 +10,7 @@ import JsonLd from "@/components/JsonLd";
 import { breadcrumbLd } from "@/lib/schema";
 import { SITE_URL } from "@/lib/site";
 import { getContent } from "@/lib/content";
+import { ogImages } from "@/lib/share-image";
 
 export const revalidate = 3600;
 
@@ -44,6 +45,7 @@ export const metadata: Metadata = {
     description: DESCRIPTION,
     url: `${SITE_URL}/about`,
     type: "website",
+    images: ogImages(),
   },
 };
 

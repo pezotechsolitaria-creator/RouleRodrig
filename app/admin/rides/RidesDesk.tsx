@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { PlaceLink, RouteLink } from "@/components/admin/PlaceLink";
 import { toast } from "sonner";
 import { buildPickupQr } from "@/lib/orders/pickup-qr";
+import { islandIsoFromLocal } from "@/lib/island-time";
 import {
   Loader2, Send, RefreshCw, Plus, Car, MapPin, Navigation, Users, Clock,
   AlertTriangle, MessageCircle, UserCheck, X, Ban, ChevronRight, Copy, Wallet,
@@ -568,7 +569,10 @@ function NewRideForm({ onDone }: { onDone: () => void }) {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           service: f.service, whenKind: f.whenKind,
-          scheduledAt: f.whenKind === "scheduled" && f.scheduledAt ? new Date(f.scheduledAt).toISOString() : null,
+          // The island's clock, like /taxi/book. Read in the browser's zone,
+          // the same typed time produced a different pickup depending on what
+          // the desk's device was set to.
+          scheduledAt: f.whenKind === "scheduled" ? islandIsoFromLocal(f.scheduledAt ?? "") : null,
           pickupLabel: f.pickupLabel, dropoffLabel: f.dropoffLabel,
           passengers: parseInt(f.passengers) || 1, luggage: parseInt(f.luggage) || 0,
           customerName: f.customerName, customerPhone: f.customerPhone,

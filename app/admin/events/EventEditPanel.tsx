@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { Loader2, Upload, Trash2, Save } from "lucide-react";
+import { islandIsoFromLocal, islandLocalFromIso } from "@/lib/island-time";
 
 // ── Correcting an event after it exists ──────────────────────────────────────
 //
@@ -33,21 +34,16 @@ type Props = {
   onSaved: () => void;
 };
 
-/** ISO → the value a datetime-local input wants, in the browser's own zone. */
-function toLocalInput(iso: string | null): string {
-  if (!iso) return "";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "";
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
-
-/** datetime-local → ISO with the browser's offset, matching the create form. */
-function toIso(local: string): string | null {
-  if (!local) return null;
-  const d = new Date(local);
-  return Number.isNaN(d.getTime()) ? null : d.toISOString();
-}
+// ── BOTH DIRECTIONS READ THE ISLAND'S CLOCK ────────────────────────────────
+//
+// These used the BROWSER'S zone, and the second one's comment claimed it
+// matched the create form. It did not: AdminEvents sent the wall clock as
+// Mauritius time, this sent it as whatever the editing device was set to. The
+// same typed time produced two different instants depending on which screen
+// you used, and opening the edit panel on a phone in another zone showed a
+// start time that was not the one saved — then moved the event on save.
+const toLocalInput = islandLocalFromIso;
+const toIso = islandIsoFromLocal;
 
 export default function EventEditPanel(p: Props) {
   const [name, setName] = useState(p.eventName);

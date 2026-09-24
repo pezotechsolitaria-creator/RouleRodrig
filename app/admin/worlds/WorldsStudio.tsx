@@ -37,6 +37,7 @@ import {
 } from "./fields";
 import { CURATED_ICON_KEYS } from "@/components/world-page/icons";
 import { parseVideoUrl } from "@/lib/video";
+import { islandIsoFromLocal } from "@/lib/island-time";
 
 export interface StudioProps {
   scope: { kind: "admin" | "editor"; name: string; worlds: WorldId[] };
@@ -399,7 +400,7 @@ export default function WorldsStudio(props: StudioProps) {
               onChange={(e) => setScheduleAt(e.target.value)}
             />
             <button
-              onClick={() => void act("schedule", { at: new Date(scheduleAt).toISOString() })}
+              onClick={() => void act("schedule", { at: islandIsoFromLocal(scheduleAt) })}
               disabled={!scheduleAt || !hasDraft || busy === "schedule"}
               className="font-dm text-[11px] text-yellow disabled:opacity-40"
             >

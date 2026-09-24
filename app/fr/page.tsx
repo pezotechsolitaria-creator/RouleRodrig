@@ -9,6 +9,7 @@ import { breadcrumbLd, itemListLd } from "@/lib/schema";
 import { SITE_URL } from "@/lib/site";
 import { getContent } from "@/lib/content";
 import { FR_PAGES } from "@/lib/nav/hubs";
+import { ogImages } from "@/lib/share-image";
 
 export const revalidate = 3600;
 
@@ -41,6 +42,7 @@ export const metadata: Metadata = {
     description: DESCRIPTION,
     url: `${SITE_URL}/fr`,
     locale: "fr_FR",
+    images: ogImages(),
   },
 };
 

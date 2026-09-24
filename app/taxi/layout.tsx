@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { ogImages } from "@/lib/share-image";
 
 export const metadata: Metadata = {
   title: "Taxi & Transport on Rodrigues Island | Roule Rodrigues",
@@ -22,6 +23,7 @@ export const metadata: Metadata = {
       "Trusted local drivers for airport transfers, island tours and point-to-point rides on Rodrigues.",
     url: "/taxi",
     type: "website",
+    images: ogImages(),
   },
 };
 
