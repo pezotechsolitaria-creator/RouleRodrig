@@ -42,9 +42,12 @@ export default function RentalConditions({ items }: { items: ConditionItem[] }) 
 
   return (
     <div className="bg-dark-card border border-dark-border rounded-2xl p-6">
-      <p className="font-bebas text-yellow text-[10px] tracking-[0.3em] mb-4 flex items-center gap-2">
+      {/* h2: this panel is the page's rental-terms section and carries the
+          questions the FAQPage markup points at. A styled <p> left the whole
+          block outside the document outline. */}
+      <h2 className="font-bebas text-yellow text-[10px] tracking-[0.3em] mb-4 flex items-center gap-2">
         <ShieldCheck size={13} /> {L.title}
-      </p>
+      </h2>
       <ul className="divide-y divide-white/5">
         {items.map((item) => {
           const isOpen = open === item.id;

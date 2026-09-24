@@ -129,6 +129,30 @@ export default async function VehiclePage({ params }: Props) {
               url,
             }),
           },
+          // ── FAQPage, and it is honest here ────────────────────────────
+          // Google requires the questions to be VISIBLE on the page carrying
+          // the markup. They are: <RentalConditions items={conditions} />
+          // below renders this exact array, from the same pickConditions()
+          // call, so the structured data and the readable panel cannot drift.
+          //
+          // This is the opposite of the fault the category page fixed: there,
+          // FAQPage was published on /browse/stays and /browse/tours for eight
+          // driving-licence questions that appeared nowhere in the text. Here
+          // the panel was already on the page and the markup was missing.
+          ...(conditions.length
+            ? [
+                {
+                  "@context": "https://schema.org",
+                  "@type": "FAQPage",
+                  "@id": `${url}#faq`,
+                  mainEntity: conditions.map((f) => ({
+                    "@type": "Question",
+                    name: f.question,
+                    acceptedAnswer: { "@type": "Answer", text: f.answer },
+                  })),
+                },
+              ]
+            : []),
         ]}
       />
 
@@ -222,7 +246,14 @@ export default async function VehiclePage({ params }: Props) {
             const base = Math.round(tiers[0].b.rental / tiers[0].d);
             return (
               <div className="mt-6 rounded-2xl border border-dark-border bg-dark-card p-6">
-                <p className="mb-4 font-bebas text-[10px] tracking-[0.3em] text-yellow">RATES</p>
+                {/* An h2, not a styled <p>. These four sections have always
+                    existed on this page and none of them was a heading, so a
+                    crawl saw 264-305 words of prose with ZERO structure on the
+                    seven pages where somebody actually decides to rent. The
+                    look is unchanged; the outline is not. */}
+                <h2 className="mb-4 font-bebas text-[10px] tracking-[0.3em] text-yellow">
+                  What it costs to hire
+                </h2>
                 <ul className="divide-y divide-white/5">
                   {tiers.map(({ d, b }) => {
                     const perDay = Math.round(b.rental / d);
@@ -258,7 +289,9 @@ export default async function VehiclePage({ params }: Props) {
 
           {item.included?.length ? (
             <div className="mt-6 rounded-2xl border border-dark-border bg-dark-card p-6">
-              <p className="mb-4 font-bebas text-[10px] tracking-[0.3em] text-yellow">INCLUDED</p>
+              <h2 className="mb-4 font-bebas text-[10px] tracking-[0.3em] text-yellow">
+                What is included
+              </h2>
               <ul className="space-y-2">
                 {item.included.map((inc) => (
                   <li key={inc} className="flex items-center gap-2.5 font-dm text-xs text-offwhite/75">
@@ -287,9 +320,9 @@ export default async function VehiclePage({ params }: Props) {
               each verified 200 before being linked. A "related content" widget
               that guesses is how sites end up linking a car to a hiking trail. */}
           <div className="mt-8">
-            <p className="mb-3 font-bebas text-[10px] tracking-[0.3em] text-muted">
-              WHERE PEOPLE TAKE IT
-            </p>
+            <h2 className="mb-3 font-bebas text-[10px] tracking-[0.3em] text-muted">
+              Where people take it
+            </h2>
             <div className="grid gap-2 sm:grid-cols-3">
               {(category === "car"
                 ? [
