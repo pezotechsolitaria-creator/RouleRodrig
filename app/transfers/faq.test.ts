@@ -46,9 +46,24 @@ describe("it never quotes a fare it could not read", () => {
   });
 
   it("puts the fare inside the conditional entry, not the static ones", () => {
+    // M220: the answer is now the three zone fares, read from the price list.
     const gated = SRC.slice(SRC.indexOf("...(airport"), SRC.indexOf("q: \"Can I book an airport transfer"));
     expect(gated).toContain("How much is a transfer");
-    expect(gated).toContain("${airport}");
+    expect(gated).toContain("money(airport.oneWay[0])");
+    expect(gated).toContain("money(airport.oneWay[2])");
+  });
+
+  it("asks the Port Mathurin question only when that place was read", () => {
+    // The most common airport destination, and the query people type. Its
+    // zone and road distance come from the database, so the question exists
+    // only when the database answered.
+    expect(SRC).toMatch(/\.\.\.\(portMathurin\s*\n?\s*\? \[/);
+    expect(SRC).toContain("portMathurin.roadKm");
+    expect(SRC).toContain("airport.oneWay[portMathurin.zone - 1]");
+  });
+
+  it("explains the night rule only when there is one", () => {
+    expect(SRC).toMatch(/\.\.\.\(night\s*\n?\s*\? \[/);
   });
 
   it("keeps the questions that need no price unconditional", () => {

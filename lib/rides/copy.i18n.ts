@@ -185,6 +185,40 @@ const EN = {
       distance: (km: number) => `about ${km} km`,
       duration: (min: number) => `~${min} min`,
     },
+    // M220 · Airport transfers are priced by zone, one way or as a return
+    // package. Every NUMBER on these lines comes from the quote; the words
+    // only arrange them.
+    transfer: {
+      tripGroupLabel: "Type of trip",
+      oneWay: "One way",
+      returnPackage: "Return package",
+      returnBlurb: "Both trips booked together, priced per direction.",
+      // The return leg runs the other way, so the question depends on which
+      // way the first trip goes.
+      returnWhenLabelToAirport: "WHEN SHOULD WE COLLECT YOU FOR YOUR FLIGHT HOME?",
+      returnWhenLabelFromAirport: "WHEN DO YOU LAND BACK?",
+      returnFlightLabel: "RETURN FLIGHT NUMBER (OPTIONAL)",
+      returnNeedsTime: "Choose when the return trip is.",
+      zone: (n: number) => `Zone ${n}`,
+      fromAirport: (km: number) => `${km} km from the airport by road`,
+      outbound: "First trip",
+      returnLeg: "Return trip",
+      each: "each way",
+      total: "Total for both trips",
+      extraPeople: (n: number, fee: string) =>
+        `includes ${fee} for ${n} extra ${n === 1 ? "person" : "people"}`,
+      nightManual: (window: string) =>
+        `Evening and night transfers (${window}) are priced by hand. We'll call you to agree the fare before a driver is sent.`,
+      groupManual:
+        "For a group this size we confirm the vehicle and the fare with you first.",
+      byHand: "We'll confirm",
+      nightIncluded: "night rate included",
+      payEachDriver: "You pay each driver for their own trip, in cash.",
+      priceChanged:
+        "The price changed while you were booking. Check the new fare and tap the button again.",
+      alreadyBooked: "This trip is already booked — check your reference.",
+      returnReferenceEyebrow: "RETURN TRIP REFERENCE",
+    },
     cta: {
       back: "Back",
       continue: "Continue",
@@ -438,6 +472,35 @@ const FR: RidesCopy = {
       distance: (km: number) => `environ ${km} km`,
       duration: (min: number) => `~${min} min`,
     },
+    transfer: {
+      tripGroupLabel: "Type de trajet",
+      oneWay: "Aller simple",
+      returnPackage: "Forfait aller-retour",
+      returnBlurb: "Les deux trajets réservés ensemble, au tarif par sens.",
+      returnWhenLabelToAirport: "QUAND VENIR VOUS CHERCHER POUR VOTRE VOL RETOUR ?",
+      returnWhenLabelFromAirport: "QUAND ATTERRISSEZ-VOUS AU RETOUR ?",
+      returnFlightLabel: "NUMÉRO DU VOL RETOUR (FACULTATIF)",
+      returnNeedsTime: "Choisissez la date du trajet retour.",
+      zone: (n: number) => `Zone ${n}`,
+      fromAirport: (km: number) => `${km} km de l’aéroport par la route`,
+      outbound: "Aller",
+      returnLeg: "Retour",
+      each: "par trajet",
+      total: "Total des deux trajets",
+      extraPeople: (n: number, fee: string) =>
+        `dont ${fee} pour ${n} personne${n === 1 ? "" : "s"} de plus`,
+      nightManual: (window: string) =>
+        `Les transferts du soir et de nuit (${window}) sont tarifés au cas par cas. Nous vous appellerons pour convenir du prix avant d’envoyer un chauffeur.`,
+      groupManual:
+        "Pour un groupe de cette taille, nous confirmons d’abord le véhicule et le prix avec vous.",
+      byHand: "À confirmer",
+      nightIncluded: "tarif de nuit inclus",
+      payEachDriver: "Vous payez chaque chauffeur pour son trajet, en espèces.",
+      priceChanged:
+        "Le prix a changé pendant votre réservation. Vérifiez le nouveau tarif et appuyez à nouveau sur le bouton.",
+      alreadyBooked: "Ce trajet est déjà réservé — vérifiez votre référence.",
+      returnReferenceEyebrow: "RÉFÉRENCE DU RETOUR",
+    },
     cta: {
       back: "Retour",
       continue: "Continuer",
@@ -683,6 +746,35 @@ const CR: RidesCopy = {
       paidToDriver: "Peye direk ar ou sofer",
       distance: (km: number) => `apepre ${km} km`,
       duration: (min: number) => `~${min} min`,
+    },
+    transfer: {
+      tripGroupLabel: "Ki kalite trazé",
+      oneWay: "Enn sel sans",
+      returnPackage: "Aler-retour",
+      returnBlurb: "Le de trazé rezerve ansam, pri par sans.",
+      returnWhenLabelToAirport: "KAN NOU VINN ROD OU POU OU VOL RETOUR?",
+      returnWhenLabelFromAirport: "KAN OU ATERI LOR RETOUR?",
+      returnFlightLabel: "NIMERO VOL RETOUR (SI OU KONN LI)",
+      returnNeedsTime: "Swazir kan trazé retour la ete.",
+      zone: (n: number) => `Zonn ${n}`,
+      fromAirport: (km: number) => `${km} km depi erport par larout`,
+      outbound: "Aler",
+      returnLeg: "Retour",
+      each: "par trazé",
+      total: "Total pou le de trazé",
+      extraPeople: (n: number, fee: string) =>
+        `ladan ${fee} pou ${n} dimounn anplis`,
+      nightManual: (window: string) =>
+        `Pri bann transfer aswar ek lanwit (${window}) nou fix li avek ou. Nou pou apel ou pou tom dakor lor pri la avan nou avoy enn sofer.`,
+      groupManual:
+        "Pou enn group sa gran-la, nou konfirm loto ek pri la avek ou avan.",
+      byHand: "Pou konfirme",
+      nightIncluded: "tarif lanwit ladan",
+      payEachDriver: "Ou pey sak sofer pou so trazé, an kas.",
+      priceChanged:
+        "Pri la finn sanze pandan ou ti pe rezerve. Get nouvo pri la ek pes lor bouton la ankor.",
+      alreadyBooked: "Sa trazé-la deza rezerve — get ou referans.",
+      returnReferenceEyebrow: "REFERANS RETOUR",
     },
     cta: {
       back: "Retour",

@@ -10,7 +10,10 @@ import {
   RIDE_SERVICES,
   RIDE_SERVICE_META,
   formatRidePrice,
+  pickupTimeLabel,
 } from "@/lib/rides/model";
+import { TRIP_TYPES } from "@/lib/rides/transfer";
+import { quoteAirportTransfer } from "@/lib/rides/transfer-server";
 
 // ── THE CUSTOMER'S OWN BOOKING ──────────────────────────────────────────────
 //
@@ -65,7 +68,28 @@ const bookSchema = z.object({
         "That doesn't look like a number your driver can call. A Mauritian number has 8 digits — check it and try again.",
     }),
   email: z.string().trim().email().max(160).optional().or(z.literal("")),
+  // ── M220 · AN AIRPORT TRANSFER IS BOOKED FROM ITS QUOTE ──────────────────
+  // The id of the ride_quotes row the screen showed. create_ride_request()
+  // checks it field for field against this booking and refuses a mismatch, so
+  // the id is a claim the browser cannot turn into a different price.
+  quoteId: z.string().uuid().nullable().optional(),
+  tripType: z.enum(TRIP_TYPES).default("one_way"),
+  returnAt: z.string().datetime({ offset: true }).nullable().optional(),
+  returnFlightRef: z.string().trim().max(40).optional(),
+  // What the customer was SHOWN, per leg, in minor units — never charged,
+  // only compared. If their quote expired while they typed their name, a fresh
+  // quote at the same numbers books silently; a different number comes back
+  // to them to confirm instead of being charged unseen.
+  shownFares: z.array(z.number().int().min(0).nullable()).max(2).optional(),
 })
+  .refine((v) => v.tripType === "one_way" || v.service === "airport", {
+    path: ["tripType"],
+    message: "Return packages are for airport transfers.",
+  })
+  .refine((v) => v.tripType === "one_way" || !!v.returnAt, {
+    path: ["returnAt"],
+    message: "Choose when the return trip is.",
+  })
   // ── AN ARRIVAL RUN CARRIES ITS FLIGHT OR FERRY NUMBER ─────────────────────
   //
   // Required in the form, and required here too, because the form is a
@@ -109,7 +133,8 @@ export async function POST(req: NextRequest) {
   const v = parsed.data;
 
   const admin = await getPrivileged();
-  const { data, error } = await admin.rpc("create_ride_request", {
+  const isReturn = v.service === "airport" && v.tripType === "return";
+  const args = {
     p_service: v.service,
     p_when_kind: v.whenKind,
     p_scheduled_at: v.whenKind === "scheduled" ? (v.scheduledAt ?? null) : null,
@@ -139,13 +164,60 @@ export async function POST(req: NextRequest) {
     // ever store keystrokes the rule had already rejected.
     p_customer_phone: toE164National(v.phone),
     p_customer_email: v.email || null,
-  });
+    // M220. Ignored by every service but the airport.
+    p_quote_id: v.service === "airport" ? (v.quoteId ?? null) : null,
+    p_trip_type: isReturn ? "return" : "one_way",
+    p_return_at: isReturn ? (v.returnAt ?? null) : null,
+    p_return_flight_ref: isReturn ? (v.returnFlightRef || null) : null,
+  };
+
+  let { data, error } = await admin.rpc("create_ride_request", args);
+
+  // ── A QUOTE THAT WENT STALE WHILE THEY TYPED ─────────────────────────────
+  // RR097 is create_ride_request() refusing the quote: expired (30 minutes is
+  // the price list's default), or no longer matching the trip. Re-quote from
+  // THIS booking's own details. If every leg comes back at the number the
+  // customer was shown, nothing changed for them and the booking goes through;
+  // if anything differs, the new quote goes back to the screen to be agreed.
+  // `used` is a double submit — the first one booked — and is never retried.
+  if (error?.code === "RR097" && v.service === "airport" && error.hint !== "used") {
+    const fresh = await quoteAirportTransfer(admin, {
+      pickupLat: v.pickupLat ?? null,
+      pickupLng: v.pickupLng ?? null,
+      dropoffLat: v.dropoffLat ?? null,
+      dropoffLng: v.dropoffLng ?? null,
+      passengers: v.passengers,
+      tripType: isReturn ? "return" : "one_way",
+      outboundAt: v.whenKind === "scheduled" ? (v.scheduledAt ?? null) : null,
+      returnAt: isReturn ? (v.returnAt ?? null) : null,
+    });
+    const q = fresh.data as { ok?: boolean; quoteId?: string; legs?: { fare: number | null }[] } | null;
+    const freshFares = (q?.legs ?? []).map((l) => l.fare ?? null);
+    const shown = v.shownFares ?? [];
+    const same =
+      !!q?.ok && !!q.quoteId &&
+      freshFares.length === shown.length &&
+      freshFares.every((f, i) => f === shown[i]);
+    if (!same) {
+      return NextResponse.json(
+        { error: "price_changed", quote: q?.ok ? q : null },
+        { status: 409 },
+      );
+    }
+    ({ data, error } = await admin.rpc("create_ride_request", { ...args, p_quote_id: q!.quoteId! }));
+  }
 
   if (error) {
     // RR095 is the function refusing bad input with a sentence a customer can act
     // on ("that time has already passed"), not a crash.
     if (error.code === "RR095") {
       return NextResponse.json({ error: error.message }, { status: 400 });
+    }
+    if (error.code === "RR097") {
+      return NextResponse.json(
+        { error: error.hint === "used" ? "already_booked" : "price_changed" },
+        { status: 409 },
+      );
     }
     console.error("create_ride_request failed", error);
     return NextResponse.json(
@@ -166,10 +238,30 @@ export async function POST(req: NextRequest) {
   // still succeed if Brevo is down. Same guarantee as app/api/bookings.
   const created = (data ?? {}) as {
     reference?: string | null;
+    returnReference?: string | null;
     price?: number | null;
+    zone?: number | null;
+    farePending?: boolean;
+    legs?: { leg: string; price: number | null; at: string | null; farePending: boolean }[];
   };
+  const outboundLeg = created.legs?.find((l) => l.leg === "outbound");
+  const returnLeg = created.legs?.find((l) => l.leg === "return");
   try {
     await sendRideEmails({
+      // M220 · Zone, the second trip of a return package, and a fare the owner
+      // still has to set. All absent for every service but the airport.
+      zone: created.zone ?? null,
+      farePending: created.farePending === true,
+      legPrice: outboundLeg?.price ?? null,
+      returnTrip: returnLeg
+        ? {
+            reference: created.returnReference ?? null,
+            at: returnLeg.at ?? v.returnAt ?? null,
+            flightRef: v.returnFlightRef || null,
+            price: returnLeg.price ?? null,
+            farePending: returnLeg.farePending,
+          }
+        : null,
       reference: created.reference ?? null,
       service: v.service,
       whenKind: v.whenKind,
@@ -239,7 +331,19 @@ export async function POST(req: NextRequest) {
           // The SERVER's price, never one the caller sent — the same rule the
           // RPC and the email follow. Minor units, so the shared formatter
           // divides rather than this file doing arithmetic on money.
+          created.zone ? `Zone ${created.zone}${returnLeg ? " · return package" : " · one way"}` : null,
+          // A return package is two rides on two days, each with its own fare
+          // and its own driver — say both, not only the total.
+          returnLeg
+            ? `Fares: ${formatRidePrice(outboundLeg?.price ?? null)} + ${formatRidePrice(returnLeg.price)} return`
+            : null,
           created.price != null ? `Price: ${formatRidePrice(created.price)}` : null,
+          returnLeg
+            ? `Return: ${pickupTimeLabel("scheduled", returnLeg.at ?? v.returnAt ?? null)}${created.returnReference ? ` · ${created.returnReference}` : ""}${v.returnFlightRef ? ` · ${v.returnFlightRef}` : ""}`
+            : null,
+          // M220 · Night (or a large group): booked, and NOT offered to drivers
+          // until somebody sets the fare. This alert is the owner's cue.
+          created.farePending ? "⚠️ SET THE FARE — no driver is asked until you do" : null,
           v.flightRef ? `Flight: ${v.flightRef}` : null,
           v.meetGreet ? "Meet & greet requested" : null,
           v.notes ? `Note: ${v.notes}` : null,

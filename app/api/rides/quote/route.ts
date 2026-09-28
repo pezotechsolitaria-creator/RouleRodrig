@@ -3,6 +3,8 @@ import { z } from "zod";
 import { getPrivileged, hasServiceRole } from "@/lib/supabase/admin";
 import { guard } from "@/lib/rate-limit";
 import { RIDE_SERVICES } from "@/lib/rides/model";
+import { TRIP_TYPES } from "@/lib/rides/transfer";
+import { quoteAirportTransfer } from "@/lib/rides/transfer-server";
 
 // ── WHAT WILL THIS COST? ────────────────────────────────────────────────────
 //
@@ -25,6 +27,11 @@ const quoteSchema = z.object({
   passengers: z.number().int().min(1).max(20).default(1),
   luggage: z.number().int().min(0).max(20).default(0),
   when: z.string().datetime({ offset: true }).nullable().optional(),
+  // M220 · Airport only. A return package is priced per direction and the
+  // return leg can fall in the night window on its own, so its time is part
+  // of the quote rather than a detail collected later.
+  tripType: z.enum(TRIP_TYPES).default("one_way"),
+  returnAt: z.string().datetime({ offset: true }).nullable().optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -47,6 +54,29 @@ export async function POST(req: NextRequest) {
   const v = parsed.data;
 
   const admin = await getPrivileged();
+
+  // ── AIRPORT: PRICED BY ZONE, AND WRITTEN DOWN ─────────────────────────────
+  // M220. The answer carries a quoteId, and the booking must present it: the
+  // price the customer is shown is a row in ride_quotes, not a number the
+  // browser can resend. A stale or altered quote is refused at booking.
+  if (v.service === "airport") {
+    const { data, error } = await quoteAirportTransfer(admin, {
+      pickupLat: v.pickupLat ?? null,
+      pickupLng: v.pickupLng ?? null,
+      dropoffLat: v.dropoffLat ?? null,
+      dropoffLng: v.dropoffLng ?? null,
+      passengers: v.passengers,
+      tripType: v.tripType,
+      outboundAt: v.when ?? null,
+      returnAt: v.tripType === "return" ? (v.returnAt ?? null) : null,
+    });
+    if (error) {
+      console.error("quote_airport_transfer failed", error);
+      return NextResponse.json({ ok: false, reason: "error" }, { status: 500 });
+    }
+    return NextResponse.json(data);
+  }
+
   const { data, error } = await admin.rpc("quote_ride", {
     p_service: v.service,
     p_pickup_lat: v.pickupLat ?? null,

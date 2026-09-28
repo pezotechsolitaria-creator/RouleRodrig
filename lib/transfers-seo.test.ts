@@ -12,9 +12,10 @@ const strip = (s: string) => s.replace(/^\s*\/\/.*$/gm, "");
 
 // ── THE PRICE THAT WAS NOWHERE ──────────────────────────────────────────────
 //
-// ride_pricing has held flat_fare = 180000 for `airport` and 120000 for
-// `ferry` since 2026-08-13 — Rs 1,800 and Rs 1,200. quote_ride() returns those
-// unchanged, so they are what a customer is actually charged.
+// ride_pricing held flat_fare = 180000 for `airport` and 120000 for `ferry`
+// from 2026-08-13 — Rs 1,800 and Rs 1,200. Since M220 (2026-09-29) the airport
+// is priced by zone from transfer_pricing_versions; the ferry keeps its flat
+// fare. Either way, what the page states is what the booking charges.
 //
 // They appeared in NO indexable HTML anywhere on the site. /transfers, the page
 // that owns "airport transfer Rodrigues", rendered 771 characters with no
@@ -23,8 +24,30 @@ const strip = (s: string) => s.replace(/^\s*\/\/.*$/gm, "");
 describe("the airport transfer page states its price", () => {
   it("reads the fare rather than hardcoding it", () => {
     // A literal here would drift the moment the owner edits it in /admin.
-    expect(TRANSFERS).toContain("readFlatFares");
-    expect(strip(TRANSFERS)).not.toMatch(/1,?800/);
+    // M220: the airport is priced by zone now — Rs 1,200 / 1,500 / 2,000 one
+    // way, 1,700 each way on a Zone 3 return, 150 per extra passenger — and
+    // not one of those numbers, nor the retired flat 1,800, may be typed here.
+    expect(TRANSFERS).toContain("readTransferFares");
+    expect(strip(TRANSFERS)).not.toMatch(/\b(1,?200|1,?500|1,?700|1,?800|2,?000)\b/);
+  });
+
+  it("does not type the zone lines either", () => {
+    // "up to 7 km" is the price list's zone1MaxKm, not a sentence. If the owner
+    // moves a line in /admin, the page must move with it.
+    // Block comments stripped too: the helper's own doc comment quotes the
+    // phrase it builds.
+    expect(strip(TRANSFERS.replace(/\/\*[\s\S]*?\*\//g, ""))).not.toMatch(/\b(7|15) km\b/);
+    expect(TRANSFERS).toContain("p.zone1MaxKm");
+    expect(TRANSFERS).toContain("p.zone2MaxKm");
+  });
+
+  it("zones the named places in the database, not in the page", () => {
+    // transfer_price_sheet() computes each place's zone with the function
+    // that charges. A second copy of the lines in TypeScript is how the page
+    // comes to say Zone 2 while the booking charges Zone 3.
+    expect(FARES).toContain("readTransferPricing");
+    expect(read("lib", "rides", "transfer-server.ts")).toContain('rpc("transfer_price_sheet")');
+    expect(read("lib", "rides", "transfer.ts")).not.toMatch(/function zoneFor/);
   });
 
   it("renders nothing about price when the fare could not be read", () => {
@@ -60,7 +83,9 @@ describe("the airport transfer page carries structured data", () => {
   });
 
   it("prices the Offer only when the fare is known", () => {
-    expect(TRANSFERS).toMatch(/fares\.airport != null/);
+    // M220: an AggregateOffer across the three zones, one Offer per zone.
+    expect(TRANSFERS).toMatch(/airport != null && oneWayLow != null/);
+    expect(TRANSFERS).toMatch(/"@type": "AggregateOffer"/);
     expect(TRANSFERS).toMatch(/"@type": "Offer"/);
     expect(TRANSFERS).toMatch(/priceCurrency: "MUR"/);
   });

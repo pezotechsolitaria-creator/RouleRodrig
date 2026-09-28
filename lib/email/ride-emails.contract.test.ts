@@ -171,6 +171,52 @@ describe("the emails a ride request sends", () => {
       /\b(null|undefined|NaN)\b/,
     );
   });
+
+  // ── M220 · priced by zone ────────────────────────────────────────────────
+  it("spells out both trips of a return package, with both references", async () => {
+    // Two rides on two days, two drivers, two fares. A confirmation that gave
+    // only the total would leave the customer not knowing what to pay whom.
+    const { sendRideEmails } = await import("@/lib/email");
+    await sendRideEmails({
+      ...RIDE,
+      passengers: 2,
+      price: 370000,
+      legPrice: 185000,
+      zone: 3,
+      returnTrip: {
+        reference: "RR-9C1B22",
+        at: "2026-09-07T14:00:00+04:00",
+        flightRef: "MK 235",
+        price: 185000,
+        farePending: false,
+      },
+    });
+    const customer = ofType("ride_request_confirmation")!;
+    expect(customer.html).toContain("Zone 3");
+    expect(customer.html).toContain("RR-9C1B22");
+    expect(customer.html).toContain("MK 235");
+    expect(customer.html).toContain("Rs 1,850");
+    expect(customer.html).toContain("Rs 3,700");
+    expect(customer.html).toMatch(/14:00/);
+  });
+
+  it("does not tell a night customer a driver is being found when none is asked yet", async () => {
+    // A night transfer is held from dispatch until the owner sets its fare.
+    // "We're offering it to drivers now" would be untrue, and the owner has to
+    // be told, loudly, that nothing moves until he acts.
+    const { sendRideEmails } = await import("@/lib/email");
+    await sendRideEmails({ ...RIDE, price: null, zone: 2, farePending: true });
+    const customer = ofType("ride_request_confirmation")!;
+    expect(customer.html).toContain("we'll call you to agree the fare");
+    expect(customer.html).not.toContain("we're offering it to drivers now");
+    expect(customer.html).toContain("To be confirmed with you before a driver is sent");
+    const owner = ofType("owner_ride_alert")!;
+    expect(owner.html).toContain("Set the fare.");
+    expect(owner.html).toContain("No driver is offered it until you set the fare");
+    expect(owner.html, "a missing field leaked into the email").not.toMatch(
+      /\b(null|undefined|NaN)\b/,
+    );
+  });
 });
 
 describe("the enquiry the owner never heard about", () => {

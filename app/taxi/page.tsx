@@ -475,7 +475,7 @@ export default function TaxiPage() {
           </Link>
           {/* /transfers, not /taxi/book?service=airport. Both open the same
               wizard on the same service -- but /transfers is the URL that owns
-              the airport metadata, the flat fare and the Service schema, and
+              the airport metadata, the zone fares and the Service schema, and
               it had exactly TWO inbound links on the whole site while this hub,
               its most natural parent, sent its airport traffic past it. A
               landing page nothing links to cannot rank for the thing it is

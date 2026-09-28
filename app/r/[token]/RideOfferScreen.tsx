@@ -43,7 +43,11 @@ type Offer = {
   notes?: string | null;
   flightRef?: string | null;
   meetGreet?: boolean;
+  /** The driver's share (M220: driver_pay). What "YOU EARN" means. */
   price?: number | null;
+  /** What the CUSTOMER pays — in cash, to this driver. Differs from price
+   *  only when Roulé takes a commission. */
+  fare?: number | null;
   currency?: string;
   expiresAt?: string;
   customerName?: string | null;
@@ -234,6 +238,14 @@ export default function RideOfferScreen({ token }: { token: string }) {
         <p className="mt-0.5 font-syne text-3xl font-extrabold text-offwhite">
           {formatRidePrice(offer.price, offer.currency)}
         </p>
+        {/* The customer pays the driver in cash, so once a commission exists
+            the driver must know BOTH numbers: what to ask for, and what is
+            theirs to keep. Hidden while they are the same. */}
+        {offer.fare != null && offer.price != null && offer.fare !== offer.price && (
+          <p className="mt-1 font-dm text-xs text-muted">
+            Customer pays {formatRidePrice(offer.fare, offer.currency)} in cash
+          </p>
+        )}
       </div>
 
       <div className="mt-4 space-y-3 rounded-2xl border border-white/10 bg-dark-card p-5">

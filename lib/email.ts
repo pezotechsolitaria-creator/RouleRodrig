@@ -2351,6 +2351,21 @@ interface RideEmailData {
   name: string;
   phone: string;
   email: string | null;
+  // ── M220 · airport transfers priced by zone ──
+  /** 1–3. Only an airport transfer has one. */
+  zone?: number | null;
+  /** Night or a large group: booked, fare still to be agreed. */
+  farePending?: boolean;
+  /** A return package's FIRST trip on its own; `price` is then both together. */
+  legPrice?: number | null;
+  /** The second ride of a return package — its own reference, day and fare. */
+  returnTrip?: {
+    reference: string | null;
+    at: string | null;
+    flightRef: string | null;
+    price: number | null;
+    farePending: boolean;
+  } | null;
 }
 
 /** Bilingual "Label EN · Label FR" rows, shared by both ride emails exactly as
@@ -2387,11 +2402,36 @@ function rideRows(b: RideEmailData): string {
     pairs.push(["Flight / ferry · Vol ou ferry", escapeHtml(b.flightRef)]);
   if (b.meetGreet)
     pairs.push(["Meet & greet · Accueil à l'arrivée", "Yes · Oui"]);
+  if (b.zone) pairs.push(["Zone", `Zone ${b.zone}`]);
+  // A fare the owner still has to set is not "on request" in the vague sense:
+  // it is a specific promise — agreed with them before any driver is sent.
+  const pending = "To be confirmed with you before a driver is sent · À confirmer avec vous avant l'envoi d'un chauffeur";
+  if (b.returnTrip) {
+    const r = b.returnTrip;
+    pairs.push([
+      "Return trip · Retour",
+      [
+        r.at ? pickupTimeLabel("scheduled", r.at) : null,
+        r.flightRef ? escapeHtml(r.flightRef) : null,
+        r.reference ? `<b>${r.reference}</b>` : null,
+      ].filter(Boolean).join(" · "),
+    ]);
+    pairs.push([
+      "First trip · Aller",
+      b.legPrice != null ? formatRidePrice(b.legPrice) : pending,
+    ]);
+    pairs.push([
+      "Return trip price · Prix du retour",
+      r.price != null ? formatRidePrice(r.price) : pending,
+    ]);
+  }
   pairs.push([
-    "Price · Prix",
+    b.returnTrip ? "Total · Total" : "Price · Prix",
     b.price != null
       ? formatRidePrice(b.price)
-      : "Price on request · Prix sur demande",
+      : b.farePending
+        ? pending
+        : "Price on request · Prix sur demande",
   ]);
   return rows(pairs);
 }
@@ -2418,7 +2458,12 @@ export async function sendRideEmails(
   // phone rather than promising a reply to this message.
   if (b.email) {
     const body = `
-      ${paragraph(`Hi ${escapeHtml(b.name)}, we've received your ${what} request. This is a <strong>request</strong>, not a confirmed ride yet — we're offering it to drivers now, and one of them usually accepts within a few minutes.`)}
+      ${paragraph(
+        b.farePending
+          ? // M220 · Not offered to drivers yet, so do not say it is.
+            `Hi ${escapeHtml(b.name)}, we've received your ${what} request. Evening and night transfers are priced by hand, so <strong>we'll call you to agree the fare</strong> before a driver is sent. Nothing is charged until you agree.`
+          : `Hi ${escapeHtml(b.name)}, we've received your ${what} request. This is a <strong>request</strong>, not a confirmed ride yet — we're offering it to drivers now, and one of them usually accepts within a few minutes.`,
+      )}
       ${sectionLabel("Your ride · Votre course")}
       ${detailCard(rideRows(b))}
       ${paragraph(`We'll reach you on <strong>${escapeHtml(b.phone)}</strong> — by call or WhatsApp — as soon as a driver takes it, and your driver will use that same number to find you. Please keep your phone nearby.`)}
@@ -2431,7 +2476,11 @@ export async function sendRideEmails(
       ${b.reference ? paragraph(`<span style="color:${C.muted};font-size:13px">You'll need your reference <b>${b.reference}</b> and the phone number above to open it.</span>`) : ""}
       ${sepFr()}
       ${frHeading("Nous cherchons votre chauffeur")}
-      ${paragraph(`Bonjour ${escapeHtml(b.name)}, nous avons bien reçu votre demande de course. Il s'agit d'une <strong>demande</strong>, pas encore d'une course confirmée — nous la proposons aux chauffeurs maintenant, et l'un d'eux l'accepte généralement en quelques minutes.`)}
+      ${paragraph(
+        b.farePending
+          ? `Bonjour ${escapeHtml(b.name)}, nous avons bien reçu votre demande de course. Les transferts du soir et de nuit sont tarifés au cas par cas : <strong>nous vous appellerons pour convenir du prix</strong> avant d'envoyer un chauffeur. Rien n'est débité sans votre accord.`
+          : `Bonjour ${escapeHtml(b.name)}, nous avons bien reçu votre demande de course. Il s'agit d'une <strong>demande</strong>, pas encore d'une course confirmée — nous la proposons aux chauffeurs maintenant, et l'un d'eux l'accepte généralement en quelques minutes.`,
+      )}
       ${paragraph(`Nous vous joindrons au <strong>${escapeHtml(b.phone)}</strong> — par appel ou WhatsApp — dès qu'un chauffeur l'accepte, et il utilisera ce même numéro pour vous retrouver. Gardez votre téléphone à portée de main.`)}
       ${checkList([
         "Le nom et le numéro de votre chauffeur s'affichent sur la page de suivi dès qu'il accepte",
@@ -2485,6 +2534,11 @@ export async function sendRideEmails(
   const owner = await ownerInbox();
   if (owner) {
     const body = `
+      ${
+        b.farePending
+          ? paragraph(`<strong style="color:${C.ink}">⚠️ Set the fare.</strong> This ${label.toLowerCase()} falls in the night window or is a large group, so it is priced by hand. <strong>No driver is offered it until you set the fare</strong> in Rides — agree it with ${escapeHtml(b.name)} first.`)
+          : ""
+      }
       ${paragraph(`New <strong>${label}</strong> request from <strong>${escapeHtml(b.name)}</strong>. Drivers are being offered it automatically — open <strong>Rides</strong> in your admin dashboard to watch it, or to place it by hand if nobody accepts.`)}
       ${detailCard(
         rideRows(b) +

@@ -128,6 +128,14 @@ export type AttentionCounts = {
    * silently ignored, which is worse than the no-show it guards against.
    */
   ridesAwaitingCallback?: number;
+  /**
+   * Airport transfers booked in the night window (or for a large group) whose
+   * fare the owner has not set yet (M220).
+   *
+   * ACTION: no driver is offered one of these until the fare is set, so each
+   * is a customer — often somebody landing that evening — waiting on a call.
+   */
+  ridesAwaitingFare?: number;
 };
 
 /**
@@ -271,6 +279,10 @@ export function attentionItems(c: AttentionCounts): AttentionItem[] {
     {
       key: "rides-callback", label: "Taxi bookings held for a confirmation call",
       count: c.ridesAwaitingCallback ?? 0, severity: "action", href: "/admin/rides",
+    },
+    {
+      key: "rides-fare", label: "Airport transfers waiting for you to set the fare",
+      count: c.ridesAwaitingFare ?? 0, severity: "action", href: "/admin/rides",
     },
     {
       key: "taxi-no-shows", label: "Taxi no-shows in the last 30 days",

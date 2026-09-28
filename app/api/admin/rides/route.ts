@@ -57,6 +57,15 @@ const actionSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("assign"), rideId: z.string().uuid(), driverId: z.string().uuid() }),
   z.object({ action: z.literal("status"), rideId: z.string().uuid(), status: z.string().max(20), reason: z.string().trim().max(300).optional() }),
   z.object({ action: z.literal("sweep") }),
+  // M220 · A night or large-group transfer is booked with no fare and held
+  // from dispatch. The owner agrees a number with the customer and sets it
+  // here — RUPEES in, minor units to admin_set_ride_fare().
+  z.object({
+    action: z.literal("fare"),
+    rideId: z.string().uuid(),
+    rupees: z.number().min(1).max(100_000),
+    note: z.string().trim().max(300).optional(),
+  }),
 ]);
 
 export async function GET(req: NextRequest) {
@@ -98,7 +107,12 @@ export async function GET(req: NextRequest) {
             // phone was unreachable. It is optional on the form, so it is
             // often null — the card says so rather than showing a blank.
             "customer_name, customer_phone, customer_email, quoted_price, currency, status, driver_id, offer_rounds, " +
-            "created_at, assigned_at, flight_ref, meet_greet, taxi_drivers(name, phone, whatsapp)")
+            "created_at, assigned_at, flight_ref, meet_greet, " +
+            // M220 · the zone, the leg of a return package, the split between
+            // customer and driver, and whether the fare is still the owner's.
+            "trip_type, leg, package_id, transfer_zone, road_km, fare_pending, " +
+            "driver_earnings, platform_commission, driver_pay, " +
+            "taxi_drivers(name, phone, whatsapp)")
     .order("created_at", { ascending: false })
     .limit(200);
   if (scope === "open") q = q.in("status", OPEN_RIDE_STATUSES);
@@ -181,6 +195,25 @@ export async function PATCH(req: NextRequest) {
   const p = parsed.data;
   const admin = await getPrivileged();
 
+  if (p.action === "fare") {
+    const { data, error } = await admin.rpc("admin_set_ride_fare", {
+      p_request_id: p.rideId,
+      p_price: Math.round(p.rupees * 100),
+      p_note: p.note ?? null,
+    });
+    if (error) {
+      // RR093: already priced, or finished. RR095: not a fare. Both are the
+      // function refusing with a sentence, not a crash.
+      const code = error.code === "RR093" || error.code === "RR095" ? 409 : 500;
+      return NextResponse.json({ error: error.message }, { status: code });
+    }
+    await audit(admin, { action: "ride.fare_set", entityType: "ride_request", entityId: p.rideId,
+      diff: { rupees: p.rupees, note: p.note ?? null } });
+    // The hold is lifted in the same statement; auto-dispatch picks it up on
+    // its next tick, or the desk can press Dispatch now.
+    return NextResponse.json(data);
+  }
+
   if (p.action === "sweep") {
     const { data, error } = await admin.rpc("sweep_ride_offers");
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -198,7 +231,9 @@ export async function PATCH(req: NextRequest) {
     // Build the WhatsApp links here rather than in the browser: the message text
     // is the dispatch channel and belongs next to the model that defines it.
     const { data: ride } = await admin.from("ride_requests")
-      .select("service, pickup_label, dropoff_label, passengers, when_kind, scheduled_at, quoted_price")
+      // driver_pay, not quoted_price: the message says "You earn", and since
+      // M220 the driver's share and the customer's fare can differ.
+      .select("service, pickup_label, dropoff_label, passengers, when_kind, scheduled_at, driver_pay")
       .eq("id", p.rideId).maybeSingle();
 
     const targets = ((data as { targets?: Record<string, unknown>[] })?.targets ?? []).map((t) => {
@@ -212,7 +247,7 @@ export async function PATCH(req: NextRequest) {
         whenText: ride?.when_kind === "scheduled" && ride?.scheduled_at
           ? new Date(ride.scheduled_at).toLocaleString("en-GB", { timeZone: "Indian/Mauritius" })
           : "Now",
-        price: (ride?.quoted_price as number | null) ?? null,
+        price: (ride?.driver_pay as number | null) ?? null,
         acceptUrl: `${SITE_URL}/r/${t.token}`,
       });
       return {

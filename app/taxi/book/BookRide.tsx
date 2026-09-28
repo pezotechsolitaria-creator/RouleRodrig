@@ -33,6 +33,12 @@ import { RIDES_COPY } from "@/lib/rides/copy.i18n";
 import { toE164National } from "@/lib/phone";
 import { rideQuoteShown, rideRequestSubmitted } from "@/lib/analytics/flows";
 import { ISLAND_TZ, islandIsoFromLocal } from "@/lib/island-time";
+import {
+  isTransferQuote,
+  nightWindowLabel,
+  type TransferLeg,
+  type TripType,
+} from "@/lib/rides/transfer";
 
 // ── THE CUSTOMER BOOKS THEIR OWN RIDE ───────────────────────────────────────
 //
@@ -98,13 +104,22 @@ export type RideDirection = "to" | "from";
 
 type Quote = {
   ok: boolean;
-  price?: number;
+  price?: number | null;
   currency?: string;
   roadKm?: number | null;
   tripMinutes?: number | null;
   night?: boolean;
-  message?: string;
+  message?: string | null;
   reason?: string;
+  // ── M220 · an airport transfer answers with its zone and its legs ──
+  quoteId?: string;
+  zone?: number;
+  tripType?: TripType;
+  legs?: TransferLeg[];
+  total?: number | null;
+  needsManual?: boolean;
+  manualReasons?: ("night" | "group")[];
+  nightWindow?: { from: number; to: number };
 };
 
 /**
@@ -176,7 +191,22 @@ export default function BookRide({
   const [done, setDone] = useState<{
     reference: string;
     price: number | null;
+    returnReference?: string | null;
   } | null>(null);
+  // ── ONE WAY, OR BOTH WAYS AT ONCE ───────────────────────────────────────
+  // M220. Airport only. A return package is two rides on two days, booked and
+  // priced together (per direction), each dispatched on its own day.
+  const [tripType, setTripType] = useState<TripType>("one_way");
+  const [returnWhen, setReturnWhen] = useState("");
+  const [returnFlightRef, setReturnFlightRef] = useState("");
+  const isReturn = service === "airport" && tripType === "return";
+  // Declared HERE, above requote() which reads it, and above the early return
+  // for the booked screen. It used to sit below that return: any render of the
+  // done screen that re-created requote() closed over a binding that was never
+  // initialised, and the debounced re-quote then threw a ReferenceError
+  // ("Cannot access 'needsDropoff' before initialization") — seen in the
+  // console after a hot reload on the done screen.
+  const needsDropoff = service !== "private";
 
   const meta = RIDE_SERVICE_META[service];
   const fixedKey = FIXED_END_KEY[service];
@@ -245,6 +275,13 @@ export default function BookRide({
       setQuote(null);
       return;
     }
+    // A return package is priced per leg, and the return leg can fall in the
+    // night window on its own — so there is no honest price until its time is
+    // known. Nothing shown beats a number that changes when they fill it in.
+    if (isReturn && !returnWhen) {
+      setQuote(null);
+      return;
+    }
     setQuoting(true);
     try {
       const r = await fetch("/api/rides/quote", {
@@ -262,6 +299,9 @@ export default function BookRide({
           // new Date("2026-10-01T14:30") resolves in the BROWSER's zone, so a
           // phone still set to Paris booked a pickup two hours late.
           when: whenKind === "scheduled" ? islandIsoFromLocal(when) : null,
+          // M220 · Ignored by every service but the airport.
+          tripType: isReturn ? "return" : "one_way",
+          returnAt: isReturn ? islandIsoFromLocal(returnWhen) : null,
         }),
       });
       const quoted = await r.json();
@@ -274,7 +314,7 @@ export default function BookRide({
     } finally {
       setQuoting(false);
     }
-  }, [service, pickup, dropoff, passengers, luggage, whenKind, when]);
+  }, [service, pickup, dropoff, passengers, luggage, whenKind, when, isReturn, returnWhen]);
 
   useEffect(() => {
     const t = setTimeout(() => void requote(), 350);
@@ -307,9 +347,35 @@ export default function BookRide({
           // The completed form, not the raw text.
           phone: phoneE164 ?? phone,
           email: email || undefined,
+          // ── M220 · BOOKED FROM THE QUOTE THEY SAW ───────────────────────
+          // The id is the price: create_ride_request() reads the fare from the
+          // stored quote and refuses one that no longer matches this trip.
+          // shownFares is only ever COMPARED — if the quote expired while they
+          // typed, the server re-prices, and books only if nothing changed.
+          ...(service === "airport"
+            ? {
+                quoteId: quote?.quoteId ?? null,
+                tripType: isReturn ? "return" : "one_way",
+                returnAt: isReturn ? islandIsoFromLocal(returnWhen) : null,
+                returnFlightRef: isReturn ? returnFlightRef || undefined : undefined,
+                shownFares: (quote?.legs ?? []).map((l) => l.fare ?? null),
+              }
+            : {}),
         }),
       });
       const b = await r.json();
+      // The fare moved between the quote and the tap (a new price list, or a
+      // quote that went stale and came back different). Show the new one and
+      // let them tap again — never book a number they have not seen.
+      if (r.status === 409) {
+        if (b?.quote) setQuote(b.quote);
+        else void requote();
+        throw new Error(
+          b?.error === "already_booked"
+            ? c.transfer.alreadyBooked
+            : c.transfer.priceChanged,
+        );
+      }
       // ── BRACES. THIS BLOCK SHIPPED WITHOUT THEM AND BROKE EVERY BOOKING ──
       // The original was a brace-less single-statement if:
       //     if (!r.ok || !b.ok) throw new Error(b.error || "…");
@@ -331,7 +397,11 @@ export default function BookRide({
         direction: fixedKey ? direction : null,
         whenKind,
       });
-      setDone({ reference: b.reference, price: b.price ?? null });
+      setDone({
+        reference: b.reference,
+        price: b.price ?? null,
+        returnReference: b.returnReference ?? null,
+      });
     } catch (e) {
       setError(e instanceof Error ? e.message : c.errors.generic);
     } finally {
@@ -362,8 +432,21 @@ export default function BookRide({
           </p>
           {done.price != null && (
             <p className="mt-1 font-dm text-sm text-offwhite/85">
+              {done.returnReference ? `${c.transfer.total}: ` : ""}
               {formatRidePrice(done.price)}
             </p>
+          )}
+          {/* A return package is two rides, and each has its own reference —
+              the second is the one they will need on the way home. */}
+          {done.returnReference && (
+            <>
+              <p className="mt-4 font-bebas text-[11px] tracking-[0.28em] text-yellow">
+                {c.transfer.returnReferenceEyebrow}
+              </p>
+              <p className="font-syne text-2xl font-extrabold text-offwhite">
+                {done.returnReference}
+              </p>
+            </>
           )}
           <Link
             href={`/taxi/track?ref=${encodeURIComponent(done.reference)}&phone=${encodeURIComponent(phone)}`}
@@ -394,7 +477,7 @@ export default function BookRide({
   // received a trip nobody was taking. So the field is not rendered at all.
   // Every other service still needs it, and create_ride_request enforces the
   // same rule server-side (M98) — this is presentation, not the boundary.
-  const needsDropoff = service !== "private";
+  // (`needsDropoff` itself is declared above requote(), which reads it.)
   // A FLIGHT OR FERRY NUMBER IS REQUIRED, NOT A NICETY. It is the only way the
   // driver learns the plane is two hours late; without it an airport run turns
   // into a 5am phone call, or a driver waiting at the terminal for nobody.
@@ -405,6 +488,7 @@ export default function BookRide({
     !!pickup &&
     (!needsDropoff || !!dropoff) &&
     (whenKind === "now" || !!when) &&
+    (!isReturn || !!returnWhen) &&
     flightRefOk;
   // ── A NUMBER A DRIVER CAN ACTUALLY RING ─────────────────────────────────
   // The gate was `phone.trim().length > 4`, which accepts "705", "abc12" and
@@ -523,6 +607,42 @@ export default function BookRide({
             </div>
           )}
 
+          {/* ── ONE WAY OR A RETURN PACKAGE ──────────────────────────────
+              M220. The same two 48px halves as the direction pair above it,
+              because it is the same kind of question: the shape of the
+              journey, answered before where and when. */}
+          {service === "airport" && (
+            <div>
+              <div
+                role="group"
+                aria-label={c.transfer.tripGroupLabel}
+                className="grid grid-cols-2 gap-2"
+              >
+                {(["one_way", "return"] as TripType[]).map((t) => {
+                  const on = tripType === t;
+                  return (
+                    <button
+                      key={t}
+                      type="button"
+                      onClick={() => setTripType(t)}
+                      aria-pressed={on}
+                      className={`min-h-12 rounded-xl border px-3 font-dm text-sm font-semibold transition-colors ${
+                        on
+                          ? "border-yellow bg-yellow/[0.12] text-yellow"
+                          : "border-[#6E6E6E] text-offwhite"
+                      }`}
+                    >
+                      {t === "one_way" ? c.transfer.oneWay : c.transfer.returnPackage}
+                    </button>
+                  );
+                })}
+              </div>
+              {isReturn && (
+                <p className="mt-1.5 font-dm text-xs text-muted">{c.transfer.returnBlurb}</p>
+              )}
+            </div>
+          )}
+
           {/* ── ONE QUESTION OPEN AT A TIME ───────────────────────────────
               Neither picker was given `autoOpen`, so both defaulted to true and
               both stood open. PlacePicker's own doc comment measured exactly
@@ -624,6 +744,46 @@ export default function BookRide({
               aria-label={c.step2.whenFieldLabel}
               className="w-full rounded-xl border border-white/12 bg-dark-card px-3 py-3 font-dm text-base text-offwhite focus:border-yellow/60 focus:outline-none"
             />
+          )}
+
+          {/* ── THE RETURN LEG: ITS OWN DAY, ITS OWN FLIGHT ──────────────
+              Required, because the return is priced on its own and can fall in
+              the night window when the first trip does not. The question turns
+              round with the journey: collected for a flight home, or met off a
+              flight back. */}
+          {isReturn && (
+            <div className="rounded-2xl border border-white/12 bg-dark-card p-4">
+              <label
+                className="block font-bebas text-[10px] tracking-[0.22em] text-muted"
+                htmlFor="return-when"
+              >
+                {direction === "from"
+                  ? c.transfer.returnWhenLabelToAirport
+                  : c.transfer.returnWhenLabelFromAirport}
+              </label>
+              <input
+                id="return-when"
+                type="datetime-local"
+                value={returnWhen}
+                onChange={(e) => setReturnWhen(e.target.value)}
+                required
+                aria-invalid={!returnWhen || undefined}
+                className="mt-1.5 w-full rounded-xl border border-white/12 bg-dark px-3 py-3 font-dm text-base text-offwhite focus:border-yellow/60 focus:outline-none"
+              />
+              <label
+                className="mt-3 block font-bebas text-[10px] tracking-[0.22em] text-muted"
+                htmlFor="return-flight"
+              >
+                {c.transfer.returnFlightLabel}
+              </label>
+              <input
+                id="return-flight"
+                value={returnFlightRef}
+                onChange={(e) => setReturnFlightRef(e.target.value)}
+                placeholder={c.step2.flightRefPlaceholder}
+                className="mt-1.5 w-full rounded-xl border border-white/12 bg-dark px-3 py-2.5 font-dm text-base text-offwhite placeholder:text-muted focus:border-yellow/60 focus:outline-none"
+              />
+            </div>
           )}
 
           <div className="grid grid-cols-2 gap-2">
@@ -794,6 +954,11 @@ export default function BookRide({
               {" · "}
               {c.summary.passengers(passengers)}
             </p>
+            {isReturn && returnWhen && (
+              <p className="mt-0.5 text-muted">
+                {c.transfer.returnLeg}: {islandWhenLabel(returnWhen, dateLocale)}
+              </p>
+            )}
           </div>
 
           <PriceCard quote={quote} quoting={quoting} />
@@ -943,6 +1108,11 @@ function PriceCard({
   }
   if (!quote) return null;
 
+  // M220 · An airport transfer is priced by zone, per leg. Its own card.
+  if (isTransferQuote(quote)) {
+    return <TransferPriceCard quote={quote as TransferCardQuote} />;
+  }
+
   // A ride we cannot price is still a ride. Saying so beats an empty box or a
   // fake number.
   if (!quote.ok) {
@@ -950,7 +1120,14 @@ function PriceCard({
       <div className="rounded-2xl border border-white/12 bg-dark-card px-5 py-4 text-center">
         <p className="flex items-center justify-center gap-2 font-dm text-sm text-offwhite/85">
           <PhoneCall size={15} className="text-yellow" />
-          {quote.message ?? c.price.confirmWithYou}
+          {/* The server's sentence is English. Where the reason has a
+              translation, the customer reads their own language instead. */}
+          {quote.reason === "need_return_time"
+            ? c.transfer.returnNeedsTime
+            : quote.reason &&
+                ["need_road_distance", "no_price_list", "quote_on_request", "not_bookable", "unconfigured"].includes(quote.reason)
+              ? c.price.confirmWithYou
+              : (quote.message ?? c.price.confirmWithYou)}
         </p>
         <p className="mt-1 font-dm text-xs text-muted">{c.price.noCharge}</p>
       </div>
@@ -984,6 +1161,105 @@ function PriceCard({
       </p>
       <p className="mt-1.5 font-dm text-xs text-muted">
         {c.price.paidToDriver}
+      </p>
+    </div>
+  );
+}
+
+type TransferCardQuote = Quote & {
+  legs: TransferLeg[];
+  zone: number;
+  roadKm: number;
+  tripType: TripType;
+  total: number | null;
+};
+
+/**
+ * The fare for an airport transfer, as the zone engine priced it.
+ *
+ * Every number here is the quote's. The card only arranges them: the zone and
+ * the road distance that decided it (so "why Zone 3?" answers itself), each
+ * leg of a return package with its own fare, what the extra passengers add,
+ * and — when the owner prices it by hand — why, in words, instead of a number.
+ */
+function TransferPriceCard({ quote }: { quote: TransferCardQuote }) {
+  const { language } = useLanguage();
+  const c = RIDES_COPY[language].book;
+  const t = c.transfer;
+  const isReturn = quote.tripType === "return" && quote.legs.length === 2;
+  const legFare = (l: TransferLeg) =>
+    l.fare != null ? formatRidePrice(l.fare, quote.currency) : t.byHand;
+  const extras = (l: TransferLeg) =>
+    l.extraPassengers > 0 && l.passengerFee > 0
+      ? t.extraPeople(l.extraPassengers, formatRidePrice(l.passengerFee, quote.currency))
+      : null;
+  const km = Math.round(quote.roadKm * 10) / 10;
+  const manualLine = quote.manualReasons?.includes("group")
+    ? t.groupManual
+    : quote.manualReasons?.includes("night") && quote.nightWindow
+      ? t.nightManual(nightWindowLabel(quote.nightWindow.from, quote.nightWindow.to))
+      : null;
+  const nightAdded = quote.legs.some((l) => l.night && l.fare != null && l.nightAdjustment > 0);
+
+  return (
+    <div className="rounded-2xl border border-yellow/30 bg-yellow/[0.07] px-5 py-4 text-center">
+      <p className="font-bebas text-[10px] tracking-[0.25em] text-yellow">
+        {c.price.eyebrow}
+      </p>
+
+      {isReturn ? (
+        <div className="mt-1.5 space-y-1 text-left">
+          {quote.legs.map((l) => (
+            <div key={l.leg} className="flex items-baseline justify-between gap-3 font-dm text-sm">
+              <span className="text-offwhite/85">
+                {l.leg === "outbound" ? t.outbound : t.returnLeg}
+                {extras(l) && (
+                  <span className="block text-[11px] text-muted">{extras(l)}</span>
+                )}
+              </span>
+              <span className="shrink-0 font-semibold text-offwhite">{legFare(l)}</span>
+            </div>
+          ))}
+          {quote.total != null && (
+            <div className="flex items-baseline justify-between gap-3 border-t border-white/10 pt-1.5">
+              <span className="font-dm text-sm text-offwhite">{t.total}</span>
+              <span className="font-syne text-2xl font-extrabold text-offwhite">
+                {formatRidePrice(quote.total, quote.currency)}
+              </span>
+            </div>
+          )}
+        </div>
+      ) : (
+        <>
+          <p className="font-syne text-3xl font-extrabold text-offwhite">
+            {legFare(quote.legs[0])}
+          </p>
+          {extras(quote.legs[0]) && (
+            <p className="font-dm text-xs text-muted">{extras(quote.legs[0])}</p>
+          )}
+        </>
+      )}
+
+      <p className="mt-1.5 flex flex-wrap items-center justify-center gap-x-3 font-dm text-xs text-muted">
+        <span className="text-yellow/90">{t.zone(quote.zone)}</span>
+        <span>{t.fromAirport(km)}</span>
+        {quote.tripMinutes != null && (
+          <span className="inline-flex items-center gap-1">
+            <Clock size={11} /> {c.price.duration(quote.tripMinutes)}
+          </span>
+        )}
+        {nightAdded && <span className="text-yellow/90">{t.nightIncluded}</span>}
+      </p>
+
+      {manualLine && (
+        <p className="mt-2 flex items-start justify-center gap-2 font-dm text-xs leading-snug text-offwhite/85">
+          <PhoneCall size={13} className="mt-0.5 shrink-0 text-yellow" />
+          <span>{manualLine}</span>
+        </p>
+      )}
+
+      <p className="mt-1.5 font-dm text-xs text-muted">
+        {isReturn ? t.payEachDriver : c.price.paidToDriver}
       </p>
     </div>
   );

@@ -4,7 +4,8 @@ import AppPageHeader from "@/components/AppPageHeader";
 import BookRide from "@/app/taxi/book/BookRide";
 import BookingHeading from "@/app/taxi/book/BookingHeading";
 import JsonLd from "@/components/JsonLd";
-import { readFlatFares } from "@/lib/rides/fares";
+import { readTransferFares } from "@/lib/rides/fares";
+import { nightWindowLabel, type TransferPricing, type ZonedPlace } from "@/lib/rides/transfer";
 import { centsToShortString } from "@/lib/money";
 
 // /transfers — the "planning ahead" half of getting around.
@@ -26,64 +27,102 @@ import { centsToShortString } from "@/lib/money";
 // nothing ever looked at. On production the day it was found — taxi 11 leads,
 // food_concierge 8, stay_eat_do 6, tiroule_miss 2, transfer ZERO.
 //
-// Meanwhile `ride_requests` already modelled every field a transfer needs:
-// service, scheduled_at, both ends with coordinates, passengers, luggage,
-// flight_ref, meet_greet, name, phone, email — and ride_pricing already carried
-// a seeded flat fare for `airport`. There was a working engine, and a parallel
-// form beside it that ignored the whole thing.
-//
 // So this page keeps its URL and its metadata, which it earns on search, and
-// everything between the header and the form is gone: a 126px h1 that wrapped
-// to four lines, a 29px eyebrow, a 48px subtitle restating the h1, a 136px
-// reassurance grid sitting between the visitor and the first field, and a 118px
-// cross-sell offering a way out of a form already started. 457px of chrome
-// around a form that could not work.
+// everything between the header and the form is gone: nothing may sit between
+// the visitor and the first field. What a crawler and an assistant need — the
+// prices, the zones, the answers — lives BELOW the form.
 //
-// One of those reassurances was also untrue: "Vehicle sized to your luggage".
+// One old reassurance was also untrue: "Vehicle sized to your luggage".
 // taxi_drivers.luggage_capacity is stored and never gates anything — only seats
 // and the handles_* booleans do. It is not a promise the data can keep.
 //
 // ── AND THE DIRECTION ───────────────────────────────────────────────────────
-// The old page said "Plan your journey before you land" and "Met at arrivals"
-// above a form that could not express an arrival. BookRide hardcoded the
-// airport as the DROP-OFF, so the only journey either surface could describe
-// was one LEAVING the island. `initialDirection="from"` starts this page where
-// its own visitors start: at Plaine Corail, needing to get somewhere.
+// `initialDirection="from"` starts this page where its own visitors start: at
+// Plaine Corail, needing to get somewhere.
+//
+// ── M220 · PRICED BY ZONE ───────────────────────────────────────────────────
+// The owner's model: zones by ROAD distance from the airport, one way or a
+// return package priced per direction, plus a fee per extra passenger, and a
+// night rule he chooses. Every number below comes from transfer_price_sheet()
+// — the same price list and the same zone function that charge the booking —
+// so the page cannot quote Port Mathurin in a zone the booking disagrees with.
 
 export const revalidate = 600;
 
-// 152 characters. The old one was 188 and truncated mid-clause in the SERP,
-// and led with "Book an" rather than with the thing a searcher is comparing.
-const DESCRIPTION =
-  "Airport transfer in Rodrigues — Plaine Corail to Port Mathurin or your guest house, at a flat fare. Give us your flight number and a driver meets you.";
+// Grouped, because the rest of the site writes "Rs 1,499". centsToShortString
+// already drops a trailing .00, so this only adds the separator to the whole
+// part and leaves real cents alone.
+function money(cents: number): string {
+  const [whole, frac] = centsToShortString(cents).split(".");
+  return `Rs ${Number(whole).toLocaleString("en-US")}${frac ? `.${frac}` : ""}`;
+}
 
-export const metadata: Metadata = {
-  title: "Airport transfers in Rodrigues | Roule Rodrigues",
-  description: DESCRIPTION,
-  alternates: { canonical: `${SITE_URL}/transfers` },
-  openGraph: {
+/** "up to 7 km" / "over 7 and under 15 km" / "15 km and over", from the sheet. */
+function zoneRange(p: TransferPricing, zone: 1 | 2 | 3): string {
+  if (zone === 1) return `up to ${p.zone1MaxKm} km`;
+  if (zone === 2) return `over ${p.zone1MaxKm} and under ${p.zone2MaxKm} km`;
+  return `${p.zone2MaxKm} km and over`;
+}
+
+/** The night rule, in the sentence a visitor needs. Null when there is none. */
+function nightSentence(p: TransferPricing): string | null {
+  const w = nightWindowLabel(p.nightFromHour, p.nightToHour);
+  switch (p.nightMode) {
+    case "manual":
+      return `Evening and night transfers (${w}) are priced by hand: the booking is taken, and the fare is agreed with you before a driver is sent.`;
+    case "fixed":
+      return `Evening and night transfers (${w}) carry a surcharge of ${money(p.nightSurcharge)} per trip.`;
+    case "multiplier":
+      return `Evening and night transfers (${w}) are charged at ${p.nightMultiplier}× the day fare.`;
+    default:
+      return null;
+  }
+}
+
+// Places a visitor has heard of, used to illustrate the zones in words. Ids,
+// not fares: which zone each lands in still comes from the database.
+const LANDMARKS = [
+  "port-mathurin", "mourouk", "graviers", "trou-dargent", "st-francois", "oyster-bay",
+  "riviere-cocos", "mont-lubin", "baie-du-nord", "la-ferme", "anse-quitor", "francois-leguat",
+];
+
+const FALLBACK_DESCRIPTION =
+  "Rodrigues airport transfers at fixed zone fares: Plaine Corail to Port Mathurin or your guest house, one way or return. A driver meets your flight.";
+
+export async function generateMetadata(): Promise<Metadata> {
+  const { airport } = await readTransferFares();
+  // The lowest one-way fare, read — never typed here.
+  const description = airport
+    ? `Rodrigues airport transfers from ${money(Math.min(...airport.oneWay))}: fixed zone fares, Plaine Corail to Port Mathurin or your guest house, one way or return.`
+    : FALLBACK_DESCRIPTION;
+  return {
     title: "Airport transfers in Rodrigues | Roule Rodrigues",
-    description: DESCRIPTION,
-    url: `${SITE_URL}/transfers`,
-    type: "website",
-    images: [`${SITE_URL}/og-image.jpg`],
-  },
-};
+    description,
+    alternates: { canonical: `${SITE_URL}/transfers` },
+    openGraph: {
+      title: "Airport transfers in Rodrigues | Roule Rodrigues",
+      description,
+      url: `${SITE_URL}/transfers`,
+      type: "website",
+      images: [`${SITE_URL}/og-image.jpg`],
+    },
+  };
+}
 
 export default async function TransfersPage() {
-  // The fares this platform guarantees, read from ride_pricing. Null when the
-  // read is unavailable (no service-role key locally), in which case the page
-  // simply says nothing about price rather than inventing one.
-  const fares = await readFlatFares();
-  // Grouped, because the rest of the site writes "Rs 1,499" and this rendered
-  // "Rs 1800" beside it. centsToShortString already drops a trailing .00, so
-  // this only adds the separator to the whole part and leaves real cents alone.
-  const money = (cents: number) => {
-    const [whole, frac] = centsToShortString(cents).split(".");
-    return `Rs ${Number(whole).toLocaleString("en-US")}${frac ? `.${frac}` : ""}`;
-  };
-  const airport = fares.airport != null ? money(fares.airport) : null;
+  // Null when the read is unavailable (no service-role key locally) or the
+  // owner has switched airport transfers off: the page then says nothing about
+  // price rather than inventing one.
+  const fares = await readTransferFares();
+  const airport = fares.airport;
   const ferry = fares.ferry != null ? money(fares.ferry) : null;
+
+  const byZone = (z: 1 | 2 | 3): ZonedPlace[] => (airport?.places ?? []).filter((p) => p.zone === z);
+  const landmark = (id: string) => airport?.places.find((p) => p.id === id) ?? null;
+  const portMathurin = landmark("port-mathurin");
+  const famous = (z: 1 | 2 | 3) =>
+    LANDMARKS.map(landmark).filter((p): p is ZonedPlace => !!p && p.zone === z).slice(0, 3).map((p) => p.label);
+  const night = airport ? nightSentence(airport) : null;
 
   // Built here so the visible <dl> below and the FAQPage markup are ONE list.
   // Two lists maintained separately is how a site ends up publishing a question
@@ -93,8 +132,27 @@ export default async function TransfersPage() {
       ? [
           {
             q: "How much is a transfer from Plaine Corail airport?",
-            a: `${airport} flat, from the airport to any address on Rodrigues. It is one agreed fare for the whole journey rather than a meter, and it is confirmed with you before you book.${ferry ? ` The ferry terminal at Port Mathurin is ${ferry}.` : ""}`,
+            a: `It depends on how far you are going by road from the airport, in three zones. One way: ${money(airport.oneWay[0])} ${zoneRange(airport, 1)}, ${money(airport.oneWay[1])} ${zoneRange(airport, 2)}, and ${money(airport.oneWay[2])} ${zoneRange(airport, 3)}${famous(3).length ? ` — which includes ${famous(3).join(", ")}` : ""}. The fare covers one passenger and is fixed before you book rather than a meter.${ferry ? ` The ferry terminal at Port Mathurin is ${ferry}.` : ""}`,
           },
+          ...(portMathurin
+            ? [
+                {
+                  q: "How much is a taxi from Rodrigues airport to Port Mathurin?",
+                  a: `${money(airport.oneWay[portMathurin.zone - 1])} one way. Port Mathurin is ${portMathurin.roadKm} km from Plaine Corail by road, which puts it in Zone ${portMathurin.zone}. Booked as a return package, it is ${money(airport.returnEach[portMathurin.zone - 1])} each way.`,
+                },
+              ]
+            : []),
+          {
+            q: "Is there a return package?",
+            a: `Yes. Book the arrival and the ride back for your flight home together, and each trip is priced per direction: ${money(airport.returnEach[0])} each way in Zone 1, ${money(airport.returnEach[1])} in Zone 2 and ${money(airport.returnEach[2])} in Zone 3. Each trip is sent to a driver on its own day.`,
+          },
+          {
+            q: "Do more passengers cost more?",
+            a: `The fare includes ${airport.includedPassengers === 1 ? "one passenger" : `${airport.includedPassengers} passengers`}. Each additional passenger adds ${money(airport.extraPassengerFee)} per trip, one way or return. For a group of more than ${airport.maxPricedPassengers} we confirm the vehicle and the fare with you first.`,
+          },
+          ...(night
+            ? [{ q: "What about late arrivals and night transfers?", a: night }]
+            : []),
         ]
       : []),
     {
@@ -111,27 +169,28 @@ export default async function TransfersPage() {
     },
     {
       q: "Can I book the return trip to the airport as well?",
-      a: "Yes, the same way. Book it when you arrange the arrival, or later once your plans firm up.",
+      a: "Yes — choose Return package on the form and give the date of your flight home, and both trips are booked together. Or book it later the same way once your plans firm up.",
     },
   ];
+
+  const oneWayLow = airport ? Math.min(...airport.oneWay) : null;
+  const oneWayHigh = airport ? Math.max(...airport.oneWay) : null;
 
   return (
     <>
       {/* Was the marketing <Navbar>: fixed, 78px, and on a phone it carried no
-          back control at all — only a saved-hearts icon and a burger. The 96px
-          of pt-24 underneath existed solely to clear it. */}
+          back control at all — only a saved-hearts icon and a burger. */}
       <AppPageHeader showBack backHref="/" />
 
-      {/* ── STRUCTURED DATA, WHICH THIS PAGE HAD NONE OF ──────────────────
-          Not one JSON-LD block on the page that owns "airport transfer
-          Rodrigues", while /taxi beside it carries Service, Organization and
-          Place. The Offer is the point: a flat fare is exactly the shape
-          schema.org can state precisely, and it is what an assistant asked
-          "how much is a transfer from Rodrigues airport" needs in order to
-          answer with a number instead of a paraphrase.
+      {/* ── STRUCTURED DATA ──────────────────────────────────────────────
+          Service, with the zone fares as an AggregateOffer: low and high
+          one-way price plus one Offer per zone, each saying what it covers.
+          That is the shape an assistant asked "how much is a transfer from
+          Rodrigues airport" needs to answer with numbers instead of a
+          paraphrase.
 
-          Priced only when the fare was actually read. An Offer with no price,
-          or with a guessed one, is worse than no Offer. */}
+          Priced only when the price list was actually read. An Offer with no
+          price, or with a guessed one, is worse than no Offer. */}
       <JsonLd
         data={{
           "@context": "https://schema.org",
@@ -139,29 +198,32 @@ export default async function TransfersPage() {
           "@id": `${SITE_URL}/transfers#service`,
           name: "Airport transfer in Rodrigues",
           serviceType: "Airport transfer",
-          description: DESCRIPTION,
+          description: FALLBACK_DESCRIPTION,
           url: `${SITE_URL}/transfers`,
           areaServed: {
             "@type": "Place",
             name: "Rodrigues Island, Mauritius",
           },
           provider: { "@id": `${SITE_URL}/#business` },
-          ...(fares.airport != null
+          ...(airport != null && oneWayLow != null && oneWayHigh != null
             ? {
                 offers: {
-                  "@type": "Offer",
+                  "@type": "AggregateOffer",
                   priceCurrency: "MUR",
-                  price: (fares.airport / 100).toFixed(2),
+                  lowPrice: (oneWayLow / 100).toFixed(2),
+                  highPrice: (oneWayHigh / 100).toFixed(2),
+                  offerCount: 3,
                   availability: "https://schema.org/InStock",
                   url: `${SITE_URL}/transfers`,
-                  priceSpecification: {
-                    "@type": "PriceSpecification",
+                  offers: ([1, 2, 3] as const).map((z) => ({
+                    "@type": "Offer",
+                    name: `Zone ${z} airport transfer, one way`,
                     priceCurrency: "MUR",
-                    price: (fares.airport / 100).toFixed(2),
-                    valueAddedTaxIncluded: true,
-                    description:
-                      "Flat fare, Plaine Corail airport to any address on Rodrigues",
-                  },
+                    price: (airport.oneWay[z - 1] / 100).toFixed(2),
+                    availability: "https://schema.org/InStock",
+                    url: `${SITE_URL}/transfers`,
+                    description: `Plaine Corail airport to anywhere ${zoneRange(airport, z)} by road, one passenger. Each extra passenger ${money(airport.extraPassengerFee)}. Return package ${money(airport.returnEach[z - 1])} each way.`,
+                  })),
                 },
               }
             : {}),
@@ -194,61 +256,102 @@ export default async function TransfersPage() {
             <BookRide initialService="airport" initialDirection="from" />
           </div>
 
-          {/* BELOW the form, on purpose. The note atop this file explains why
-              nothing may sit between the header and the first field — that
-              decision stands. But the page rendered ~180 characters of text
-              total, which to a crawler is an empty page with a good title:
-              nothing here matched "airport transfer rodrigues" beyond the
-              metadata. One paragraph, after the form, claims only what the
-              ride engine actually supports (flight_ref, meet_greet,
-              passengers, luggage, scheduled_at) and prices the taxi way —
-              confirmed with you, never invented here. */}
+          {/* BELOW the form, on purpose: nothing may sit between the header
+              and the first field. One paragraph that claims only what the ride
+              engine actually supports (flight_ref, meet_greet, passengers,
+              luggage, scheduled_at, return packages). */}
           <p className="mt-8 font-dm text-sm leading-relaxed text-muted">
             Airport transfers in Rodrigues, arranged before you land: tell us
             your flight, passengers and luggage, and a local driver meets you
             at Plaine Corail airport &mdash; officially Plaine Corail
             (RRG), still called Sir Ga&eacute;tan Duval by the operator, and
             you will hear both &mdash; and takes you to Port Mathurin, your
-            guest house or anywhere on the island. Book the return trip to the
-            airport the same way.
+            guest house or anywhere on the island. Book the ride back for your
+            flight home at the same time as a return package.
           </p>
 
-          {/* ── THE PRICE, WHICH WAS NOWHERE ────────────────────────────────
-              ride_pricing has held a flat_fare for `airport` and `ferry` since
-              August. quote_ride() returns those unchanged, so they are what a
-              customer is actually charged -- and they appeared in no indexable
-              HTML anywhere on this site. A transfer page with no price is the
-              one question a visitor came to answer, unanswered.
-
-              Rendered only when the read succeeded. A page with no price is
-              worse than one with a price; a page with an INVENTED price is
+          {/* ── THE PRICES, BY ZONE ─────────────────────────────────────────
+              Rendered only when the price list was read. A page with no price
+              is worse than one with a price; a page with an INVENTED price is
               worse than both. */}
           {airport ? (
-            <div className="mt-5 rounded-2xl border border-yellow/35 bg-yellow/[0.07] px-4 py-3.5">
-              <p className="font-syne text-base font-bold text-offwhite">
-                {airport} flat, airport to anywhere on Rodrigues
+            <section className="mt-5 rounded-2xl border border-yellow/35 bg-yellow/[0.07] px-4 py-4">
+              <h2 className="font-syne text-base font-bold text-offwhite">
+                Airport transfer prices
+              </h2>
+              <table className="mt-3 w-full font-dm text-sm">
+                <thead>
+                  <tr className="text-left text-[11px] uppercase tracking-wide text-muted">
+                    <th className="pb-1.5 pr-2 font-normal">By road from the airport</th>
+                    <th className="pb-1.5 pr-2 text-right font-normal">One way</th>
+                    <th className="pb-1.5 text-right font-normal">Return, each way</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {([1, 2, 3] as const).map((z) => (
+                    <tr key={z} className="border-t border-white/10">
+                      <td className="py-2 pr-2 text-offwhite/90">
+                        <span className="font-semibold text-offwhite">Zone {z}</span>
+                        <span className="block text-xs text-muted">{zoneRange(airport, z)}</span>
+                      </td>
+                      <td className="py-2 pr-2 text-right font-semibold text-offwhite">
+                        {money(airport.oneWay[z - 1])}
+                      </td>
+                      <td className="py-2 text-right text-offwhite/90">
+                        {money(airport.returnEach[z - 1])}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <p className="mt-3 font-dm text-sm leading-relaxed text-muted">
+                Fares include one passenger; each extra passenger adds{" "}
+                {money(airport.extraPassengerFee)} per trip. A return package books
+                the arrival and the ride back together, priced per direction. The
+                fare is fixed before you book &mdash; not a meter &mdash; and you pay
+                the driver.
+                {night ? ` ${night}` : ""}
+                {ferry ? ` The ferry terminal at Port Mathurin is ${ferry}.` : ""}
               </p>
-              <p className="mt-1.5 font-dm text-sm leading-relaxed text-muted">
-                One fare, agreed before you book, for the whole journey from
-                Plaine Corail to your address &mdash; not a meter.
-                {ferry ? ` The ferry terminal at Port Mathurin is ${ferry}.` : ""}{" "}
-                Rides that are not transfers are priced by distance instead.
+            </section>
+          ) : null}
+
+          {/* ── WHICH ZONE AM I IN? ─────────────────────────────────────────
+              The question the table raises, answered with the island's own
+              place names and their measured road distances — straight from the
+              database, zoned by the function that charges. */}
+          {airport && airport.places.length > 0 ? (
+            <section className="mt-9">
+              <h2 className="font-syne text-lg font-bold text-offwhite">
+                Which zone is my hotel in?
+              </h2>
+              <div className="mt-4 space-y-4">
+                {([1, 2, 3] as const).map((z) =>
+                  byZone(z).length ? (
+                    <div key={z}>
+                      <h3 className="font-dm text-sm font-bold text-offwhite">
+                        Zone {z} &middot; {money(airport.oneWay[z - 1])} one way
+                      </h3>
+                      <p className="mt-1 font-dm text-sm leading-relaxed text-muted">
+                        {byZone(z).map((p) => `${p.label} (${p.roadKm} km)`).join(", ")}
+                      </p>
+                    </div>
+                  ) : null,
+                )}
+              </div>
+              <p className="mt-3 font-dm text-xs text-muted">
+                Somewhere else? Choose it on the map in the form above and the
+                fare is worked out from the road distance.
               </p>
-            </div>
+            </section>
           ) : null}
 
           {/* ── THE QUESTIONS SOMEBODY LANDING AT PLAINE CORAIL ACTUALLY ASKS ──
-              This page carried 176 words and no FAQ at all, on the query every
-              arriving visitor types. /taxi beside it has carried FAQPage for
-              weeks.
-
-              Every answer below is a fact this page already establishes — the
-              flat fare from ride_pricing, the meet-and-greet and flight
-              reference the ride engine supports, and the airport's two names.
-              Nothing is invented to fill the block, and the fare question is
-              omitted entirely when the fare read failed, exactly as the price
-              card above is. An FAQ that quotes a price the page could not load
-              is the one thing worse than having no FAQ. */}
+              Every answer is a fact this page establishes — the zone fares
+              from the price list, the meet-and-greet and flight reference the
+              ride engine supports, and the airport's two names. The price
+              questions are omitted entirely when the price list could not be
+              read, exactly as the price table is. */}
           <section className="mt-9">
             <h2 className="font-syne text-lg font-bold text-offwhite">
               Airport transfers, answered
