@@ -453,7 +453,7 @@ export default function RidesDesk() {
                     />
                   </div>
 
-                  <FareSummary ride={ride} />
+                  <FareSummary ride={ride} rides={rides ?? []} />
                   {/* M220 · Booked, held from every driver until a fare is set.
                       Also offered on an unpriced ride from before zones (a
                       private hire, a pin nobody could route). */}
@@ -1077,13 +1077,19 @@ ${url}
 // Roulé's commission between them. Shown on the desk because it is the one
 // place both are needed at once: the customer is quoted one, the driver is
 // offered the other.
-function FareSummary({ ride }: { ride: Ride }) {
+function FareSummary({ ride, rides }: { ride: Ride; rides: Ride[] }) {
   if (ride.quoted_price == null && ride.transfer_zone == null) return null;
   const split =
     ride.quoted_price != null &&
     ride.driver_pay != null &&
     ride.platform_commission != null &&
     ride.platform_commission > 0;
+  // A return package is two rides with two references. Name the other one
+  // here, so the desk never has to hunt for the partner trip of a package.
+  const partner =
+    ride.trip_type === "return" && ride.package_id
+      ? rides.find((r) => r.package_id === ride.package_id && r.id !== ride.id) ?? null
+      : null;
   return (
     <p className="mt-3 flex flex-wrap gap-x-3 gap-y-1 border-t border-white/10 pt-3 font-dm text-xs text-muted">
       {ride.transfer_zone != null && (
@@ -1097,6 +1103,20 @@ function FareSummary({ ride }: { ride: Ride }) {
           {ride.trip_type === "return"
             ? `Return package — ${ride.leg === "return" ? "the way back" : "the first trip"}`
             : "One way"}
+        </span>
+      )}
+      {ride.trip_type === "return" && (
+        <span>
+          {partner ? (
+            <>
+              {ride.leg === "return" ? "First trip" : "Way back"}:{" "}
+              <span className="text-offwhite">{rideReference(partner.id)}</span>
+              {" · "}{pickupTimeLabel(partner.when_kind, partner.scheduled_at)}
+            </>
+          ) : (
+            // Finished or cancelled partners are not in the "Open rides" list.
+            <>Partner trip not in this list — switch to “Everything”</>
+          )}
         </span>
       )}
       {ride.quoted_price != null && (

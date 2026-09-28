@@ -234,17 +234,33 @@ export default function RideOfferScreen({ token }: { token: string }) {
 
       {/* The fare, biggest fact after the buttons — it is what decides it. */}
       <div className="mt-5 rounded-2xl border border-yellow/30 bg-yellow/[0.07] px-5 py-4 text-center">
-        <p className="font-bebas text-[10px] tracking-[0.25em] text-yellow">YOU EARN</p>
-        <p className="mt-0.5 font-syne text-3xl font-extrabold text-offwhite">
-          {formatRidePrice(offer.price, offer.currency)}
-        </p>
         {/* The customer pays the driver in cash, so once a commission exists
-            the driver must know BOTH numbers: what to ask for, and what is
-            theirs to keep. Hidden while they are the same. */}
-        {offer.fare != null && offer.price != null && offer.fare !== offer.price && (
-          <p className="mt-1 font-dm text-xs text-muted">
-            Customer pays {formatRidePrice(offer.fare, offer.currency)} in cash
-          </p>
+            the driver must know BOTH numbers, each with its own label: what to
+            ask the customer for, and what is theirs to keep. While there is no
+            commission the two are the same number and one line says it. */}
+        {offer.fare != null && offer.price != null && offer.fare > offer.price ? (
+          <>
+            <p className="font-bebas text-[10px] tracking-[0.25em] text-yellow">YOU KEEP</p>
+            <p className="mt-0.5 font-syne text-3xl font-extrabold text-offwhite">
+              {formatRidePrice(offer.price, offer.currency)}
+            </p>
+            <div className="mt-2 space-y-0.5 border-t border-yellow/20 pt-2 font-dm text-sm text-offwhite/85">
+              <p>
+                Customer pays you{" "}
+                <strong className="text-offwhite">{formatRidePrice(offer.fare, offer.currency)}</strong> in cash
+              </p>
+              <p className="text-xs text-muted">
+                Roulé commission {formatRidePrice(offer.fare - offer.price, offer.currency)}
+              </p>
+            </div>
+          </>
+        ) : (
+          <>
+            <p className="font-bebas text-[10px] tracking-[0.25em] text-yellow">YOU EARN</p>
+            <p className="mt-0.5 font-syne text-3xl font-extrabold text-offwhite">
+              {formatRidePrice(offer.price, offer.currency)}
+            </p>
+          </>
         )}
       </div>
 

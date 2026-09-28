@@ -242,16 +242,35 @@ export async function POST(req: NextRequest) {
     price?: number | null;
     zone?: number | null;
     farePending?: boolean;
-    legs?: { leg: string; price: number | null; at: string | null; farePending: boolean }[];
+    legs?: {
+      leg: string;
+      price: number | null;
+      at: string | null;
+      farePending: boolean;
+      /** M221 · 'night' | 'evening' | 'group' when the fare is left to the owner. */
+      reason?: string | null;
+    }[];
   };
   const outboundLeg = created.legs?.find((l) => l.leg === "outbound");
   const returnLeg = created.legs?.find((l) => l.leg === "return");
+  // The first leg waiting for a fare says why — the engine's own reason, never
+  // inferred from the clock here.
+  // When two legs are pending for DIFFERENT reasons (an evening arrival and a
+  // night departure, both hand-priced), naming one would misdescribe the other,
+  // so the email falls back to its neutral wording (M221 review).
+  const pendingReasons = [
+    ...new Set((created.legs ?? []).filter((l) => l.farePending).map((l) => l.reason ?? null)),
+  ];
+  const pendingRaw = pendingReasons.length === 1 ? pendingReasons[0] : null;
+  const pendingReason =
+    pendingRaw === "night" || pendingRaw === "evening" || pendingRaw === "group" ? pendingRaw : null;
   try {
     await sendRideEmails({
       // M220 · Zone, the second trip of a return package, and a fare the owner
       // still has to set. All absent for every service but the airport.
       zone: created.zone ?? null,
       farePending: created.farePending === true,
+      pendingReason,
       legPrice: outboundLeg?.price ?? null,
       returnTrip: returnLeg
         ? {
@@ -343,7 +362,9 @@ export async function POST(req: NextRequest) {
             : null,
           // M220 · Night (or a large group): booked, and NOT offered to drivers
           // until somebody sets the fare. This alert is the owner's cue.
-          created.farePending ? "⚠️ SET THE FARE — no driver is asked until you do" : null,
+          created.farePending
+            ? `⚠️ SET THE FARE${pendingReason ? ` (${pendingReason === "group" ? "large group" : `${pendingReason} window`})` : ""} — no driver is asked until you do`
+            : null,
           v.flightRef ? `Flight: ${v.flightRef}` : null,
           v.meetGreet ? "Meet & greet requested" : null,
           v.notes ? `Note: ${v.notes}` : null,

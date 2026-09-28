@@ -233,7 +233,9 @@ export async function PATCH(req: NextRequest) {
     const { data: ride } = await admin.from("ride_requests")
       // driver_pay, not quoted_price: the message says "You earn", and since
       // M220 the driver's share and the customer's fare can differ.
-      .select("service, pickup_label, dropoff_label, passengers, when_kind, scheduled_at, driver_pay")
+      // quoted_price too: with a commission, the message carries both what the
+      // customer pays in cash and what the driver keeps.
+      .select("service, pickup_label, dropoff_label, passengers, when_kind, scheduled_at, driver_pay, quoted_price")
       .eq("id", p.rideId).maybeSingle();
 
     const targets = ((data as { targets?: Record<string, unknown>[] })?.targets ?? []).map((t) => {
@@ -248,6 +250,7 @@ export async function PATCH(req: NextRequest) {
           ? new Date(ride.scheduled_at).toLocaleString("en-GB", { timeZone: "Indian/Mauritius" })
           : "Now",
         price: (ride?.driver_pay as number | null) ?? null,
+        customerPays: (ride?.quoted_price as number | null) ?? null,
         acceptUrl: `${SITE_URL}/r/${t.token}`,
       });
       return {

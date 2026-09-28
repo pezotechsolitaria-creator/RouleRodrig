@@ -10,7 +10,9 @@ create temp table _t (n serial, name text, ok boolean, got text) on commit drop;
 
 do $$
 declare
-  v bigint := (select max(id) from transfer_pricing_versions);
+  -- The LAUNCH list by name: M221 published a newer one, and these
+  -- assertions document what the launch list does (it must never change).
+  v bigint := (select id from transfer_pricing_versions where created_by = 'migration m220');
   day timestamptz := date_trunc('day', now() at time zone 'Indian/Mauritius') at time zone 'Indian/Mauritius'
                      + interval '3 days 10 hours';            -- 10:00 island time, 3 days out
   j jsonb;
@@ -87,7 +89,9 @@ begin
   insert into _t(name, ok, got) values ('multiplier night: 2,150 × 1.2 = Rs 2,580', (j->>'fare')::int = 258000, j::text);
   -- Neither is active: effective_from is a century away.
   insert into _t(name, ok, got) values ('a future price list is not the active one',
-    (transfer_quote_core(-19.7577, 63.361, -19.6836, 63.4186, 1, 'one_way', null, null, null)->'pricingVersion'->>'label') = 'Airport zones — launch', null);
+    (transfer_quote_core(-19.7577, 63.361, -19.6836, 63.4186, 1, 'one_way', null, null, null)->'pricingVersion'->>'id')::bigint
+      = (select id from transfer_pricing_versions where label not like 'test %' and effective_from <= now()
+          order by effective_from desc, id desc limit 1), null);
 end $$;
 
 -- ── Quotes: the zone comes from a ROAD distance ───────────────────────────
@@ -123,8 +127,8 @@ begin
     (j->>'total')::int = 370000 and jsonb_array_length(j->'legs') = 2
     and (j->'legs'->0->>'fare')::int = 185000 and (j->'legs'->1->>'fare')::int = 185000, j::text);
 
-  j := transfer_quote_core(-19.7577, 63.361, -19.6836, 63.4186, 1, 'return', day, day + interval '4 days 8 hours', null);
-  insert into _t(name, ok, got) values ('return leg at 18:00: outbound priced, return by hand, no total',
+  j := transfer_quote_core(-19.7577, 63.361, -19.6836, 63.4186, 1, 'return', day, day + interval '4 days 13 hours', null);
+  insert into _t(name, ok, got) values ('return leg at 23:00: outbound priced, return by hand, no total',
     (j->>'needsManual')::boolean and j->>'total' is null
     and (j->'legs'->0->>'fare')::int = 170000 and (j->'legs'->1->>'manual')::boolean, j::text);
 
@@ -240,11 +244,11 @@ end $$;
 do $$
 declare
   eve timestamptz := date_trunc('day', now() at time zone 'Indian/Mauritius') at time zone 'Indian/Mauritius'
-                     + interval '3 days 19 hours';            -- 19:00
+                     + interval '3 days 23 hours';            -- 23:00, night under every list
   q jsonb; b jsonb; rid uuid; s jsonb;
 begin
   q := quote_airport_transfer(-19.7577, 63.361, -19.7414, 63.4114, 1, 'one_way', eve, null, null);
-  insert into _t(name, ok, got) values ('an evening quote is written, with no price',
+  insert into _t(name, ok, got) values ('a night quote is written, with no price',
     (q->>'ok')::boolean and (q->>'needsManual')::boolean and q->>'price' is null and q->>'quoteId' is not null, q::text);
   b := create_ride_request('airport', 'scheduled', eve, 'Plaine Corail Airport', -19.7577, 63.361,
       'Rivière Cocos', -19.7414, 63.4114, 1, 0, null, 'MK142', false, 'Test M220 night', '+23057000001', null,

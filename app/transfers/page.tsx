@@ -5,7 +5,13 @@ import BookRide from "@/app/taxi/book/BookRide";
 import BookingHeading from "@/app/taxi/book/BookingHeading";
 import JsonLd from "@/components/JsonLd";
 import { readTransferFares } from "@/lib/rides/fares";
-import { nightWindowLabel, type TransferPricing, type ZonedPlace } from "@/lib/rides/transfer";
+import {
+  effectiveEveningLabel,
+  nightWindowLabel,
+  returnDifference,
+  type TransferPricing,
+  type ZonedPlace,
+} from "@/lib/rides/transfer";
 import { centsToShortString } from "@/lib/money";
 
 // /transfers — the "planning ahead" half of getting around.
@@ -64,19 +70,83 @@ function zoneRange(p: TransferPricing, zone: 1 | 2 | 3): string {
   return `${p.zone2MaxKm} km and over`;
 }
 
-/** The night rule, in the sentence a visitor needs. Null when there is none. */
-function nightSentence(p: TransferPricing): string | null {
-  const w = nightWindowLabel(p.nightFromHour, p.nightToHour);
-  switch (p.nightMode) {
+/** One band's rule, in the sentence a visitor needs. Null when it has none. */
+function bandSentence(
+  name: "Evening" | "Night",
+  mode: TransferPricing["nightMode"] | undefined,
+  w: string | null,
+  surcharge: number | undefined,
+  multiplier: number | undefined,
+): string | null {
+  if (!mode || mode === "none" || !w) return null;
+  switch (mode) {
     case "manual":
-      return `Evening and night transfers (${w}) are priced by hand: the booking is taken, and the fare is agreed with you before a driver is sent.`;
+      return `${name} transfers (${w}) are priced by hand: the booking is taken, and the fare is agreed with you before a driver is sent.`;
     case "fixed":
-      return `Evening and night transfers (${w}) carry a surcharge of ${money(p.nightSurcharge)} per trip.`;
+      return `${name} transfers (${w}) add ${money(surcharge ?? 0)} per trip, included in the fare you are shown.`;
     case "multiplier":
-      return `Evening and night transfers (${w}) are charged at ${p.nightMultiplier}× the day fare.`;
+      return `${name} transfers (${w}) are charged at ${multiplier}× the day fare.`;
     default:
       return null;
   }
+}
+
+/**
+ * M221 · the evening band, then the night band, each in its own sentence.
+ * "Evening and night transfers (17:00–04:59)" was one clumsy line for what are
+ * now two different rules.
+ */
+function timeSentences(p: TransferPricing): string[] {
+  // The evening window as it really applies: minus any hours the night band
+  // also claims, because night wins those in the engine. Null when night covers
+  // it entirely — then the evening rule is never used and is not advertised.
+  const evening =
+    p.eveningFromHour != null && p.eveningToHour != null
+      ? effectiveEveningLabel(
+          { from: p.eveningFromHour, to: p.eveningToHour },
+          { from: p.nightFromHour, to: p.nightToHour, mode: p.nightMode },
+        )
+      : null;
+  return [
+    bandSentence("Evening", p.eveningMode, evening, p.eveningSurcharge, p.eveningMultiplier),
+    bandSentence("Night", p.nightMode, nightWindowLabel(p.nightFromHour, p.nightToHour), p.nightSurcharge, p.nightMultiplier),
+  ].filter((s): s is string => !!s);
+}
+
+/**
+ * The owner's decision on the return package, said plainly: it saves money
+ * only where the price list makes it cheaper per trip (Zone 3 at launch) and
+ * is otherwise the convenience of booking both trips at once. Computed from
+ * the sheet, so it stays true if the fares change.
+ */
+function returnSentence(p: TransferPricing): string {
+  // SIGNED: a return fare above the one-way fare must read as "more", never
+  // as "the same" (refused at publish, but the page must not lie if it slips).
+  const diff = returnDifference(p);
+  const saving = ([1, 2, 3] as const).filter((z) => diff[z - 1] > 0);
+  const same = ([1, 2, 3] as const).filter((z) => diff[z - 1] === 0);
+  const more = ([1, 2, 3] as const).filter((z) => diff[z - 1] < 0);
+  const list = (zs: readonly number[]) =>
+    zs.length === 1 ? `Zone ${zs[0]}` : `Zones ${zs.slice(0, -1).join(", ")} and ${zs[zs.length - 1]}`;
+  const parts: string[] = [];
+  if (saving.length) {
+    parts.push(
+      `In ${list(saving)} it saves ${saving
+        .map((z) => `${money(diff[z - 1])} per trip (${money(p.returnEach[z - 1])} instead of ${money(p.oneWay[z - 1])})`)
+        .join("; ")}.`,
+    );
+  }
+  if (same.length) {
+    parts.push(
+      `In ${list(same)} it costs the same as two one-way trips — the package simply books both at once.`,
+    );
+  }
+  if (more.length) {
+    parts.push(
+      `In ${list(more)} it costs ${more.map((z) => `${money(-diff[z - 1])} more per trip`).join("; ")} than booking one way each time.`,
+    );
+  }
+  return parts.join(" ");
 }
 
 // Places a visitor has heard of, used to illustrate the zones in words. Ids,
@@ -122,7 +192,8 @@ export default async function TransfersPage() {
   const portMathurin = landmark("port-mathurin");
   const famous = (z: 1 | 2 | 3) =>
     LANDMARKS.map(landmark).filter((p): p is ZonedPlace => !!p && p.zone === z).slice(0, 3).map((p) => p.label);
-  const night = airport ? nightSentence(airport) : null;
+  const bands = airport ? timeSentences(airport) : [];
+  const night = bands.length ? bands.join(" ") : null;
 
   // Built here so the visible <dl> below and the FAQPage markup are ONE list.
   // Two lists maintained separately is how a site ends up publishing a question
@@ -144,14 +215,14 @@ export default async function TransfersPage() {
             : []),
           {
             q: "Is there a return package?",
-            a: `Yes. Book the arrival and the ride back for your flight home together, and each trip is priced per direction: ${money(airport.returnEach[0])} each way in Zone 1, ${money(airport.returnEach[1])} in Zone 2 and ${money(airport.returnEach[2])} in Zone 3. Each trip is sent to a driver on its own day.`,
+            a: `Yes. Book the arrival and the ride back for your flight home together, and each trip is priced per direction: ${money(airport.returnEach[0])} each way in Zone 1, ${money(airport.returnEach[1])} in Zone 2 and ${money(airport.returnEach[2])} in Zone 3. ${returnSentence(airport)} Each trip is sent to a driver on its own day.`,
           },
           {
             q: "Do more passengers cost more?",
             a: `The fare includes ${airport.includedPassengers === 1 ? "one passenger" : `${airport.includedPassengers} passengers`}. Each additional passenger adds ${money(airport.extraPassengerFee)} per trip, one way or return. For a group of more than ${airport.maxPricedPassengers} we confirm the vehicle and the fare with you first.`,
           },
           ...(night
-            ? [{ q: "What about late arrivals and night transfers?", a: night }]
+            ? [{ q: "What about evening and night arrivals?", a: night }]
             : []),
         ]
       : []),
@@ -222,7 +293,7 @@ export default async function TransfersPage() {
                     price: (airport.oneWay[z - 1] / 100).toFixed(2),
                     availability: "https://schema.org/InStock",
                     url: `${SITE_URL}/transfers`,
-                    description: `Plaine Corail airport to anywhere ${zoneRange(airport, z)} by road, one passenger. Each extra passenger ${money(airport.extraPassengerFee)}. Return package ${money(airport.returnEach[z - 1])} each way.`,
+                    description: `Plaine Corail airport to anywhere ${zoneRange(airport, z)} by road, one passenger, daytime. Each extra passenger ${money(airport.extraPassengerFee)}. Return package ${money(airport.returnEach[z - 1])} each way.${bands.length ? ` ${bands.join(" ")}` : ""}`,
                   })),
                 },
               }
@@ -306,13 +377,23 @@ export default async function TransfersPage() {
               </table>
               <p className="mt-3 font-dm text-sm leading-relaxed text-muted">
                 Fares include one passenger; each extra passenger adds{" "}
-                {money(airport.extraPassengerFee)} per trip. A return package books
-                the arrival and the ride back together, priced per direction. The
-                fare is fixed before you book &mdash; not a meter &mdash; and you pay
-                the driver.
-                {night ? ` ${night}` : ""}
+                {money(airport.extraPassengerFee)} per trip. The fare is fixed before
+                you book &mdash; not a meter &mdash; and you pay the driver.
                 {ferry ? ` The ferry terminal at Port Mathurin is ${ferry}.` : ""}
               </p>
+              {/* One line per rule, so each can be read on its own: the return
+                  package (and where it actually saves money — the owner's
+                  decision is that it does in Zone 3 only), then the evening
+                  and night bands. */}
+              <ul className="mt-2 list-disc space-y-1 pl-5 font-dm text-sm leading-relaxed text-muted">
+                <li>
+                  Return package: the arrival and the ride back booked together,
+                  priced per direction. {returnSentence(airport)}
+                </li>
+                {bands.map((b) => (
+                  <li key={b}>{b}</li>
+                ))}
+              </ul>
             </section>
           ) : null}
 

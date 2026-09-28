@@ -154,10 +154,15 @@ export function offerMessage(o: {
   dropoff: string | null;
   passengers: number;
   whenText: string;
+  /** The DRIVER's share (ride_requests.driver_pay since M220). */
   price: number | null;
+  /** What the customer pays the driver in cash (quoted_price). Only printed
+   *  when it differs from `price`, i.e. when Roulé takes a commission. */
+  customerPays?: number | null;
   acceptUrl: string;
 }): string {
   const meta = RIDE_SERVICE_META[o.service];
+  const split = o.customerPays != null && o.price != null && o.customerPays > o.price;
   return [
     `Bonjour ${o.driverName} — ${meta.label} available:`,
     ``,
@@ -167,7 +172,11 @@ export function offerMessage(o: {
     o.dropoff ? `Drop-off: ${o.dropoff}` : `Drop-off: day hire — no fixed destination`,
     `When: ${o.whenText}`,
     `Passengers: ${o.passengers}`,
-    `You earn: ${formatRidePrice(o.price)}`,
+    // With a commission the driver needs both: what to collect, and what is
+    // theirs. Without one they are the same number, said once as before.
+    ...(split
+      ? [`Customer pays you: ${formatRidePrice(o.customerPays)} cash`, `You keep: ${formatRidePrice(o.price)}`]
+      : [`You earn: ${formatRidePrice(o.price)}`]),
     ``,
     `Tap to accept (first to accept gets it):`,
     o.acceptUrl,

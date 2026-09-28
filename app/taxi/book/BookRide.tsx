@@ -34,8 +34,11 @@ import { toE164National } from "@/lib/phone";
 import { rideQuoteShown, rideRequestSubmitted } from "@/lib/analytics/flows";
 import { ISLAND_TZ, islandIsoFromLocal } from "@/lib/island-time";
 import {
+  effectiveEveningLabel,
   isTransferQuote,
   nightWindowLabel,
+  type BandWindow,
+  type ManualReason,
   type TransferLeg,
   type TripType,
 } from "@/lib/rides/transfer";
@@ -118,8 +121,9 @@ type Quote = {
   legs?: TransferLeg[];
   total?: number | null;
   needsManual?: boolean;
-  manualReasons?: ("night" | "group")[];
-  nightWindow?: { from: number; to: number };
+  manualReasons?: ManualReason[];
+  nightWindow?: BandWindow;
+  eveningWindow?: BandWindow;
 };
 
 /**
@@ -192,6 +196,9 @@ export default function BookRide({
     reference: string;
     price: number | null;
     returnReference?: string | null;
+    /** "all": no leg goes to drivers until the owner sets its fare.
+     *  "some": one leg of a package is dispatched, the other waits. */
+    pending?: "all" | "some" | null;
   } | null>(null);
   // ── ONE WAY, OR BOTH WAYS AT ONCE ───────────────────────────────────────
   // M220. Airport only. A return package is two rides on two days, booked and
@@ -401,6 +408,13 @@ export default function BookRide({
         reference: b.reference,
         price: b.price ?? null,
         returnReference: b.returnReference ?? null,
+        // The booking's own per-leg flags, not a guess from the clock.
+        pending: (() => {
+          const legs = (b.legs ?? []) as { farePending?: boolean }[];
+          const n = legs.filter((l) => l.farePending).length;
+          if (legs.length ? n === legs.length : b.farePending === true) return "all" as const;
+          return n > 0 ? ("some" as const) : null;
+        })(),
       });
     } catch (e) {
       setError(e instanceof Error ? e.message : c.errors.generic);
@@ -417,13 +431,24 @@ export default function BookRide({
           <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-green-500/15 text-green-400">
             <Check size={28} />
           </span>
+          {/* ── A HELD FARE IS NOT "FINDING YOUR DRIVER" ──────────────────
+              A night (or large-group) transfer is not offered to anyone until
+              the owner sets its fare, so "a driver will accept in the next few
+              minutes" was a promise the system does not keep. Found by the
+              M221 review; the booking's own per-leg flags decide which text. */}
           <h2 className="mt-4 font-syne text-2xl font-extrabold text-offwhite">
-            {c.done.heading}
+            {done.pending === "all" ? c.transfer.donePendingHeading : c.done.heading}
           </h2>
           {/* c.done.body — written in all three languages at
               lib/rides/copy.i18n.ts and asserted by its own test, while this
               screen rendered the English literal underneath it. */}
-          <p className="mt-2 font-dm text-sm text-muted">{c.done.body}</p>
+          <p className="mt-2 font-dm text-sm text-muted">
+            {done.pending === "all"
+              ? c.transfer.donePendingBody
+              : done.pending === "some"
+                ? c.transfer.donePartialBody
+                : c.done.body}
+          </p>
           <p className="mt-4 font-bebas text-[11px] tracking-[0.28em] text-yellow">
             {c.done.referenceEyebrow}
           </p>
@@ -1189,17 +1214,41 @@ function TransferPriceCard({ quote }: { quote: TransferCardQuote }) {
   const isReturn = quote.tripType === "return" && quote.legs.length === 2;
   const legFare = (l: TransferLeg) =>
     l.fare != null ? formatRidePrice(l.fare, quote.currency) : t.byHand;
-  const extras = (l: TransferLeg) =>
-    l.extraPassengers > 0 && l.passengerFee > 0
-      ? t.extraPeople(l.extraPassengers, formatRidePrice(l.passengerFee, quote.currency))
-      : null;
+  // ── M221 · WHICH BAND, AND ITS WINDOW ─────────────────────────────────
+  // The band comes from the leg; the window from the quote. A quote written
+  // before the evening band existed has no `band`, and its only band was the
+  // night one — so that is the fallback, never a guess at the evening.
+  const bandWindow = (band: "evening" | "night") => {
+    // The evening as it actually applies — minus hours the night band also
+    // claims, since night wins those in the engine.
+    if (band === "evening") return effectiveEveningLabel(quote.eveningWindow, quote.nightWindow) ?? "";
+    const w = quote.nightWindow;
+    return w ? nightWindowLabel(w.from, w.to) : "";
+  };
+  const legBand = (l: TransferLeg): "evening" | "night" => l.band ?? "night";
+  // Every line that explains a leg's number: extra passengers, then what the
+  // evening or night band added. Each is the quote's own figure.
+  const extras = (l: TransferLeg): string[] =>
+    [
+      l.extraPassengers > 0 && l.passengerFee > 0
+        ? t.extraPeople(l.extraPassengers, formatRidePrice(l.passengerFee, quote.currency))
+        : null,
+      l.night && l.fare != null && l.nightAdjustment > 0
+        ? t.bandIncluded(legBand(l), formatRidePrice(l.nightAdjustment, quote.currency), bandWindow(legBand(l)))
+        : null,
+    ].filter((s): s is string => !!s);
   const km = Math.round(quote.roadKm * 10) / 10;
-  const manualLine = quote.manualReasons?.includes("group")
-    ? t.groupManual
-    : quote.manualReasons?.includes("night") && quote.nightWindow
-      ? t.nightManual(nightWindowLabel(quote.nightWindow.from, quote.nightWindow.to))
-      : null;
-  const nightAdded = quote.legs.some((l) => l.night && l.fare != null && l.nightAdjustment > 0);
+  // Why a fare is left to the owner, naming the band it came from: an evening
+  // hand-set fare is not "night", and a group outranks either.
+  // A group outranks either band. Otherwise every band that applies is named —
+  // a return package can arrive in a hand-priced evening and leave in the
+  // night, and naming only one would misdescribe the other leg.
+  const manualLines: string[] = quote.manualReasons?.includes("group")
+    ? [t.groupManual]
+    : [
+        quote.manualReasons?.includes("evening") ? t.eveningManual(bandWindow("evening")) : null,
+        quote.manualReasons?.includes("night") ? t.nightManual(bandWindow("night")) : null,
+      ].filter((s): s is string => !!s);
 
   return (
     <div className="rounded-2xl border border-yellow/30 bg-yellow/[0.07] px-5 py-4 text-center">
@@ -1213,9 +1262,9 @@ function TransferPriceCard({ quote }: { quote: TransferCardQuote }) {
             <div key={l.leg} className="flex items-baseline justify-between gap-3 font-dm text-sm">
               <span className="text-offwhite/85">
                 {l.leg === "outbound" ? t.outbound : t.returnLeg}
-                {extras(l) && (
-                  <span className="block text-[11px] text-muted">{extras(l)}</span>
-                )}
+                {extras(l).map((line) => (
+                  <span key={line} className="block text-[11px] text-muted">{line}</span>
+                ))}
               </span>
               <span className="shrink-0 font-semibold text-offwhite">{legFare(l)}</span>
             </div>
@@ -1234,9 +1283,9 @@ function TransferPriceCard({ quote }: { quote: TransferCardQuote }) {
           <p className="font-syne text-3xl font-extrabold text-offwhite">
             {legFare(quote.legs[0])}
           </p>
-          {extras(quote.legs[0]) && (
-            <p className="font-dm text-xs text-muted">{extras(quote.legs[0])}</p>
-          )}
+          {extras(quote.legs[0]).map((line) => (
+            <p key={line} className="font-dm text-xs text-muted">{line}</p>
+          ))}
         </>
       )}
 
@@ -1248,15 +1297,14 @@ function TransferPriceCard({ quote }: { quote: TransferCardQuote }) {
             <Clock size={11} /> {c.price.duration(quote.tripMinutes)}
           </span>
         )}
-        {nightAdded && <span className="text-yellow/90">{t.nightIncluded}</span>}
       </p>
 
-      {manualLine && (
-        <p className="mt-2 flex items-start justify-center gap-2 font-dm text-xs leading-snug text-offwhite/85">
+      {manualLines.map((line) => (
+        <p key={line} className="mt-2 flex items-start justify-center gap-2 font-dm text-xs leading-snug text-offwhite/85">
           <PhoneCall size={13} className="mt-0.5 shrink-0 text-yellow" />
-          <span>{manualLine}</span>
+          <span>{line}</span>
         </p>
-      )}
+      ))}
 
       <p className="mt-1.5 font-dm text-xs text-muted">
         {isReturn ? t.payEachDriver : c.price.paidToDriver}

@@ -6,6 +6,7 @@ import { Loader2, PlaneTakeoff, History } from "lucide-react";
 import {
   NIGHT_MODES,
   nightWindowLabel,
+  returnDifference,
   rupees,
   type NightMode,
   type TransferPricing,
@@ -16,16 +17,22 @@ import {
 // M220. Everything the zone engine prices with, in one form, in rupees: the
 // two zone lines, one-way and return-package fares per zone, what each extra
 // passenger adds, when a group is too big to price automatically, what happens
-// at night, and Roulé's commission.
+// in the evening and at night, and Roulé's commission.
 //
 // Saving PUBLISHES a new version. The old one is kept, because every booked
 // quote names the version it came from — that is what lets a fare be explained
 // months later. So there is no "edit" here and no "delete", by design.
 //
-// Night is a choice between four things, spelled out, because the owner's own
-// brief laid them out as options and the launch choice (priced by hand) is the
-// one that leaves a customer waiting for a phone call — he should see that
-// trade-off where he makes it.
+// ── TWO TIME BANDS (M221) ──────────────────────────────────────────────────
+// The owner: "Keep priced by hand for true night (22:00–05:00). For the early
+// evening window 17:00–21:59, apply a fixed surcharge of Rs 300 automatically
+// so afternoon flights can dispatch without manual intervention. Update the
+// price-list editor so both windows are configurable."
+//
+// So there are two identical blocks, Evening and Night, each with its own mode,
+// hours and amounts. Where the owner makes them overlap, the NIGHT rule wins —
+// said on the form, because it is the one thing about two windows that is not
+// obvious from looking at them.
 
 type VersionRow = {
   id: number;
@@ -38,15 +45,27 @@ type VersionRow = {
   night_mode: NightMode;
   night_from_hour: number;
   night_to_hour: number;
+  evening_mode?: NightMode;
+  evening_from_hour?: number;
+  evening_to_hour?: number;
+  evening_surcharge?: number;
   commission_percent: number;
   note: string | null;
 };
 
-const NIGHT_LABEL: Record<NightMode, string> = {
-  manual: "Priced by hand — booked, held, you set the fare (launch setting)",
-  fixed: "Fixed surcharge per trip",
-  multiplier: "Multiplier on the trip fare",
-  none: "No night rule — day fares around the clock",
+const MODE_LABEL: Record<NightMode, string> = {
+  manual: "Priced by hand — booked, held from drivers until you set the fare",
+  fixed: "Fixed surcharge per trip — priced and dispatched automatically",
+  multiplier: "Multiplier on the trip fare — priced and dispatched automatically",
+  none: "Off — day fares apply",
+};
+
+type Band = {
+  mode: NightMode;
+  fromHour: string;
+  toHour: string;
+  surcharge: string;
+  multiplier: string;
 };
 
 type Form = {
@@ -56,9 +75,8 @@ type Form = {
   returnEach: [string, string, string];
   extraPassengerFee: string;
   maxPricedPassengers: string;
-  nightMode: NightMode;
-  nightFromHour: string; nightToHour: string;
-  nightSurcharge: string; nightMultiplier: string;
+  evening: Band;
+  night: Band;
   commissionPercent: string;
   note: string;
 };
@@ -74,14 +92,82 @@ function formFrom(p: TransferPricing, commission: number): Form {
     returnEach: [r(p.returnEach[0]), r(p.returnEach[1]), r(p.returnEach[2])],
     extraPassengerFee: r(p.extraPassengerFee),
     maxPricedPassengers: String(p.maxPricedPassengers),
-    nightMode: p.nightMode,
-    nightFromHour: String(p.nightFromHour),
-    nightToHour: String(p.nightToHour),
-    nightSurcharge: r(p.nightSurcharge),
-    nightMultiplier: String(p.nightMultiplier),
+    // A sheet from before M221 has no evening band: shown as Off, 17–21.
+    evening: {
+      mode: p.eveningMode ?? "none",
+      fromHour: String(p.eveningFromHour ?? 17),
+      toHour: String(p.eveningToHour ?? 21),
+      surcharge: r(p.eveningSurcharge ?? 0),
+      multiplier: String(p.eveningMultiplier ?? 1),
+    },
+    night: {
+      mode: p.nightMode,
+      fromHour: String(p.nightFromHour),
+      toHour: String(p.nightToHour),
+      surcharge: r(p.nightSurcharge),
+      multiplier: String(p.nightMultiplier),
+    },
     commissionPercent: String(commission),
     note: "",
   };
+}
+
+const box = "w-full rounded-lg border border-white/12 bg-dark px-2.5 py-2 font-dm text-sm text-offwhite focus:border-yellow/50 focus:outline-none";
+const lbl = "mb-1 block font-bebas text-[9px] tracking-[0.18em] text-muted";
+
+/** One time band's controls. Rendered twice: Evening, then Night. */
+function BandFields({
+  name, band, onChange,
+}: {
+  name: "evening" | "night";
+  band: Band;
+  onChange: (b: Band) => void;
+}) {
+  const title = name === "evening" ? "EVENING" : "NIGHT";
+  return (
+    <fieldset className="mt-3 rounded-xl border border-white/10 p-3">
+      <legend className="px-1 font-bebas text-[10px] tracking-[0.2em] text-muted">
+        {title} · {nightWindowLabel(Number(band.fromHour) || 0, Number(band.toHour) || 0)}
+      </legend>
+      <div className="space-y-1.5">
+        {NIGHT_MODES.map((m) => (
+          <label key={m} className="flex min-h-11 items-start gap-2 font-dm text-sm text-offwhite/90">
+            <input type="radio" name={`${name}-mode`} checked={band.mode === m}
+              onChange={() => onChange({ ...band, mode: m })} className="mt-1 accent-yellow" />
+            <span>{MODE_LABEL[m]}</span>
+          </label>
+        ))}
+      </div>
+      <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <label>
+          <span className={lbl}>FROM HOUR (0–23)</span>
+          <input value={band.fromHour} onChange={(e) => onChange({ ...band, fromHour: e.target.value })}
+            inputMode="numeric" className={box} />
+        </label>
+        <label>
+          <span className={lbl}>TO HOUR, INCLUSIVE</span>
+          <input value={band.toHour} onChange={(e) => onChange({ ...band, toHour: e.target.value })}
+            inputMode="numeric" className={box} />
+        </label>
+        <label className={band.mode === "fixed" ? "" : "opacity-40"}>
+          <span className={lbl}>SURCHARGE Rs / TRIP</span>
+          <input value={band.surcharge} onChange={(e) => onChange({ ...band, surcharge: e.target.value })}
+            inputMode="decimal" className={box} disabled={band.mode !== "fixed"} />
+        </label>
+        <label className={band.mode === "multiplier" ? "" : "opacity-40"}>
+          <span className={lbl}>MULTIPLIER ×</span>
+          <input value={band.multiplier} onChange={(e) => onChange({ ...band, multiplier: e.target.value })}
+            inputMode="decimal" className={box} disabled={band.mode !== "multiplier"} />
+        </label>
+      </div>
+      {band.mode === "manual" && (
+        <p className="mt-2 font-dm text-[11px] text-orange-200">
+          A booking in this window is taken, but no driver is asked until you set its fare on the
+          Queue tab. You get a WhatsApp alert with “SET THE FARE” each time.
+        </p>
+      )}
+    </fieldset>
+  );
 }
 
 export default function TransferPricingPanel() {
@@ -126,6 +212,15 @@ export default function TransferPricingPanel() {
   async function publish() {
     if (!f) return;
     const num = (s: string) => Number(s.replace(",", "."));
+    const band = (b: Band) => ({
+      mode: b.mode,
+      fromHour: Math.round(num(b.fromHour)),
+      toHour: Math.round(num(b.toHour)),
+      surcharge: num(b.surcharge || "0"),
+      multiplier: num(b.multiplier || "1"),
+    });
+    const evening = band(f.evening);
+    const night = band(f.night);
     setBusy(true);
     try {
       const res = await fetch("/api/admin/transfer-pricing", {
@@ -139,11 +234,16 @@ export default function TransferPricingPanel() {
           returnEach: f.returnEach.map(num),
           extraPassengerFee: num(f.extraPassengerFee || "0"),
           maxPricedPassengers: Math.round(num(f.maxPricedPassengers)),
-          nightMode: f.nightMode,
-          nightFromHour: Math.round(num(f.nightFromHour)),
-          nightToHour: Math.round(num(f.nightToHour)),
-          nightSurcharge: num(f.nightSurcharge || "0"),
-          nightMultiplier: num(f.nightMultiplier || "1"),
+          nightMode: night.mode,
+          nightFromHour: night.fromHour,
+          nightToHour: night.toHour,
+          nightSurcharge: night.surcharge,
+          nightMultiplier: night.multiplier,
+          eveningMode: evening.mode,
+          eveningFromHour: evening.fromHour,
+          eveningToHour: evening.toHour,
+          eveningSurcharge: evening.surcharge,
+          eveningMultiplier: evening.multiplier,
           commissionPercent: num(f.commissionPercent || "0"),
           note: f.note.trim() || undefined,
         }),
@@ -159,9 +259,6 @@ export default function TransferPricingPanel() {
     }
   }
 
-  const box = "w-full rounded-lg border border-white/12 bg-dark px-2.5 py-2 font-dm text-sm text-offwhite focus:border-yellow/50 focus:outline-none";
-  const lbl = "mb-1 block font-bebas text-[9px] tracking-[0.18em] text-muted";
-
   if (active === undefined) {
     return (
       <div className="flex justify-center rounded-2xl border border-white/10 bg-dark-card py-8">
@@ -173,7 +270,7 @@ export default function TransferPricingPanel() {
     return (
       <div className="rounded-2xl border border-orange-400/30 bg-orange-400/[0.06] p-4 font-dm text-sm text-orange-200">
         Could not load the airport price list: {loadError}{" "}
-        <button onClick={() => void load()} className="ml-1 underline underline-offset-4 hover:text-offwhite">
+        <button onClick={() => void load()} className="ml-1 min-h-11 underline underline-offset-4 hover:text-offwhite">
           Try again
         </button>
       </div>
@@ -196,6 +293,18 @@ export default function TransferPricingPanel() {
   const z1 = f.zone1MaxKm || "?";
   const z2 = f.zone2MaxKm || "?";
   const zoneLabels = [`Zone 1 · up to ${z1} km`, `Zone 2 · over ${z1}, under ${z2} km`, `Zone 3 · ${z2} km and over`];
+
+  // ── WHAT THE RETURN PACKAGE ACTUALLY SAVES, FROM THE BOXES ──────────────
+  // The owner's decision (B): no artificial discount in Zones 1–2, so there the
+  // package is only convenience. Shown live under the table so a fare typed in
+  // either column says immediately whether the package still means anything.
+  const minor = (s: string) => Math.round(Number(s.replace(",", ".")) * 100) || 0;
+  // Signed: a return fare typed above the one-way fare says "costs MORE",
+  // never "same" (and the route refuses to publish it).
+  const diffs = returnDifference({
+    oneWay: f.oneWay.map(minor) as [number, number, number],
+    returnEach: f.returnEach.map(minor) as [number, number, number],
+  });
 
   return (
     <section className="rounded-2xl border border-yellow/25 bg-dark-card p-4">
@@ -239,6 +348,22 @@ export default function TransferPricingPanel() {
           </tbody>
         </table>
       </div>
+      <ul className="mt-1.5 space-y-0.5 font-dm text-[11px] text-muted">
+        {([0, 1, 2] as const).map((i) => (
+          <li key={i}>
+            Zone {i + 1} return package:{" "}
+            {diffs[i] > 0 ? (
+              <span className="text-offwhite">saves {rupees(diffs[i])} per trip</span>
+            ) : diffs[i] < 0 ? (
+              <span className="text-orange-200">
+                costs {rupees(-diffs[i])} MORE per trip than one way — fix before publishing
+              </span>
+            ) : (
+              <>same as two one-way trips — convenience only, no discount</>
+            )}
+          </li>
+        ))}
+      </ul>
 
       <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
         <label>
@@ -259,47 +384,13 @@ export default function TransferPricingPanel() {
         </label>
       </div>
 
-      {/* ── NIGHT ─────────────────────────────────────────────────────── */}
-      <fieldset className="mt-3 rounded-xl border border-white/10 p-3">
-        <legend className="px-1 font-bebas text-[10px] tracking-[0.2em] text-muted">
-          NIGHT · {nightWindowLabel(Number(f.nightFromHour) || 0, Number(f.nightToHour) || 0)}
-        </legend>
-        <div className="space-y-1.5">
-          {NIGHT_MODES.map((m) => (
-            <label key={m} className="flex items-start gap-2 font-dm text-sm text-offwhite/90">
-              <input type="radio" name="night-mode" checked={f.nightMode === m}
-                onChange={() => setF({ ...f, nightMode: m })} className="mt-1 accent-yellow" />
-              <span>{NIGHT_LABEL[m]}</span>
-            </label>
-          ))}
-        </div>
-        <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
-          <label>
-            <span className={lbl}>FROM HOUR (0–23)</span>
-            <input value={f.nightFromHour} onChange={(e) => setF({ ...f, nightFromHour: e.target.value })} inputMode="numeric" className={box} />
-          </label>
-          <label>
-            <span className={lbl}>TO HOUR, INCLUSIVE</span>
-            <input value={f.nightToHour} onChange={(e) => setF({ ...f, nightToHour: e.target.value })} inputMode="numeric" className={box} />
-          </label>
-          <label className={f.nightMode === "fixed" ? "" : "opacity-40"}>
-            <span className={lbl}>SURCHARGE Rs / TRIP</span>
-            <input value={f.nightSurcharge} onChange={(e) => setF({ ...f, nightSurcharge: e.target.value })}
-              inputMode="decimal" className={box} disabled={f.nightMode !== "fixed"} />
-          </label>
-          <label className={f.nightMode === "multiplier" ? "" : "opacity-40"}>
-            <span className={lbl}>MULTIPLIER ×</span>
-            <input value={f.nightMultiplier} onChange={(e) => setF({ ...f, nightMultiplier: e.target.value })}
-              inputMode="decimal" className={box} disabled={f.nightMode !== "multiplier"} />
-          </label>
-        </div>
-        {f.nightMode === "manual" && (
-          <p className="mt-2 font-dm text-[11px] text-orange-200">
-            A night booking is taken, but no driver is asked until you set its fare on the Queue tab.
-            You get a WhatsApp alert with “SET THE FARE” each time.
-          </p>
-        )}
-      </fieldset>
+      {/* ── EVENING, THEN NIGHT ───────────────────────────────────────── */}
+      <BandFields name="evening" band={f.evening} onChange={(evening) => setF({ ...f, evening })} />
+      <BandFields name="night" band={f.night} onChange={(night) => setF({ ...f, night })} />
+      <p className="mt-1.5 font-dm text-[11px] text-muted">
+        Hours are island time and inclusive — “to hour 21” runs to 21:59. If the two windows
+        overlap, the Night rule applies to the shared hours.
+      </p>
 
       <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
         <label>
@@ -314,13 +405,13 @@ export default function TransferPricingPanel() {
       </div>
       <p className="mt-1 font-dm text-[11px] text-muted">
         {Number(f.commissionPercent) > 0
-          ? `On a ${rupees(Math.round(Number(f.oneWay[2]) * 100) || 0)} Zone 3 trip the driver earns ${rupees(Math.round(Number(f.oneWay[2]) * (100 - Number(f.commissionPercent))) || 0)} and Roulé keeps the rest.`
+          ? `On a ${rupees(Math.round(Number(f.oneWay[2]) * 100) || 0)} Zone 3 trip the driver keeps ${rupees(Math.round(Number(f.oneWay[2]) * (100 - Number(f.commissionPercent))) || 0)} and Roulé keeps the rest.`
           : "No commission — the driver keeps the whole fare."}
       </p>
 
       <div className="mt-3 flex flex-wrap items-center gap-3">
         <button onClick={() => void publish()} disabled={busy}
-          className="inline-flex items-center gap-1.5 rounded-full bg-yellow px-4 py-2 font-dm text-sm font-bold text-dark disabled:opacity-50">
+          className="inline-flex min-h-11 items-center gap-1.5 rounded-full bg-yellow px-4 py-2 font-dm text-sm font-bold text-dark disabled:opacity-50">
           {busy && <Loader2 size={14} className="animate-spin" />} Publish these prices
         </button>
         <a href="/transfers" target="_blank" rel="noreferrer" className="font-dm text-xs text-muted hover:text-yellow">
@@ -361,7 +452,14 @@ export default function TransferPricingPanel() {
                 {[v.one_way_zone1, v.one_way_zone2, v.one_way_zone3].map(rupees).join(" / ")}
                 {" · return "}
                 {[v.return_zone1, v.return_zone2, v.return_zone3].map(rupees).join(" / ")}
-                {" · night "}{v.night_mode}
+                {v.evening_mode && v.evening_mode !== "none" && (
+                  <>
+                    {" · evening "}{v.evening_mode}
+                    {v.evening_mode === "fixed" && v.evening_surcharge != null && ` +${rupees(v.evening_surcharge)}`}
+                    {` ${nightWindowLabel(v.evening_from_hour ?? 17, v.evening_to_hour ?? 21)}`}
+                  </>
+                )}
+                {" · night "}{v.night_mode} {nightWindowLabel(v.night_from_hour, v.night_to_hour)}
                 {v.id === active.id && <span className="ml-1 text-yellow">(in force)</span>}
               </li>
             ))}
