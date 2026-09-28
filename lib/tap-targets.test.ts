@@ -93,6 +93,42 @@ describe("controls that were under 44px", () => {
   });
 });
 
+// ── AND THE FILTER RAILS ────────────────────────────────────────────────────
+//
+// Every one of these decides what the whole list below it shows, and each was
+// a 30–34px box: `px-4 py-1.5` or `px-3.5 py-2` on text-xs, in a horizontal
+// rail where the neighbouring chip is a different filter. They are the same
+// control in five places, so they get the same floor.
+
+describe("the filter chips", () => {
+  const rails: [string, string, string][] = [
+    ["/explore", "components/ExploreClient.tsx", "inline-flex min-h-11 shrink-0 items-center justify-center rounded-full border px-4 py-1.5"],
+    ["/experiences", "components/experiences/ExperiencesHub.tsx", "inline-flex min-h-11 shrink-0 items-center justify-center rounded-full px-3.5 py-2"],
+    ["/experiences related types", "components/experiences/ExperiencesHub.tsx", "inline-flex min-h-11 items-center gap-1.5 rounded-full border px-3 py-1.5"],
+    ["/food", "app/food/page.tsx", "inline-flex min-h-11 shrink-0 items-center justify-center rounded-full border px-3.5 py-2"],
+    ["the guide pages", "components/PlaceDiscovery.tsx", "inline-flex min-h-11 shrink-0 items-center justify-center rounded-full border px-3.5 py-2"],
+  ];
+
+  for (const [where, file, cls] of rails) {
+    it(where, () => {
+      expect(tsx(file), `${file} — ${cls}`).toContain(cls);
+    });
+  }
+
+  it("none of them is left as a bare padded pill", () => {
+    // The shapes they had. Catches a revert that keeps the file compiling.
+    const olds: [string, string][] = [
+      ["components/ExploreClient.tsx", '`shrink-0 rounded-full border px-4 py-1.5 font-dm text-xs'],
+      ["app/food/page.tsx", '"shrink-0 rounded-full border px-3.5 py-2 font-dm text-xs'],
+      ["components/PlaceDiscovery.tsx", '`shrink-0 rounded-full border px-3.5 py-2 font-dm text-xs'],
+      ["components/experiences/ExperiencesHub.tsx", '"shrink-0 rounded-full px-3.5 py-2 font-dm text-xs'],
+    ];
+    for (const [file, old] of olds) {
+      expect(tsx(file), file).not.toContain(old);
+    }
+  });
+});
+
 describe("the gallery dot still looks like a dot", () => {
   it("the painted pill moved into a span, so the button can be the target", () => {
     // Measured after: the button is 25 x 42 and the pill inside it is still

@@ -90,8 +90,11 @@ export const metadata: Metadata = {
 const first = (v: string | string[] | undefined): string =>
   Array.isArray(v) ? (v[0] ?? "") : (v ?? "");
 
+// min-h-11: px-3.5/py-2 on text-xs is a 34px box, and these chips are how a
+// customer narrows a menu on a phone — the control that decides what the whole
+// list below shows.
 const chip =
-  "shrink-0 rounded-full border px-3.5 py-2 font-dm text-xs font-medium transition-colors";
+  "inline-flex min-h-11 shrink-0 items-center justify-center rounded-full border px-3.5 py-2 font-dm text-xs font-medium transition-colors";
 const chipOn = `${chip} border-yellow/60 bg-yellow/15 text-yellow`;
 const chipOff = `${chip} border-white/10 bg-dark-card text-muted hover:border-white/25 hover:text-offwhite`;
 

@@ -108,7 +108,9 @@ export default function PlaceDiscovery({
 }
 
 const chip = (on: boolean) =>
-  `shrink-0 rounded-full border px-3.5 py-2 font-dm text-xs font-medium transition-colors ${
+  // min-h-11: 34px otherwise, on the rail that filters every beach, viewpoint
+  // and walk on the guide pages.
+  `inline-flex min-h-11 shrink-0 items-center justify-center rounded-full border px-3.5 py-2 font-dm text-xs font-medium transition-colors ${
     on
       ? "border-yellow/60 bg-yellow/15 text-yellow"
       : "border-white/10 bg-dark-card text-muted hover:border-white/25 hover:text-offwhite"

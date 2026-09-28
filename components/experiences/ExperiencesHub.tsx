@@ -333,7 +333,7 @@ export default function ExperiencesHub({ places }: { places: RecommendedPlace[] 
                 <li key={x.slug}>
                   <Link
                     href={`/experiences/${x.slug}`}
-                    className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 font-dm text-xs transition-colors"
+                    className="inline-flex min-h-11 items-center gap-1.5 rounded-full border px-3 py-1.5 font-dm text-xs transition-colors"
                     style={{ borderColor: "var(--x-line)" }}
                   >
                     <span aria-hidden>{x.emoji}</span>
@@ -390,7 +390,7 @@ function Chip({ on, onClick, children }: { on: boolean; onClick: () => void; chi
       type="button"
       onClick={onClick}
       aria-pressed={on}
-      className="shrink-0 rounded-full px-3.5 py-2 font-dm text-xs font-medium transition-colors"
+      className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-full px-3.5 py-2 font-dm text-xs font-medium transition-colors"
       style={
         on
           ? { background: "var(--x-accent)", color: "var(--x-accent-ink)" }

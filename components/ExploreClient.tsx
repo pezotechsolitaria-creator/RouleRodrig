@@ -120,7 +120,8 @@ export default function ExploreClient({
               <button
                 key={c.key}
                 onClick={() => setChip(c.key)}
-                className={`shrink-0 rounded-full border px-4 py-1.5 font-dm text-xs font-medium transition-colors ${
+                // min-h-11: these are the control that decides what the whole list below shows, and px-4/py-1.5 on text-xs is a 30px box.
+                className={`inline-flex min-h-11 shrink-0 items-center justify-center rounded-full border px-4 py-1.5 font-dm text-xs font-medium transition-colors ${
                   chip === c.key
                     ? "border-yellow bg-yellow text-dark"
                     : "border-white/12 text-muted hover:border-yellow/40 hover:text-yellow"
