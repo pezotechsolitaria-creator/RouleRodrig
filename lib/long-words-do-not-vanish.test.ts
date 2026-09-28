@@ -82,4 +82,47 @@ describe("the free-text price is never cut", () => {
       "break-words pt-3 font-dm text-xs font-semibold",
     );
   });
+
+  it("/experiences/[type] gives it three lines beside the Book button", () => {
+    // Measured: 540px of that string against a 227px column. On one line it
+    // read "Rs 2,500 per person(" — the free transfer, which is the reason to
+    // book, cut off. Two lines still hid the end; it needs 2.4.
+    const src = tsx("components/experiences/ExperienceMarket.tsx");
+    expect(src).toContain("line-clamp-3");
+    expect(src).toContain("[overflow-wrap:anywhere]");
+    expect(src).not.toContain("truncate font-syne text-sm font-extrabold text-yellow");
+  });
+});
+
+// ── TRUNCATE CUT THE LABEL INSTEAD OF THE NAME ──────────────────────────────
+//
+// Two more places where the only flexible column carried a fixed label and a
+// variable one under a single `truncate`, so the unshrinkable sibling pushed
+// the cut back into the words that never change.
+
+describe("the marketplace cart pill", () => {
+  const src = tsx("components/shop/ShopChrome.tsx");
+
+  it("truncates the shop name, not the label", () => {
+    // At 375px in French "Voir le panier · Rodrigues Repairs (TEST)" needs
+    // 264px against the 176 it got, so the bar read "Voir le panier · Rodrig…".
+    // Same construction that had to be fixed in FoodCartBar.
+    expect(src).toContain('<span className="shrink-0">{copy.header.viewBag}</span>');
+    expect(src).toContain("min-w-0 truncate font-medium opacity-70");
+    expect(src).not.toContain('<span className="min-w-0 flex-1 truncate">');
+  });
+});
+
+describe("the /shop delivery line", () => {
+  const src = tsx("app/shop/page.tsx");
+
+  it("wraps rather than being cut mid-word", () => {
+    // `truncate` on a FLEX container cannot ellipsize — text-overflow applies
+    // to the inline content of a block box, not to flex items — while its
+    // nowrap inherits into every child. Measured with the real strings at the
+    // real width: French needs 382px of 343, English 279. So the French line
+    // ended "Payez la boutique directement, sa".
+    expect(src).toContain("flex flex-wrap items-center gap-x-1.5 gap-y-0.5");
+    expect(src).not.toContain("flex items-center gap-1.5 truncate font-dm text-[11px]");
+  });
 });

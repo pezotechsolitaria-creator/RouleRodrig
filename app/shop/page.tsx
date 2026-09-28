@@ -236,11 +236,26 @@ export default async function MarketplaceHomePage() {
 
         <CategoryStrip categories={categories} />
 
-        {/* ONE line — it has to stay one line at 375px, which is why the price
-            drops its ".00" and the copy is this short. Two facts that change a
-            purchase decision, in the place Amazon puts "Deliver to". */}
+        {/* Two facts that change a purchase decision, in the place Amazon puts
+            "Deliver to". It was written to stay on ONE line at 375px, which is
+            why the price drops its ".00" and the copy is this short — and in
+            English it does: 279px of the 343 available.
+
+            French does not. Measured with the real strings at the real width:
+            "Livraison à partir de Rs 150 · Payez la boutique directement, sans
+            carte" needs 382px, 39 over. And `truncate` on a FLEX container
+            cannot ellipsize — text-overflow applies to the inline content of a
+            block box, not to flex items — while its `white-space: nowrap`
+            inherits into every child and min-width:auto stops any of them
+            shrinking. So the line did not end in "…", it was cut mid-word:
+            "Payez la boutique directement, sa".
+
+            flex-wrap keeps the one-line design everywhere it fits and lets
+            French take a second line rather than lose the end of a sentence.
+            (Not observable today: the whole block is gated on
+            productCount > 0, and the marketplace has no live products yet.) */}
         {productCount > 0 && (
-          <p className="mt-2 flex items-center gap-1.5 truncate font-dm text-[11px] text-muted">
+          <p className="mt-2 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 font-dm text-[11px] text-muted">
             <Truck size={12} className="shrink-0 text-yellow/70" />
             {deliveryFrom !== null && anyShopDelivers && (
               <TName

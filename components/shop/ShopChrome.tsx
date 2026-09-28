@@ -172,9 +172,19 @@ export function CartBar() {
             <span className="flex h-6 w-6 items-center justify-center rounded-full bg-dark font-dm text-[11px] font-bold text-yellow">
               {itemCount > 99 ? "99+" : itemCount}
             </span>
-            <span className="min-w-0 flex-1 truncate">
-              {copy.header.viewBag}{" "}
-              <span className="font-medium opacity-70">· {where}</span>
+            {/* The label is fixed and short; the shop name is neither. With
+                one `truncate` over both, the flexible half was the whole
+                string, so the TOTAL (shrink-0) pushed the cut back into the
+                label: at 375px in French "Voir le panier · Rodrigues Repairs
+                (TEST)" needs 264px against the 176 it gets, and the bar read
+                "Voir le panier · Rodrig…". Same construction that had to be
+                fixed in components/food/FoodCartBar.tsx.
+
+                Splitting it moves the truncation onto the shop name, which is
+                the part that can afford to lose letters. */}
+            <span className="flex min-w-0 flex-1 items-baseline gap-1">
+              <span className="shrink-0">{copy.header.viewBag}</span>
+              <span className="min-w-0 truncate font-medium opacity-70">· {where}</span>
             </span>
             {subtotal !== null && <span className="shrink-0">Rs {centsToDecimalString(subtotal)}</span>}
           </Link>

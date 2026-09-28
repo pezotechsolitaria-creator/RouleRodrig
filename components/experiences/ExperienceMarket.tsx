@@ -332,9 +332,20 @@ function ExperienceCard({
         </p>
 
         <div className="mt-auto flex items-end justify-between gap-2 pt-3">
-          <div className="min-w-0">
+          {/* priceNote is the owner's free-text box, and one experience holds
+              "Rs 2,500 per person(Free transfer to starting point)". Beside a
+              shrink-0 Book button it truncated to "Rs 2,500 per person(" — the
+              free transfer, which is the reason to book, cut off — 540px of
+              text laid on one 227px line. Three lines, because that string
+              takes 2.4 of them and line-clamp-2 still hid the end; the clamp
+              stays as a floor against a much longer one. [overflow-wrap:
+              anywhere] because "person(Free" has no break opportunity of its
+              own. Same field, same fix as ExploreClient and ExperiencesHub. */}
+          <div className="min-w-0 flex-1">
             {place.priceNote ? (
-              <p className="truncate font-syne text-sm font-extrabold text-yellow">{place.priceNote}</p>
+              <p className="line-clamp-3 font-syne text-sm font-extrabold leading-snug text-yellow [overflow-wrap:anywhere]">
+                {place.priceNote}
+              </p>
             ) : (
               <p className="font-dm text-xs text-muted">{fr ? "Prix sur demande" : "Price on request"}</p>
             )}
