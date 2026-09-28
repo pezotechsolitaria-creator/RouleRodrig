@@ -99,6 +99,20 @@ const EN = {
         ferry: "Port Mathurin ferry terminal",
       },
       pickupFixedEyebrow: "PICKING YOU UP AT",
+      /**
+       * The ANSWERED row's label, once a place has been chosen.
+       *
+       * PlacePicker draws that row as `label: value` on one line with a single
+       * truncate over both, so the label spends width the place name needs.
+       * Measured at 375px with "Port Mathurin — Terminal du Ferry": the row
+       * gives 201px, "OÙ VOUS EMMENER:" takes 166 of them and the destination
+       * got 35 — "Por…". English left 103. With these it gets 182.
+       *
+       * The words are the ones app/deliver already uses for the same control
+       * (lib/delivery/copy.i18n.ts fromShort/toShort), not new translations.
+       */
+      pickupShort: "From",
+      dropoffShort: "To",
       pickupLabel: "PICK ME UP AT",
       pickupPlaceholder: "Hotel, beach, village…",
       dropoffFixedEyebrow: "GOING TO",
@@ -365,6 +379,8 @@ const FR: RidesCopy = {
         ferry: "Terminal ferry de Port Mathurin",
       },
       pickupFixedEyebrow: "PRISE EN CHARGE À",
+      pickupShort: "De",
+      dropoffShort: "À",
       pickupLabel: "OÙ VOUS PRENDRE",
       pickupPlaceholder: "Hôtel, plage, village…",
       dropoffFixedEyebrow: "DESTINATION",
@@ -610,6 +626,8 @@ const CR: RidesCopy = {
         ferry: "Terminal ferry Port Mathurin",
       },
       pickupFixedEyebrow: "KOT NOU PRAN OU",
+      pickupShort: "Depi",
+      dropoffShort: "Ver",
       pickupLabel: "KOT PRAN OU",
       pickupPlaceholder: "Otel, laplaz, vilaz…",
       dropoffFixedEyebrow: "KOT OU PE ALE",

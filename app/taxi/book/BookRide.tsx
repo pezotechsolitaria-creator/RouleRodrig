@@ -547,6 +547,10 @@ export default function BookRide({
           ) : (
             <PlacePicker
               label={c.step2.pickupLabel}
+              // The answered row draws `label: value` under one truncate, so
+              // the full label spends the width the place name needs. /deliver
+              // has always passed a short one here; this screen did not.
+              shortLabel={c.step2.pickupShort}
               icon={MapPin}
               value={pickup}
               onPick={setPickup}
@@ -576,6 +580,7 @@ export default function BookRide({
           ) : needsDropoff ? (
             <PlacePicker
               label={c.step2.dropoffLabel}
+              shortLabel={c.step2.dropoffShort}
               icon={Navigation}
               value={dropoff}
               onPick={setDropoff}

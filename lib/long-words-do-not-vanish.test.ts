@@ -113,6 +113,52 @@ describe("the marketplace cart pill", () => {
   });
 });
 
+describe("the account line on /checkout", () => {
+  const src = tsx("components/checkout/CheckoutForm.tsx");
+
+  it("wraps the email instead of running it over the sign-out button", () => {
+    // `truncate` sets overflow:hidden and text-overflow:ellipsis, and NEITHER
+    // applies to an inline non-replaced box — only white-space:nowrap took
+    // effect, so the address could neither wrap nor be clipped. Measured at
+    // 375px with a 38-character address and the French labels: 121px past its
+    // own paragraph, 111px past the left edge of the only control that fixes
+    // a wrong account. After: three lines, 13px clear.
+    expect(src).toContain('<span className="break-all font-medium text-offwhite">');
+    expect(src).not.toContain('<span className="truncate font-medium text-offwhite">');
+  });
+});
+
+describe("the answered place row on /taxi/book", () => {
+  it("names the field short, the way /deliver already does", () => {
+    // PlacePicker draws the answered row as `label: value` on one line under a
+    // single truncate, so the label spends the width the place name needs.
+    // Measured at 375px with "Port Mathurin — Terminal du Ferry": the row
+    // gives 201px, "OÙ VOUS EMMENER:" took 166 and left 35 for the
+    // destination — "Por…". English left 103. With the short label, 182.
+    const src = tsx("app/taxi/book/BookRide.tsx");
+    expect(src).toContain("shortLabel={c.step2.pickupShort}");
+    expect(src).toContain("shortLabel={c.step2.dropoffShort}");
+  });
+
+  it("in all three languages", () => {
+    const copy = readFileSync(join(ROOT, "lib", "rides", "copy.i18n.ts"), "utf8");
+    // The words are the ones /deliver uses for the same control — see
+    // lib/delivery/copy.i18n.ts fromShort/toShort — not new translations
+    // invented here.
+    const pairs = [
+      ["pickupShort", "From"],
+      ["dropoffShort", "To"],
+      ["pickupShort", "De"],
+      ["dropoffShort", "À"],
+      ["pickupShort", "Depi"],
+      ["dropoffShort", "Ver"],
+    ];
+    for (const [key, word] of pairs) {
+      expect(copy, `${key}: ${word}`).toContain(`${key}: "${word}",`);
+    }
+  });
+});
+
 describe("the /shop delivery line", () => {
   const src = tsx("app/shop/page.tsx");
 

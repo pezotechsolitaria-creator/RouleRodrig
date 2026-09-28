@@ -919,7 +919,24 @@ export default function CheckoutForm({
           <Check size={15} className="shrink-0 text-green-400" />
           <p className="min-w-0 flex-1 font-dm text-sm text-muted">
             <span className="sr-only" id="who-h">{c.form.signedIn.srLabel}</span>
-            {c.form.signedIn.orderingAs}<span className="truncate font-medium text-offwhite">{signedInEmail}</span>
+            {/* break-all, not truncate. `truncate` sets overflow:hidden and
+                text-overflow:ellipsis, and NEITHER applies to an inline
+                non-replaced box — only its white-space:nowrap took effect, so
+                the address could not wrap AND could not be clipped. Measured
+                at 375px with a 38-character address and the French labels
+                ("Vous commandez en tant que …", "Ce n'est pas vous ?"): the
+                email ran 121px past its own paragraph and 111px past the left
+                edge of the sign-out button, painting over the only way to
+                correct a wrong account. Eight of the twelve real accounts are
+                long enough to do it.
+
+                Wrapping rather than ellipsising on purpose: this line exists
+                so the customer can check WHICH account the order and every
+                status mail will go to, and the distinguishing part of an
+                address is the end. After: three lines, 13px clear of the
+                button. */}
+            {c.form.signedIn.orderingAs}
+            <span className="break-all font-medium text-offwhite">{signedInEmail}</span>
           </p>
           {/* A shared phone, a stale Google session, or simply the wrong
               account — without a way out, the only options were to abandon the
