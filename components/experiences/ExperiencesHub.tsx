@@ -441,6 +441,13 @@ function Card({ place, index, language }: { place: RecommendedPlace; index: numb
         )}
       </div>
       <div className="flex flex-1 flex-col p-4">
+        {/* This grid gives a card 128px of text at 375px and the words in it
+            are the owner's. The title is handled by the heading rule in
+            globals.css — "Plongée en apnée/Aquarium Rivière Banane" was being
+            cut to "apnée/Aquari" until that rule stopped forbidding the break.
+            priceNote is not a heading, and it carries the same free-text the
+            owner types: "Rs 2,500 per person(Free transfer to starting point)"
+            has no break opportunity at all in "person(Free". */}
         <h2 className="font-syne text-base font-bold">{name}</h2>
         {blurb && (
           <p className="mt-1 line-clamp-2 font-dm text-xs leading-relaxed" style={{ color: "var(--x-muted)" }}>
@@ -448,7 +455,7 @@ function Card({ place, index, language }: { place: RecommendedPlace; index: numb
           </p>
         )}
         <span
-          className="mt-auto inline-flex items-center gap-1.5 pt-3 font-dm text-xs font-semibold"
+          className="mt-auto inline-flex items-baseline gap-1.5 break-words pt-3 font-dm text-xs font-semibold"
           style={{ color: "var(--x-accent)" }}
         >
           {place.priceNote?.trim() || "See more"} <ArrowRight size={13} />

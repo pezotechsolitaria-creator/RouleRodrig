@@ -283,13 +283,31 @@ function ExperienceRow({ item, language }: { item: ExploreItem; language: Langua
           <ArrowRight size={15} className="mt-0.5 shrink-0 text-muted/50 transition-all group-hover:translate-x-0.5 group-hover:text-yellow" />
         </div>
         <p className="mt-1 line-clamp-2 font-dm text-[12.5px] leading-snug text-muted">{desc}</p>
-        <div className="mt-auto flex items-center gap-1.5 pt-2">
+        {/* ── THE PRICE BOX HOLDS A SENTENCE, NOT A NUMBER ─────────────
+            item.price is one free-text field the owner types everything into,
+            and one experience carries "Rs 2,500 per person(Free transfer to
+            starting point)". Measured on a 375px phone: 318px of text, given
+            a 214px column, `shrink-0` so it could not shrink, inside a card
+            with overflow-hidden — so it was cut mid-word with no ellipsis,
+            163px of it gone, including the free-transfer promise.
+
+            Not priceParts(): that splitter is built for the vehicle strings
+            and keeps only the number and free DELIVERY, which would drop
+            "per person" and the transfer promise. Its own note says the raw
+            string is what the cards show. So the layout bends instead — the
+            price wraps, and drops to its own line when the chips leave it no
+            room. lib/site-data keeps the owner's wording exactly as typed. */}
+        <div className="mt-auto flex flex-wrap items-center gap-x-1.5 gap-y-1 pt-2">
           {chips.map((t, i) => (
             <span key={i} className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-dm text-[10.5px] ${i === 0 ? "bg-yellow/12 text-yellow/90" : "bg-white/[0.06] text-muted"}`}>
               {t}
             </span>
           ))}
-          {item.price && <span className="ml-auto shrink-0 font-syne text-xs font-bold text-yellow">{item.price}</span>}
+          {item.price && (
+            <span className="ml-auto min-w-0 break-words text-right font-syne text-xs font-bold text-yellow">
+              {item.price}
+            </span>
+          )}
         </div>
       </div>
     </Wrap>

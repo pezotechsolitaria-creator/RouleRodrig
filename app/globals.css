@@ -226,18 +226,50 @@ body {
   }
 }
 
-/* ── Headings: never split a word across lines ──────────
-   Words wrap as whole units (keep-all) with no hyphenation.
-   Combined with responsive clamp() sizes, this guarantees
-   every word stays intact and readable on small phones.    */
-h1,
-h2,
-h3,
-h4 {
-  overflow-wrap: normal;
-  word-break: keep-all;
-  hyphens: none;
-  -webkit-hyphens: none;
+/* ── Headings: keep every word whole THAT CAN BE ────────────────────────
+   The promise here was that no word is ever split, so every one stays
+   readable on a small phone. For a word that FITS that is right, and it is
+   why hyphens stay off. For a word that does not fit, `keep-all` plus
+   `overflow-wrap: normal` meant the browser had no legal break point at all,
+   so the word did not wrap — it overflowed, and the first ancestor with
+   overflow-hidden cut it off mid-letter.
+
+   Measured on /experiences at 375px: the two-up grid gives a card 128px of
+   text, and the experience called "Plongée en apnée/Aquarium Rivière Banane"
+   put "apnée/Aquarium" — one 147px token — on a line of its own. The reader
+   got "apnée/Aquari". A rule written to guarantee readable words was the
+   reason that word could not be read.
+
+   word-break: normal restores the ordinary break opportunities. overflow-wrap:
+   break-word is the last resort beneath it: it does nothing to a word that
+   fits, and breaks one that cannot fit on any line — a long URL, a slug, a
+   reference code. Hyphenation stays off, which is what "no hyphenation" meant.
+
+   It is the last resort that catches this particular name, not the first: a
+   solidus between two letters is not a break opportunity in UAX#14 (nobody
+   wants "and/" on its own line), so the browser still splits "Aquari / um".
+   Measured after the change: widest line 119px in a 128px box, whole title
+   legible. An ugly break beats an invisible word.
+
+   ── AND IT IS IN @layer base NOW ───────────────────────────────────
+   Unlayered CSS beats every Tailwind v4 layer whatever the specificity, so
+   as raw top-level rules these four properties silently defeated `break-words`
+   and `break-all` on every heading in the codebase — the class was in the
+   markup, the computed style said `overflow-wrap: normal`, and nothing said
+   why. In @layer base a utility can override it, which is what anyone writing
+   that class expects. (Inside a layer for the same reason as the atmosphere
+   block below: this file's raw top-level CSS has been dropped by a Vercel
+   build before.) */
+@layer base {
+  h1,
+  h2,
+  h3,
+  h4 {
+    overflow-wrap: break-word;
+    word-break: normal;
+    hyphens: none;
+    -webkit-hyphens: none;
+  }
 }
 
 *:focus-visible {
