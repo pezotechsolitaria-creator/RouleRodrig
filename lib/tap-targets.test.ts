@@ -97,9 +97,10 @@ describe("the gallery dot still looks like a dot", () => {
   it("the painted pill moved into a span, so the button can be the target", () => {
     // Measured after: the button is 25 x 42 and the pill inside it is still
     // 6px tall, with the dots' centre 21px above the image edge where it was
-    // 19. The first attempt put `-my-4` on the button to hold that position
-    // and it computed to 0px — Tailwind v4 only emits the utilities it finds,
-    // and that one appears nowhere else here.
+    // 19. The first attempt held that position with `-my-4` on the button and
+    // it computed to 0px in the browser; the strip moving to bottom-0 does
+    // the same job without depending on a margin that has to cancel the
+    // height exactly.
     const src = tsx("components/PlaceDetailModal.tsx");
     expect(src).toContain('<span className={`block h-1.5 rounded-full');
     expect(src).not.toContain("-my-4");

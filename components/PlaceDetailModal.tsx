@@ -95,11 +95,13 @@ export default function PlaceDetailModal({
                   be 19, and they still look like dots.
 
                   Not a negative margin on the button: `-my-4` was the first
-                  attempt and it computed to 0px, because Tailwind v4 only
-                  emits the utilities it finds and that one appears nowhere
-                  else in this codebase. The class was in the markup and did
-                  nothing — which is only visible by reading the computed
-                  style, not the class list. */}
+                  attempt, to hold the strip at bottom-4, and it computed to
+                  0px in the browser. The production stylesheet does carry
+                  `.-my-4`, so the cause was local — this worktree's dev CSS
+                  is demonstrably unreliable, an injected `z-[1000]` computes
+                  to 1 there. Either way the position is better expressed by
+                  moving the strip than by a negative margin that has to
+                  cancel the height exactly. */}
               <div className="absolute bottom-0 left-1/2 -translate-x-1/2 flex items-center z-10">
                 {photos.map((_, i) => (
                   <button
