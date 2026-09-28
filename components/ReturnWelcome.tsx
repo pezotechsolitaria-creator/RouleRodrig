@@ -117,7 +117,14 @@ export default function ReturnWelcome() {
             <button onClick={act} className="shrink-0 flex items-center gap-1 bg-yellow text-dark font-syne font-bold text-xs px-3.5 py-2 rounded-full hover:bg-yellow-dark transition-colors">
               {state.kind === "saved" ? c.view : c.continue} <ArrowRight size={12} />
             </button>
-            <button onClick={dismiss} aria-label={t.common.dismiss} className="shrink-0 text-muted/50 hover:text-offwhite transition-colors">
+            {/* The X had no box of its own, so the target was the glyph:
+                16x16. -m-2 keeps the banner's spacing while p-2 grows the
+                hit area to 32, and after:-inset-1.5 takes it to 44. */}
+            <button
+              onClick={dismiss}
+              aria-label={t.common.dismiss}
+              className="relative -m-2 shrink-0 p-2 text-muted/50 transition-colors after:absolute after:-inset-1.5 after:content-[''] hover:text-offwhite"
+            >
               <X size={16} />
             </button>
           </div>

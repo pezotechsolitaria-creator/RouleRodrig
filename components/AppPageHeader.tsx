@@ -86,7 +86,10 @@ export default function AppPageHeader({
         ) : (
           <Link
             href="/"
-            className="flex items-center"
+            // The mark is 32x32 and stays 32x32: after:-inset-2 gives it a
+            // 48px hit area without redrawing the logo, which is how the
+            // buttons on the other side of this header already do it.
+            className="relative flex items-center after:absolute after:-inset-2 after:content-['']"
             aria-label={t.a11y.home}
           >
             <span className="rr-logo-anim inline-flex">

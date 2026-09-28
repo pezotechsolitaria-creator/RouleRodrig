@@ -219,14 +219,14 @@ function FleetImageCarousel({
           {/* Arrows — always visible on touch screens, hover-reveal on desktop */}
           <button
             onClick={prev}
-            className="absolute left-3 top-1/2 -translate-y-1/2 z-10 w-9 h-9 rounded-full bg-black/45 backdrop-blur-sm border border-white/15 text-white flex items-center justify-center transition-opacity hover:bg-black/75 opacity-90 md:opacity-0 md:group-hover/carousel:opacity-100"
+            className="absolute left-3 top-1/2 -translate-y-1/2 z-10 w-11 h-11 rounded-full bg-black/45 backdrop-blur-sm border border-white/15 text-white flex items-center justify-center transition-opacity hover:bg-black/75 opacity-90 md:opacity-0 md:group-hover/carousel:opacity-100"
             aria-label={t.a11y.prevPhoto}
           >
             <ChevronLeft size={17} />
           </button>
           <button
             onClick={next}
-            className="absolute right-3 top-1/2 -translate-y-1/2 z-10 w-9 h-9 rounded-full bg-black/45 backdrop-blur-sm border border-white/15 text-white flex items-center justify-center transition-opacity hover:bg-black/75 opacity-90 md:opacity-0 md:group-hover/carousel:opacity-100"
+            className="absolute right-3 top-1/2 -translate-y-1/2 z-10 w-11 h-11 rounded-full bg-black/45 backdrop-blur-sm border border-white/15 text-white flex items-center justify-center transition-opacity hover:bg-black/75 opacity-90 md:opacity-0 md:group-hover/carousel:opacity-100"
             aria-label={t.a11y.nextPhoto}
           >
             <ChevronRight size={17} />

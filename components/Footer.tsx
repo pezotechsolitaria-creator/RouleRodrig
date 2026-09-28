@@ -105,7 +105,7 @@ export default function Footer({
                     target="_blank"
                     rel="noopener noreferrer"
                     aria-label={`Follow us on ${label}`}
-                    className="w-10 h-10 rounded-full border border-dark-border flex items-center justify-center text-muted hover:border-yellow hover:text-yellow transition-colors"
+                    className="w-11 h-11 rounded-full border border-dark-border flex items-center justify-center text-muted hover:border-yellow hover:text-yellow transition-colors"
                   >
                     <Icon className="w-4 h-4" />
                   </a>
@@ -116,7 +116,7 @@ export default function Footer({
                 {SOCIAL_CONFIG.map(({ Icon, label }) => (
                   <div
                     key={label}
-                    className="w-10 h-10 rounded-full border border-dark-border flex items-center justify-center text-muted/30"
+                    className="w-11 h-11 rounded-full border border-dark-border flex items-center justify-center text-muted/30"
                     aria-hidden="true"
                   >
                     <Icon className="w-4 h-4" />

@@ -201,7 +201,7 @@ export default function DishOrderPanel({
             aria-label={copy.panel.oneFewer}
             onClick={() => setQty((n) => Math.max(1, n - 1))}
             disabled={qty <= 1}
-            className="flex h-9 w-9 items-center justify-center rounded-full text-offwhite disabled:opacity-30"
+            className="flex h-11 w-11 items-center justify-center rounded-full text-offwhite disabled:opacity-30"
           >
             <Minus size={16} />
           </button>
@@ -211,7 +211,7 @@ export default function DishOrderPanel({
             aria-label={copy.panel.oneMore}
             onClick={() => setQty((n) => Math.min(max, n + 1))}
             disabled={qty >= max}
-            className="flex h-9 w-9 items-center justify-center rounded-full text-offwhite disabled:opacity-30"
+            className="flex h-11 w-11 items-center justify-center rounded-full text-offwhite disabled:opacity-30"
           >
             <Plus size={16} />
           </button>

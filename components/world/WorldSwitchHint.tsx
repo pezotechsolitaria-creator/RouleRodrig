@@ -115,7 +115,10 @@ export default function WorldSwitchHint({ other }: { other: World }) {
           type="button"
           onClick={dismiss}
           aria-label={t.common.dismiss}
-          className="-mr-0.5 -mt-0.5 shrink-0 rounded-full p-1 text-muted/60 transition-colors hover:text-offwhite"
+          // p-1 on a 13px glyph is a 21x21 target. The padding grows to p-2.5
+          // and after:-inset-1 finishes the job, with the negative margins
+          // holding the hint's own layout where it was.
+          className="relative -mr-2 -mt-2 shrink-0 rounded-full p-2.5 text-muted/60 transition-colors after:absolute after:-inset-1 after:content-[''] hover:text-offwhite"
         >
           <X size={13} />
         </button>

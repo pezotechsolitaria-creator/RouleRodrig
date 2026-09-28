@@ -64,7 +64,9 @@ export default function QuickAdd({
         onClick={add}
         // 44, not 36. This control sits ON a card that is itself a link, so
         // a miss does not do nothing — it leaves the grid and loads a product
-        // page. SaveButton beside it is already h-11 w-11.
+        // page. (An earlier version of this note claimed SaveButton beside it
+        // was already h-11 w-11. It was not: 36px painted, and it now buys its
+        // 44 with after:-inset-1 instead, because it floats over a photo.)
         className="flex h-11 w-11 items-center justify-center rounded-full bg-yellow text-dark shadow-[0_6px_18px_-4px_rgba(245,200,66,0.55)] transition-transform hover:scale-110 active:scale-95"
       >
         <Plus size={16} strokeWidth={2.5} />

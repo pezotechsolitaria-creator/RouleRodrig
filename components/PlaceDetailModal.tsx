@@ -67,7 +67,7 @@ export default function PlaceDetailModal({
         onClick={(e) => e.stopPropagation()}
         className="w-full max-w-2xl max-h-[92vh] overflow-y-auto bg-dark-card border border-dark-border rounded-2xl relative"
       >
-        <button onClick={onClose} className="absolute top-4 right-4 z-20 w-9 h-9 rounded-full bg-black/50 text-white flex items-center justify-center hover:bg-black/80 transition-colors" aria-label="Close">
+        <button onClick={onClose} className="absolute top-4 right-4 z-20 w-11 h-11 rounded-full bg-black/50 text-white flex items-center justify-center hover:bg-black/80 transition-colors" aria-label="Close">
           <X size={18} />
         </button>
 

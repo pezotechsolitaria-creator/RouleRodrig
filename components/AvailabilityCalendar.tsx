@@ -121,7 +121,8 @@ export default function AvailabilityCalendar({
           type="button"
           onClick={() => canGoPrev && setView(new Date(year, month - 1, 1))}
           disabled={!canGoPrev}
-          className="p-1.5 rounded-lg text-muted hover:text-yellow disabled:opacity-25 disabled:cursor-not-allowed transition-colors"
+          // 30x30 with p-1.5 — smaller than the day cells it pages through.
+          className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg p-1.5 text-muted transition-colors hover:text-yellow disabled:cursor-not-allowed disabled:opacity-25"
           aria-label={t.a11yMore.prevMonth}
         >
           <ChevronLeft size={18} />
@@ -130,7 +131,7 @@ export default function AvailabilityCalendar({
         <button
           type="button"
           onClick={() => setView(new Date(year, month + 1, 1))}
-          className="p-1.5 rounded-lg text-muted hover:text-yellow transition-colors"
+          className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg p-1.5 text-muted transition-colors hover:text-yellow"
           aria-label={t.a11yMore.nextMonth}
         >
           <ChevronRight size={18} />

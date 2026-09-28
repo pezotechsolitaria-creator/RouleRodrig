@@ -129,6 +129,72 @@ describe("the filter chips", () => {
   });
 });
 
+// ── THE ONES THE FIRST SWEEP GOT WRONG, IN BOTH DIRECTIONS ──────────────────
+//
+// Measuring `getBoundingClientRect()` finds the painted box, not the target.
+// This repo grows targets with `after:absolute after:-inset-*` — an invisible
+// ring that hit-tests to the button — so the header's 36px icons were reported
+// as defects when hit-testing outward from their centres reaches 41–44px and
+// meets the neighbour's ring at the midline of the gap. Nothing to fix there.
+//
+// Re-scanned with elementFromPoint instead, these were genuinely small:
+//
+//   16 x 16  the X that dismisses the returning-visitor banner: a bare glyph
+//   21 x 21  the X on the world-switch hint
+//   30 x 30  the booking calendar's month arrows — smaller than the days
+//   32 x 32  the header logo link
+//   32 / 36  Save for later, on every vehicle and place card
+//   36       the modal close buttons and both photo carousels
+//   36       the dish quantity stepper
+//   40       the footer's social buttons
+
+describe("targets grown with the after:-inset ring", () => {
+  const ringed: [string, string, string][] = [
+    ["the header logo", "components/AppPageHeader.tsx", "relative flex items-center after:absolute after:-inset-2"],
+    ["save for later", "components/SaveButton.tsx", "after:absolute after:-inset-1 after:content-['']"],
+    ["the smallest save button", "components/RecommendedPlaces.tsx", "after:absolute after:-inset-1.5 after:content-['']"],
+    ["the returning-visitor banner's X", "components/ReturnWelcome.tsx", "relative -m-2 shrink-0 p-2"],
+    ["the world-switch hint's X", "components/world/WorldSwitchHint.tsx", "relative -mr-2 -mt-2 shrink-0 rounded-full p-2.5"],
+  ];
+  for (const [what, file, cls] of ringed) {
+    it(what, () => {
+      expect(tsx(file), `${file} — ${cls}`).toContain(cls);
+    });
+  }
+
+  it("the logo mark itself is untouched", () => {
+    // The ring is the point: growing the painted logo would be a brand change.
+    expect(tsx("components/AppPageHeader.tsx")).toContain('className="rr-logo-anim inline-flex"');
+  });
+});
+
+describe("targets grown by their own box", () => {
+  const grown: [string, string, string][] = [
+    ["the calendar's month arrows", "components/AvailabilityCalendar.tsx", "inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg p-1.5"],
+    ["the place modal's close", "components/PlaceDetailModal.tsx", "absolute top-4 right-4 z-20 w-11 h-11"],
+    ["the scooter modal's close", "components/ScooterDetailModal.tsx", "absolute top-4 right-4 z-20 w-11 h-11"],
+    ["the fleet carousel's arrows", "components/Fleet.tsx", "absolute left-3 top-1/2 -translate-y-1/2 z-10 w-11 h-11"],
+    ["the dish quantity stepper", "components/food/DishOrderPanel.tsx", "flex h-11 w-11 items-center justify-center rounded-full text-offwhite"],
+    ["the footer's social buttons", "components/Footer.tsx", "w-11 h-11 rounded-full border border-dark-border"],
+  ];
+  for (const [what, file, cls] of grown) {
+    it(what, () => {
+      expect(tsx(file), `${file} — ${cls}`).toContain(cls);
+    });
+  }
+
+  it("no 36px icon button is left in the modals or carousels", () => {
+    for (const f of [
+      "components/PlaceDetailModal.tsx",
+      "components/ScooterDetailModal.tsx",
+      "components/food/DishOrderPanel.tsx",
+    ]) {
+      expect(tsx(f), f).not.toContain("w-9 h-9");
+      expect(tsx(f), f).not.toContain("h-9 w-9");
+    }
+  });
+});
+
 describe("the gallery dot still looks like a dot", () => {
   it("the painted pill moved into a span, so the button can be the target", () => {
     // Measured after: the button is 25 x 42 and the pill inside it is still

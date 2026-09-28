@@ -32,7 +32,9 @@ export default function SaveButton({
       }}
       className={
         className ||
-        "flex items-center justify-center w-9 h-9 rounded-full bg-black/40 backdrop-blur-md border border-white/15 text-white hover:bg-black/60 transition-colors"
+        // 36px painted, 44 to the thumb: after:-inset-1 rather than a bigger
+        // circle, because this floats over a photograph.
+        "relative flex items-center justify-center w-9 h-9 rounded-full bg-black/40 backdrop-blur-md border border-white/15 text-white hover:bg-black/60 transition-colors after:absolute after:-inset-1 after:content-['']"
       }
     >
       <motion.span
