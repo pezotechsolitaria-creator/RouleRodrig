@@ -218,7 +218,7 @@ export default function TripPlanner() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-80px" }}
           transition={{ duration: 0.7 }}
-          className="mb-12"
+          className="rr-reveal mb-12"
         >
           <p className="font-bebas text-yellow text-xs tracking-[0.35em] mb-2">{t.planner.eyebrow}</p>
           {/* h1, not h2. Same fault as /faq and /map: the page's own title
@@ -238,7 +238,7 @@ export default function TripPlanner() {
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-10 lg:gap-14">
           {/* Config panel */}
           <motion.div
-            className="lg:col-span-2"
+            className="rr-reveal lg:col-span-2"
             initial={{ opacity: 0, x: -30 }}
             whileInView={{ opacity: 1, x: 0 }}
             viewport={{ once: true }}

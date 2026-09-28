@@ -579,7 +579,7 @@ export default function BookingSection({
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-80px" }}
           transition={{ duration: 0.7 }}
-          className="mb-16"
+          className="rr-reveal mb-16"
         >
           <p className="font-bebas text-yellow text-xs tracking-[0.35em] mb-2">{t.booking.eyebrow}</p>
           <h2
@@ -596,7 +596,7 @@ export default function BookingSection({
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-12 lg:gap-16">
           {/* Form */}
           <motion.div
-            className="lg:col-span-3"
+            className="rr-reveal lg:col-span-3"
             initial={{ opacity: 0, x: -40 }}
             whileInView={{ opacity: 1, x: 0 }}
             viewport={{ once: true, margin: "-60px" }}
@@ -1088,7 +1088,7 @@ export default function BookingSection({
 
           {/* Summary panel */}
           <motion.div
-            className="lg:col-span-2"
+            className="rr-reveal lg:col-span-2"
             initial={{ opacity: 0, x: 40 }}
             whileInView={{ opacity: 1, x: 0 }}
             viewport={{ once: true, margin: "-60px" }}

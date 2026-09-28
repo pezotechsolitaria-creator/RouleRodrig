@@ -194,7 +194,7 @@ export default function MapSection({
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-80px" }}
           transition={{ duration: 0.7 }}
-          className="mb-12"
+          className="rr-reveal mb-12"
         >
           <p className="font-bebas text-yellow text-xs tracking-[0.35em] mb-2">{t.map.eyebrow}</p>
           {/* h1, not h2. /map targets "Rodrigues island map" and served no h1
@@ -269,7 +269,7 @@ export default function MapSection({
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-60px" }}
           transition={{ duration: 0.8 }}
-          className="grid grid-cols-1 lg:grid-cols-3 gap-8"
+          className="rr-reveal grid grid-cols-1 lg:grid-cols-3 gap-8"
         >
           {/* Map */}
           <div ref={mapWrapRef} className="lg:col-span-2 rounded-2xl overflow-hidden border border-dark-border" style={{ minHeight: 460 }}>

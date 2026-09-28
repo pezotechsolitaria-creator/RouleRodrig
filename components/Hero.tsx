@@ -312,7 +312,7 @@ export default function Hero({ hero, compact }: { hero?: HeroContent; compact?: 
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.15 }}
-            className="inline-flex items-center gap-2 self-center bg-dark/70 backdrop-blur-md border border-yellow/25 rounded-full px-4 py-2 mb-3 shadow-[0_2px_12px_-2px_rgba(0,0,0,0.6)]"
+            className="rr-reveal inline-flex items-center gap-2 self-center bg-dark/70 backdrop-blur-md border border-yellow/25 rounded-full px-4 py-2 mb-3 shadow-[0_2px_12px_-2px_rgba(0,0,0,0.6)]"
           >
             <span className="w-1.5 h-1.5 rounded-full bg-yellow animate-pulse" />
             {/* 0.3em at 11px pushed the letters so far apart they stopped reading
@@ -400,7 +400,7 @@ export default function Hero({ hero, compact }: { hero?: HeroContent; compact?: 
                       <motion.span
                         key={j}
                         aria-hidden
-                        className="inline-block"
+                        className="rr-reveal inline-block"
                         // Reduced motion gets the finished headline, immediately.
                         initial={prefersReduced ? false : { opacity: 0, y: 26, scale: 0.96 }}
                         animate={
@@ -440,7 +440,7 @@ export default function Hero({ hero, compact }: { hero?: HeroContent; compact?: 
           initial={{ opacity: 0, y: 18 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.7, delay: 1 }}
-          className="mt-5 hidden md:flex flex-wrap justify-center gap-3"
+          className="rr-reveal mt-5 hidden md:flex flex-wrap justify-center gap-3"
         >
           <button
             type="button"

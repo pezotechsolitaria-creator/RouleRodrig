@@ -311,6 +311,36 @@ export default async function RootLayout({
           the guard and upgrades it to `overflow-x: clip`, which clips the same
           overflow without creating a container. */}
       <body className="bg-dark text-offwhite font-dm">
+        {/* ── WITHOUT JAVASCRIPT, THE SHOP WAS EMPTY ───────────────────────
+            The scroll reveals are framer nodes: they are SERVED at inline
+            opacity:0 and only JavaScript ever sets them to 1. Counted in the
+            live HTML today — /browse/scooter carries 7 of them and the home
+            page 12, and neither had a <noscript> block of any kind.
+
+            On /browse/scooter those seven are all four vehicle cards, the
+            "BOOK ONLINE" heading, the booking form and the booking summary.
+            So to anything that does not run the animation — a crawler that
+            does not execute JavaScript, which is most of the AI ones, or a
+            visitor whose framer chunk simply failed — the scooter rental page
+            is a hero image and nothing else. No scooters, no prices, no form.
+
+            rr-reveal is an empty hook class: no base CSS, so with JavaScript
+            on it cannot fight the animation it insures. Only the 17 nodes
+            that both start hidden AND reveal on scroll carry it. The ones
+            that start hidden and animate on MOUNT — toasts, the success and
+            error banners, the map lightbox, accordion heights — deliberately
+            do not: un-hiding a fullscreen overlay for a reader with no
+            JavaScript would be a worse bug than the one this fixes.
+
+            lib/reveals-survive-no-js.test.ts holds the two halves together.
+            /curated keeps its own copy of this rule in world-page/WorldFonts
+            for the cinematic classes; this one covers the rest of the site. */}
+        <noscript
+          dangerouslySetInnerHTML={{
+            __html:
+              "<style>.rr-reveal{opacity:1!important;transform:none!important}</style>",
+          }}
+        />
         {/* iOS PWA launch images (hoisted to <head> by React) */}
         {IOS_SPLASH.map((s) => (
           <link

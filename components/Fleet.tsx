@@ -458,7 +458,7 @@ export default function Fleet({
                     ) : (
                       <motion.span
                         layoutId="fleet-type-pill"
-                        className="absolute inset-0 rounded-full bg-yellow"
+                        className="rr-reveal absolute inset-0 rounded-full bg-yellow"
                         transition={{ type: "spring", stiffness: 420, damping: 34 }}
                       />
                     )
@@ -497,7 +497,7 @@ export default function Fleet({
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, margin: "-40px" }}
                 transition={{ duration: 0.35, delay: Math.min(i, 3) * 0.05 }}
-                className="group relative bg-dark-card rounded-2xl overflow-hidden border border-white/10 transition-colors duration-300 hover:border-yellow/50"
+                className="rr-reveal group relative bg-dark-card rounded-2xl overflow-hidden border border-white/10 transition-colors duration-300 hover:border-yellow/50"
               >
                 {/* Photo carousel */}
                 <FleetImageCarousel scooter={scooter} cardIndex={i} />

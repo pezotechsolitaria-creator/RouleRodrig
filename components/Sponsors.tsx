@@ -77,7 +77,7 @@ export default function Sponsors({
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-80px" }}
           transition={{ duration: 0.6 }}
-          className="mb-5 text-center md:mb-8"
+          className="rr-reveal mb-5 text-center md:mb-8"
         >
           <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-1.5">
             <Handshake size={13} className="text-yellow" />
@@ -98,7 +98,7 @@ export default function Sponsors({
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, margin: "-40px" }}
               transition={{ duration: 0.45, delay: Math.min(i * 0.05, 0.3) }}
-              className="w-[72%] shrink-0 snap-start sm:w-[46%] md:w-auto"
+              className="rr-reveal w-[72%] shrink-0 snap-start sm:w-[46%] md:w-auto"
             >
               {sp.link ? (
                 <a href={sp.link} target="_blank" rel="noopener noreferrer" aria-label={sp.name} className="block h-full">

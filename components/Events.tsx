@@ -36,7 +36,7 @@ export default function Events({ events = [] }: { events?: EventItem[] }) {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, margin: "-40px" }}
               transition={{ duration: 0.35, delay: Math.min(i, 3) * 0.05 }}
-              className={`flex flex-col bg-dark-card rounded-2xl overflow-hidden transition-colors ${
+              className={`rr-reveal flex flex-col bg-dark-card rounded-2xl overflow-hidden transition-colors ${
                 ev.featured
                   ? "border-2 border-yellow/50 hover:border-yellow shadow-[0_0_24px_rgba(245,200,66,0.08)]"
                   : "border border-white/10 hover:border-yellow/40"

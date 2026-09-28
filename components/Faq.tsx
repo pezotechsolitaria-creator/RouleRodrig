@@ -22,7 +22,7 @@ export default function Faq({ content }: { content?: FaqContent }) {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-80px" }}
           transition={{ duration: 0.6 }}
-          className="mb-12 text-center"
+          className="rr-reveal mb-12 text-center"
         >
           <p className="font-bebas text-yellow text-xs tracking-[0.35em] mb-2">FAQ</p>
           {/* h1, not h2. This component IS its page and its title is the
@@ -58,7 +58,7 @@ export default function Faq({ content }: { content?: FaqContent }) {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, margin: "-40px" }}
                 transition={{ duration: 0.4, delay: (i % 8) * 0.04 }}
-                className={`bg-dark-card border rounded-2xl overflow-hidden transition-colors ${
+                className={`rr-reveal bg-dark-card border rounded-2xl overflow-hidden transition-colors ${
                   isOpen ? "border-yellow/40" : "border-dark-border"
                 }`}
               >

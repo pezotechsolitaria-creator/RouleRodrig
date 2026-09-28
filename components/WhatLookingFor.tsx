@@ -307,7 +307,7 @@ export default function WhatLookingFor({
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: "-40px" }}
             transition={{ duration: 0.5, delay: Math.min(i * 0.05, 0.3) }}
-            className="snap-center shrink-0 w-[74vw] max-w-[340px] sm:w-[300px]"
+            className="rr-reveal snap-center shrink-0 w-[74vw] max-w-[340px] sm:w-[300px]"
           >
             <HubCard c={c} gyroRX={gyroRX} gyroRY={gyroRY} compact={compact} />
           </motion.div>
