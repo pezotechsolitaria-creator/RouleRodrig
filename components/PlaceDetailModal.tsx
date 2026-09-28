@@ -84,11 +84,32 @@ export default function PlaceDetailModal({
           </span>
           {photos.length > 1 && (
             <>
-              <button onClick={() => setIdx((i) => (i - 1 + photos.length) % photos.length)} className="absolute left-3 top-1/2 -translate-y-1/2 z-10 w-9 h-9 rounded-full bg-black/50 text-white flex items-center justify-center hover:bg-black/80 transition-colors" aria-label={t.a11y.prevPhoto}><ChevronLeft size={18} /></button>
-              <button onClick={() => setIdx((i) => (i + 1) % photos.length)} className="absolute right-3 top-1/2 -translate-y-1/2 z-10 w-9 h-9 rounded-full bg-black/50 text-white flex items-center justify-center hover:bg-black/80 transition-colors" aria-label={t.a11y.nextPhoto}><ChevronRight size={18} /></button>
-              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">
+              <button onClick={() => setIdx((i) => (i - 1 + photos.length) % photos.length)} className="absolute left-3 top-1/2 -translate-y-1/2 z-10 w-11 h-11 rounded-full bg-black/50 text-white flex items-center justify-center hover:bg-black/80 transition-colors" aria-label={t.a11y.prevPhoto}><ChevronLeft size={18} /></button>
+              <button onClick={() => setIdx((i) => (i + 1) % photos.length)} className="absolute right-3 top-1/2 -translate-y-1/2 z-10 w-11 h-11 rounded-full bg-black/50 text-white flex items-center justify-center hover:bg-black/80 transition-colors" aria-label={t.a11y.nextPhoto}><ChevronRight size={18} /></button>
+              {/* The painted dot moves into a span so the BUTTON can be the
+                  target. As drawn, each inactive dot was a 6 x 6px hit area
+                  with 6px between them — and the Rivière Banane listing shows
+                  eight of them. The button is now 44px tall and 26 wide, and
+                  the strip drops to bottom-0 to absorb the extra height — the
+                  dots' centre lands 22px above the image edge where it used to
+                  be 19, and they still look like dots.
+
+                  Not a negative margin on the button: `-my-4` was the first
+                  attempt and it computed to 0px, because Tailwind v4 only
+                  emits the utilities it finds and that one appears nowhere
+                  else in this codebase. The class was in the markup and did
+                  nothing — which is only visible by reading the computed
+                  style, not the class list. */}
+              <div className="absolute bottom-0 left-1/2 -translate-x-1/2 flex items-center z-10">
                 {photos.map((_, i) => (
-                  <button key={i} onClick={() => setIdx(i)} className={`h-1.5 rounded-full transition-all ${i === idx ? "bg-yellow w-4" : "bg-white/50 w-1.5"}`} aria-label={`Photo ${i + 1}`} />
+                  <button
+                    key={i}
+                    onClick={() => setIdx(i)}
+                    className="flex h-11 items-center px-2.5"
+                    aria-label={`Photo ${i + 1}`}
+                  >
+                    <span className={`block h-1.5 rounded-full transition-all ${i === idx ? "bg-yellow w-4" : "bg-white/50 w-1.5"}`} />
+                  </button>
                 ))}
               </div>
             </>

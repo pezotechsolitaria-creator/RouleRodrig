@@ -314,7 +314,10 @@ export default function WhenPicker({
                   type="button"
                   onClick={() => onChange({ date: day, time: s.time as string, startsAt: s.startsAt })}
                   aria-pressed={on}
-                  className={`min-w-[68px] rounded-lg border px-3 py-2 font-dm text-xs tabular-nums transition-colors ${
+                  // min-h-11: px-3 py-2 on text-xs is a 34px box, and these
+                  // wrap into dense rows where the next chip is another
+                  // collection window. A mis-tap here books the wrong one.
+                  className={`inline-flex min-h-11 min-w-[68px] items-center justify-center rounded-lg border px-3 py-2 font-dm text-xs tabular-nums transition-colors ${
                     on ? "border-yellow bg-yellow/15 text-yellow" : "border-white/10 text-muted hover:border-white/25"
                   }`}
                 >

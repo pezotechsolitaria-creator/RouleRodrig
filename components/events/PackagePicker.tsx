@@ -216,7 +216,11 @@ function PackageCard({
           <p className="font-syne text-xl font-extrabold text-yellow">
             Rs {centsToDecimalString(t.price)}
           </p>
-          <Button size="sm" variant={unavailable ? "outline" : "default"} disabled={unavailable} onClick={onOpen}>
+          {/* min-h-11 beats the variant's fixed h-7 (28px) without widening
+              the button. Nothing else on this card is clickable — the outer
+              div and the image carry no handler — so this 28px box was the
+              only way into the package. */}
+          <Button size="sm" className="min-h-11" variant={unavailable ? "outline" : "default"} disabled={unavailable} onClick={onOpen}>
             {t.soldOut ? c.soldOut : !t.salesOpen ? c.notAvailable : <>{c.viewDetails} <ArrowRight size={14} className="ml-1" /></>}
           </Button>
         </div>

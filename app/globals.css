@@ -2448,6 +2448,13 @@ html.light *:focus-visible {
   appearance: none;
   border: 0;
   cursor: pointer;
+  /* 5px of padding on an 11px/1.4 line is a 25.4px box — a control you tap
+     with a thumb while holding a phone over a map. 44 is the floor named in
+     components/ui/button.tsx; the chips keep their painted size because the
+     padding does the growing. */
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
   padding: 5px 11px;
   border-radius: 8px;
   background: transparent;

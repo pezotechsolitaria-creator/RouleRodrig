@@ -62,7 +62,10 @@ export default function QuickAdd({
         type="button"
         aria-label={copy.quickAdd.addAria(productName)}
         onClick={add}
-        className="flex h-9 w-9 items-center justify-center rounded-full bg-yellow text-dark shadow-[0_6px_18px_-4px_rgba(245,200,66,0.55)] transition-transform hover:scale-110 active:scale-95"
+        // 44, not 36. This control sits ON a card that is itself a link, so
+        // a miss does not do nothing — it leaves the grid and loads a product
+        // page. SaveButton beside it is already h-11 w-11.
+        className="flex h-11 w-11 items-center justify-center rounded-full bg-yellow text-dark shadow-[0_6px_18px_-4px_rgba(245,200,66,0.55)] transition-transform hover:scale-110 active:scale-95"
       >
         <Plus size={16} strokeWidth={2.5} />
       </button>
@@ -70,12 +73,13 @@ export default function QuickAdd({
   }
 
   return (
-    <div className="flex h-9 items-center rounded-full bg-yellow text-dark shadow-[0_6px_18px_-4px_rgba(245,200,66,0.55)]">
+    // Each half was 32 wide by 36 tall. Same card, same cost for a miss.
+    <div className="flex h-11 items-center rounded-full bg-yellow text-dark shadow-[0_6px_18px_-4px_rgba(245,200,66,0.55)]">
       <button
         type="button"
         aria-label={copy.quickAdd.oneFewer(productName)}
         onClick={remove}
-        className="flex h-9 w-8 items-center justify-center rounded-l-full transition-transform active:scale-90"
+        className="flex h-11 w-10 items-center justify-center rounded-l-full transition-transform active:scale-90"
       >
         <Minus size={14} strokeWidth={2.5} />
       </button>
@@ -87,7 +91,7 @@ export default function QuickAdd({
         aria-label={copy.quickAdd.oneMore(productName)}
         onClick={add}
         disabled={inCart >= variant.stockQuantity}
-        className="flex h-9 w-8 items-center justify-center rounded-r-full transition-transform active:scale-90 disabled:opacity-40"
+        className="flex h-11 w-10 items-center justify-center rounded-r-full transition-transform active:scale-90 disabled:opacity-40"
       >
         <Plus size={14} strokeWidth={2.5} />
       </button>

@@ -184,7 +184,13 @@ export default function AvailabilityCalendar({
               // label for screen readers broke them — copy written for humans
               // should not double as a selector.
               data-date={day}
-              className={`aspect-square rounded-lg text-xs font-dm flex items-center justify-center transition-colors ${cls}`}
+              // min-h-11 instead of aspect-square. Inside PlaceBookingModal
+              // the seven columns get 259px at 375px, so a square cell is
+              // 33.6 x 33.6 — and picking the wrong day here books the wrong
+              // day. The width is set by the grid and cannot reach 44 without
+              // dropping to six columns, which a month grid cannot do; the
+              // height can, and does.
+              className={`min-h-11 w-full rounded-lg text-xs font-dm flex items-center justify-center transition-colors ${cls}`}
               aria-label={state ? `${longDate(day)} — ${state}` : longDate(day)}
               aria-pressed={disabled ? undefined : selected}
             >

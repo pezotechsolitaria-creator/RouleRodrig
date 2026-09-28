@@ -352,7 +352,10 @@ function ExperienceCard({
           </div>
           <button
             onClick={place.bookable ? onBook : onOpen}
-            className="shrink-0 rounded-xl bg-yellow px-3.5 py-2 font-dm text-xs font-bold text-dark transition-opacity hover:opacity-90"
+            // min-h-11 and px-4: text-xs with py-2 is a 32px box, and "Book"
+            // at 12px makes it 57 wide — the conversion control on every card
+            // in the massage, fishing, boat and chauffeur markets.
+            className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-xl bg-yellow px-4 py-2 font-dm text-xs font-bold text-dark transition-opacity hover:opacity-90"
           >
             {place.bookable ? (fr ? "Réserver" : "Book") : fr ? copy.ctaFr : copy.cta}
           </button>

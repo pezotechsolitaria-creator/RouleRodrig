@@ -381,7 +381,11 @@ export default function EventCheckout({
         <p role="alert" className="font-dm text-sm text-red-400">{error}</p>
       )}
 
-      <Button className="w-full" size="lg" disabled={!canSubmit} onClick={() => void submit()}>
+      {/* xl, not lg. lg is h-9 — a 36px box on the control that takes the
+          money for a ticket. button.tsx's own note puts the money path at 48
+          and calls 32 below the 44px minimum; PackageSheet's Reserve is
+          already xl, and this is the step after it. */}
+      <Button className="w-full" size="xl" disabled={!canSubmit} onClick={() => void submit()}>
         {submitting ? (
           <Loader2 size={16} className="animate-spin" />
         ) : (

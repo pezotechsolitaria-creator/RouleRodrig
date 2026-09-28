@@ -212,8 +212,14 @@ export default function ReceiptUploader({
         </p>
       )}
 
+      {/* size="xl". Without a size this took the cva default, h-8 — a 32px
+          box for the control that tells us the money has been sent. button.tsx
+          names the rule above that variant: every button in this app's money
+          path is a primary CTA on a phone, where 32px is below the 44px WCAG
+          2.5.5 / Apple minimum. xl is 48. */}
       <Button
         type="button"
+        size="xl"
         className="mt-3 w-full"
         onClick={submit}
         disabled={busy || (required && !file)}

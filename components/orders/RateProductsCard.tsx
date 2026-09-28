@@ -118,31 +118,46 @@ export default function RateProductsCard({
                 />
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-dm text-sm font-medium text-offwhite">{p.name}</p>
-                  {done ? (
+                  {done && (
                     <p className="mt-0.5 inline-flex items-center gap-1 font-dm text-xs text-emerald-400">
                       <Check size={12} /> Rated {done}/5 — thank you
                     </p>
-                  ) : (
-                    <div className="mt-1 flex items-center gap-0.5" role="radiogroup" aria-label={`Rate ${p.name}`}>
-                      {[1, 2, 3, 4, 5].map((n) => (
-                        <button
-                          key={n}
-                          type="button"
-                          role="radio"
-                          aria-checked={stars === n}
-                          aria-label={`${n} out of 5`}
-                          onClick={() => setPicked((s) => ({ ...s, [p.productId]: n }))}
-                          className={`p-1 transition-colors ${
-                            n <= stars ? "text-yellow" : "text-muted hover:text-yellow/70"
-                          }`}
-                        >
-                          <Star size={19} className={n <= stars ? "fill-yellow" : ""} />
-                        </button>
-                      ))}
-                    </div>
                   )}
                 </div>
               </div>
+
+              {/* ── THE STARS GET THEIR OWN ROW ───────────────────────────
+                  They were 27px boxes (p-1 on a 19px star) sitting 2px apart
+                  in the column beside the thumbnail. RateShopCard, which asks
+                  the same question about the shop, documents the rule they
+                  missed: "p-2, not p-1: 28px icon + 8px each side = a 44px tap
+                  target, which is the floor for a control this is the primary
+                  action."
+
+                  The sibling's own recipe does not fit that column — measured
+                  at 375px it is 220px wide and five 44px targets need 228 — so
+                  the row moves out from beside the thumbnail to the full width
+                  of the card, where it has 275 and room for gap-1 between
+                  adjacent targets rather than 2px. */}
+              {!done && (
+                <div className="mt-2 flex items-center gap-1" role="radiogroup" aria-label={`Rate ${p.name}`}>
+                  {[1, 2, 3, 4, 5].map((n) => (
+                    <button
+                      key={n}
+                      type="button"
+                      role="radio"
+                      aria-checked={stars === n}
+                      aria-label={`${n} out of 5`}
+                      onClick={() => setPicked((s) => ({ ...s, [p.productId]: n }))}
+                      className={`p-2 transition-colors ${
+                        n <= stars ? "text-yellow" : "text-muted hover:text-yellow/70"
+                      }`}
+                    >
+                      <Star size={28} className={n <= stars ? "fill-yellow" : ""} />
+                    </button>
+                  ))}
+                </div>
+              )}
 
               {!done && stars > 0 && (
                 <div className="mt-3 border-t border-white/[0.06] pt-3">
@@ -162,7 +177,9 @@ export default function RateProductsCard({
                     type="button"
                     disabled={busy === p.productId}
                     onClick={() => post(p.productId)}
-                    className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-yellow px-4 py-2.5 font-dm text-xs font-bold text-dark transition-opacity hover:opacity-90 disabled:opacity-50"
+                    // min-h-11: py-2.5 on text-xs is a 36px box, and this is
+                    // the control that actually posts the rating.
+                    className="mt-2 inline-flex min-h-11 items-center gap-1.5 rounded-lg bg-yellow px-4 py-2.5 font-dm text-xs font-bold text-dark transition-opacity hover:opacity-90 disabled:opacity-50"
                   >
                     {busy === p.productId ? <Loader2 size={13} className="animate-spin" /> : null}
                     Post rating

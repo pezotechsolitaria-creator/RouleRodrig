@@ -544,8 +544,12 @@ function TrackOrder() {
                     />
                   </label>
 
+                  {/* size="xl", as in components/orders/ReceiptUploader.tsx —
+                      the same declaration on the guest side of the same flow,
+                      and it had the same 32px default box. */}
                   <Button
                     type="button"
+                    size="xl"
                     className="mt-3 w-full"
                     disabled={reporting || (!!order.bank?.requireReceipt && !receipt)}
                     onClick={() => void reportPayment()}
