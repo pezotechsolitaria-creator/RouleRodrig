@@ -11,7 +11,7 @@ export const revalidate = 300;
 
 const TITLE = "Things to Do in Rodrigues — Day & Night | Roule Rodrigues";
 const DESCRIPTION =
-  "Every experience on Rodrigues Island in one place: lagoon trips, fishing, hiking guides, massage and tours by day — sunset sailings and night fishing after dark.";
+  "Every experience on Rodrigues Island in one place: lagoon and boat trips, snorkelling, fishing, hiking guides and massage, booked direct with locals.";
 
 export const metadata: Metadata = {
   title: TITLE,

@@ -50,7 +50,7 @@ import { sellerPitch, type MonetizationModel } from "@/lib/marketplace/fees";
 export const dynamic = "force-dynamic";
 
 const DESCRIPTION =
-  "Buy from Rodrigues Island's own shops and producers — honey, piment, spices, baskets, crafts and souvenirs. Order online, pick up in person or get it delivered island-wide.";
+  "Rodrigues marketplace, opening shop by shop: honey, lemon and chilli, hand-woven baskets, embroidery. Run a shop on the island? List it and sell online.";
 
 export const metadata: Metadata = {
   title: "Rodrigues Marketplace — Buy Local Online | Roule Rodrigues",

@@ -24,7 +24,7 @@ export const revalidate = 60;
 export const metadata: Metadata = {
   title: "Food Concierge — Where to Eat on Rodrigues",
   description:
-    "Tell our local food concierge what you fancy on WhatsApp and we'll recommend the perfect spot and book your table — fresh seafood, Creole home cooking and hidden gems. Free to use.",
+    "Where to eat on Rodrigues? Tell our local food concierge on WhatsApp what you crave, from ourite octopus to fresh fish, and we book your table. Free.",
   alternates: { canonical: `${SITE_URL}/food/concierge` },
   // ── IT WAS ADVERTISING SCOOTER RENTAL ──────────────────────────────────
   //

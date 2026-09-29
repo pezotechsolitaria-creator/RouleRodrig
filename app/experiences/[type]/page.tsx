@@ -10,6 +10,7 @@ import { breadcrumbLd, itemListLd, experienceLd, sellerLd } from "@/lib/schema";
 import { placeHref } from "@/lib/place-href";
 import { findPlaceBySlug, placeSlug, placesWithOwnPage } from "@/lib/place-slug";
 import { placePrice } from "@/lib/place-detail";
+import { experienceMetaDescription } from "@/lib/experience-meta";
 import PlaceDetail from "./PlaceDetail";
 import JsonLd from "@/components/JsonLd";
 import ExperienceMarket from "@/components/experiences/ExperienceMarket";
@@ -81,16 +82,9 @@ export async function generateMetadata({
           ? ` — Rs ${price.toLocaleString("en-US")} in Rodrigues`
           : " in Rodrigues";
         const title = `${fitTitle(place.name, 60 - suffix.length)}${suffix}`;
-        const description =
-          (place.description || "").trim().slice(0, 155) ||
-          [
-            place.name,
-            place.priceNote?.trim(),
-            place.highlights?.slice(0, 4).join(", "),
-          ]
-            .filter(Boolean)
-            .join(" — ")
-            .slice(0, 155);
+        // Built from the listing's fields, not sliced from the operator's
+        // prose — see lib/experience-meta.ts for what the slice produced.
+        const description = experienceMetaDescription(place);
         const image = place.image || place.images?.[0];
         return {
           title,
@@ -133,6 +127,8 @@ export async function generateMetadata({
     ? `${copy.title} from Rs ${from.toLocaleString("en-US")} | ${SITE_NAME}`
     : `${copy.title} | ${SITE_NAME}`;
 
+  // copy.description is written to 120–128 characters so this still fits 155
+  // with a five-figure price; lib/experience-meta.test.ts holds it there.
   const description = from
     ? `${copy.description} From Rs ${from.toLocaleString("en-US")} per person.`
     : copy.description;

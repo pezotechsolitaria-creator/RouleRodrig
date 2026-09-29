@@ -21,6 +21,7 @@ import VehicleActionBar from "@/components/VehicleActionBar";
 import { whatsappHref } from "@/lib/whatsapp-link";
 import ScrollToTop from "@/components/ScrollToTop";
 import { metaDescription } from "@/lib/meta-description";
+import { vehicleMetaDescription } from "@/lib/vehicle-meta";
 
 // ── ONE VEHICLE, ONE URL ────────────────────────────────────────────────────
 //
@@ -68,6 +69,14 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       ? `${vehicleName(item)} — Rs ${from}/day in Rodrigues`
       : `${vehicleName(item)} — rent in Rodrigues`;
     const description =
+      // Specs, inclusions and the price, when there is a price — see
+      // lib/vehicle-meta.ts. The owner's copy below is the fallback.
+      vehicleMetaDescription({
+        name: vehicleName(item),
+        from,
+        specs: item.specs,
+        included: item.included,
+      }) ||
       // realCopy: without it "Add a description for this car." became the
       // META DESCRIPTION — the sentence Google prints under the result.
       // metaDescription, not .slice(155): the owner's copy carries a

@@ -124,7 +124,7 @@ function buildMetadata(shareImage: string): Metadata {
       // every page render to set a default that most pages override anyway.
       // FLEET_PRICE_FALLBACK is the shared constant; the pages that actually
       // advertise a price derive the real minimum with fleetFromPrice().
-      `Scooter and car rental in Rodrigues from Rs ${FLEET_PRICE_FALLBACK}/day, no minimum. Plus a free island guide, trip planner and WhatsApp food concierge. Booked direct with locals.`,
+      `Scooter and car rental in Rodrigues from Rs ${FLEET_PRICE_FALLBACK}/day, no minimum, booked direct with locals. Plus a free island guide, trip planner and food concierge.`,
     keywords: [
       "scooter rental Rodrigues",
       "car rental Rodrigues",

@@ -31,15 +31,15 @@ const rs = (n: number) => n.toLocaleString("fr-FR");
 // /cheap-scooter-rental-rodrigues, /burgman-rental-rodrigues etc. in the same
 // language WOULD be doorway pages, and Google penalises those.
 
-// 60 chars / 156 chars — inside the 50–60 and 140–160 targets. Measured, not
-// eyeballed: the first draft was 65/161 and would have been truncated.
+// 60 chars / 142 chars — inside the 50–60 and 120–155 targets. Measured, not
+// eyeballed: the first draft was 65/161, and a later one 60/158 (29 Sep 2026).
 // Was "dès Rs 599/jour" while line 88 computed the real minimum and rendered
 // Rs 699 in the <h1> — one document contradicting itself. generateMetadata()
 // below derives it from the same fleet the page already reads.
 const TITLE = (from: number) =>
   `Location Scooter Rodrigues dès Rs ${from}/jour | Roule Rodrigues`;
 const DESCRIPTION = (from: number) =>
-  `Louez un scooter à l’île Rodrigues à partir de Rs ${from} par jour. Casque et assurance inclus, livraison à votre hôtel, sans durée minimale. Réservez en ligne.`;
+  `Louez un scooter à Rodrigues dès Rs ${from} par jour. Casque et assurance inclus, livraison à votre hôtel, sans durée minimale. Réservez en ligne.`;
 
 // Async, because the price in the title has to come from the same fleet the
 // page renders. A static `metadata` object cannot read it, which is exactly how

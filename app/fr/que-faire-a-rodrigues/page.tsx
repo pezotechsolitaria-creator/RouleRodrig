@@ -42,7 +42,7 @@ const NB = " "; // narrow no-break space — French sets one before ? ! ; :
 
 const TITLE = `Que faire à Rodrigues${NB}? Le guide | Roule Rodrigues`;
 const DESCRIPTION =
-  "Que faire à Rodrigues : excursions en mer, plongée, pêche traditionnelle, randonnées, plages et points de vue. Les activités réservables sur place, avec les prix.";
+  "Que faire à Rodrigues : balade en mer, plongée en apnée à Rivière Banane, île aux Cocos, pêche, randonnées et plages, avec les prix, à réserver en direct.";
 
 export const metadata: Metadata = {
   title: TITLE,

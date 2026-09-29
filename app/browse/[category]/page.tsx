@@ -338,7 +338,7 @@ const META: Record<
   stays: {
     title: "Where to Stay in Rodrigues",
     description:
-      "Guesthouses, lodges and hotels across Rodrigues, recommended by locals. See photos and prices, then book directly with the owner — no booking fees.",
+      "Guesthouses, self-catering houses and villas across Rodrigues, picked by locals. See photos and prices, then book direct with the owner.",
     // A one-way hreflang is silently ignored, so this half matters as much as
     // the one the French page declares.
     fr: "/fr/hebergement-rodrigues",
@@ -346,12 +346,12 @@ const META: Record<
   activities: {
     title: "Things to Do in Rodrigues Island",
     description:
-      "Kitesurfing, snorkelling, hiking, island tours and more. Real activities in Rodrigues with photos and prices — book directly with the people who run them.",
+      "Things to do in Rodrigues: boat trips, snorkelling, fishing, hikes, massage and tours, with photos and prices, booked direct with locals.",
   },
   tours: {
     title: "Guided Tours in Rodrigues",
     description:
-      "Guided island tours in Rodrigues led by locals who know it best. See what's included, compare prices and book directly — no middleman, no booking fees.",
+      "Guided tours and boat trips in Rodrigues with local guides and skippers: Île aux Cocos, the lagoon, snorkelling and fishing. Book direct.",
   },
   "getting-around": {
     // ── NOT "How to Get Around Rodrigues Island" ──────────────────────────

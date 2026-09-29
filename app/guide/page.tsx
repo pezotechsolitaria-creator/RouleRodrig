@@ -25,7 +25,7 @@ export const revalidate = 3600;
 // This is the one page that links all eight.
 
 const DESCRIPTION =
-  "Every Rodrigues guide in one place: beaches, viewpoints, hikes, scooter routes, Île aux Cocos, what to eat and where to shop — written by people who live here.";
+  "Rodrigues Island guides by people who live here: beaches, viewpoints, hikes, scooter routes, Île aux Cocos, food and shops, all in one place.";
 
 export const metadata: Metadata = {
   title: "Rodrigues Island Guides | Roule Rodrigues",

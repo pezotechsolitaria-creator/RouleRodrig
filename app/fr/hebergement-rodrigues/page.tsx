@@ -48,7 +48,7 @@ const TITLE = (from: number) =>
   `Hébergement à Rodrigues dès Rs ${rs(from)}/nuit | Roule Rodrigues`;
 
 const DESCRIPTION = (from: number) =>
-  `Où dormir à l'île Rodrigues : pensions, villas et maisons d'hôtes dès Rs ${rs(from)} la nuit. Réservation directe avec le propriétaire, sans frais de réservation.`;
+  `Où dormir à Rodrigues : pensions, villas et maisons d'hôtes dès Rs ${rs(from)} la nuit, réservées en direct avec le propriétaire, sans frais de réservation.`;
 
 export async function generateMetadata(): Promise<Metadata> {
   const { content } = await getFleetView();

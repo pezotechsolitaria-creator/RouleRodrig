@@ -237,7 +237,7 @@ export const BLOG_POSTS: BlogPost[] = [
     metaTitle:
       "Rodrigues vs Mauritius: Worth Visiting? | Roule Rodrigues",
     description:
-      "Rodrigues has 8 hotels to Mauritius's 109, and a lagoon twice the size of the island. The honest case for and against, with the numbers, from people who live here.",
+      "Rodrigues vs Mauritius, with the numbers: 8 hotels to 109, a lagoon over twice the size of the island, almost no nightlife. Which one suits your trip?",
     keyword: "Rodrigues vs Mauritius",
     published: "2026-08-27",
     updated: "2026-08-27",

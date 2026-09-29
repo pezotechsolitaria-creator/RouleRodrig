@@ -44,7 +44,7 @@ export const revalidate = 3600;
 
 const TITLE = "Taxi à Rodrigues et transfert aéroport | Roule Rodrigues";
 const DESCRIPTION =
-  "Taxi et transfert à l'île Rodrigues : chauffeurs locaux indépendants, prise en charge à l'aéroport de Plaine Corail, prix confirmé avant tout paiement. Réservation en ligne ou WhatsApp.";
+  "Taxi à Rodrigues : pas de navette régulière depuis Plaine Corail. Réservez un transfert aéroport avec votre numéro de vol, prix confirmé avant paiement.";
 
 export const metadata: Metadata = {
   title: TITLE,

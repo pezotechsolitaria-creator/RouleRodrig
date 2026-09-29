@@ -20,7 +20,7 @@ export const revalidate = 3600;
 // hreflang pairs it with the English page. Both must point at each other or
 // Google ignores the annotation entirely.
 const DESCRIPTION =
-  "Toutes les plages de Rodrigues qui valent le détour, repérées par des locaux : Pointe Coton, Baladirou, St François. Photos réelles, accès et conseils honnêtes.";
+  "Plages de Rodrigues repérées par des locaux : Pointe Coton, St François, Trou d'Argent, qui ne se rejoint qu'à pied. Accès, baignade et snorkeling.";
 
 // ── WHICH BEACHES THIS PAGE CAN HONESTLY SHOW ─────────────────────────
 //

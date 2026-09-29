@@ -18,7 +18,7 @@ export const revalidate = 3600;
 // 58 chars / 158 — measured. The first draft was 61 and would have been cut.
 const TITLE = "Rodrigues Scooter Routes & Hiking Trails | Roule Rodrigues";
 const DESCRIPTION =
-  "The best scooter rides and hiking trails in Rodrigues Island, mapped by locals — real distances, elevation and timings. Open each one straight in Google Maps.";
+  "The best scooter rides and hiking trails in Rodrigues Island, mapped by locals: real distances, climb and timings, each one open in Google Maps.";
 
 export const metadata: Metadata = {
   title: TITLE,

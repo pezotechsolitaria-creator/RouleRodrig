@@ -34,7 +34,7 @@ export const revalidate = 3600;
 // the same reason.
 
 const DESCRIPTION =
-  "Who runs Roulé Rodrigues: a Rodrigues-based team in Baie aux Huîtres renting scooters and cars, and running the island's marketplace, food ordering, taxis and travel guides.";
+  "Who runs Roule Rodrigues: a local team in Baie aux Huîtres renting scooters and cars delivered to you, plus taxis, home-cooked food and island guides.";
 
 export const metadata: Metadata = {
   title: "About Roule Rodrigues — the Local Team",

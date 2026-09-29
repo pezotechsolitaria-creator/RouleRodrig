@@ -40,7 +40,7 @@ const NB = " ";
 
 const TITLE = `Île aux Cocos, Rodrigues${NB}: tout savoir`;
 const DESCRIPTION =
-  "L'île aux Cocos est une réserve d'oiseaux marins à 4 km à l'ouest de Rodrigues. On ne s'y rend pas seul : l'accès exige une autorisation et un bateau encadré. Ce que comprend la sortie, ce qui est fermé aux visiteurs, et comment réserver.";
+  "Excursion à l'île aux Cocos : réserve de noddis et de sternes à 4 km à l'ouest de Rodrigues. Départ de Pointe du Diable, accès sur autorisation.";
 
 export const metadata: Metadata = {
   title: `${TITLE} | Roule Rodrigues`,

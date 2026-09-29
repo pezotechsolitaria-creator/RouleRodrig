@@ -13,7 +13,7 @@ export const revalidate = 3600;
 // 57 chars / 152 — measured, so neither is truncated in a result.
 const TITLE = "Hiking in Rodrigues Island: Every Trail | Roule Rodrigues";
 const DESCRIPTION =
-  "Every hiking trail in Rodrigues Island, walked and written up by locals — real distance, climb, terrain and shade, plus what to carry on an island with no taps.";
+  "Hiking in Rodrigues Island, 18 km end to end: free-to-walk trails with distance, climb and time, water notes, and what to carry before you set off.";
 
 export async function generateMetadata(): Promise<Metadata> {
   const content = await getContent();

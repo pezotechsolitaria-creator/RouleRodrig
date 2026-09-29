@@ -42,7 +42,7 @@ const NB = " "; // narrow no-break space — French sets one before ? ! ; :
 
 const TITLE = `Se déplacer à Rodrigues${NB}: le guide | Roule Rodrigues`;
 const DESCRIPTION =
-  "Comment se déplacer à Rodrigues : les bus, les taxis, le scooter et la voiture, avec ce que chacun coûte et ce qu'il permet vraiment. Et comment rejoindre l'île.";
+  "Comment se déplacer à Rodrigues : scooter, voiture, bus limités ou taxi à prix convenu, ce que chacun coûte vraiment, et comment venir de Maurice.";
 
 export const metadata: Metadata = {
   title: TITLE,

@@ -4,7 +4,7 @@ import { ogImages } from "@/lib/share-image";
 export const metadata: Metadata = {
   title: "Taxi & Transport on Rodrigues Island | Roule Rodrigues",
   description:
-    "Trusted local taxi and transport drivers on Rodrigues Island — airport transfers, island tours and point-to-point rides. Contact drivers directly by WhatsApp or phone.",
+    "Book a local taxi on Rodrigues Island, including airport transfers from Plaine Corail. The fare is confirmed with you first, no charge until you agree.",
   alternates: {
     canonical: "/taxi",
     // Mirrors the `languages` block on app/fr/taxi-rodrigues. hreflang only

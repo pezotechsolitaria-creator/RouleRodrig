@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic";
 
 const TITLE = "Get Anything Delivered in Rodrigues | Roule Rodrigues";
 const DESCRIPTION =
-  "Need something moved on Rodrigues? Post what you need collected or bought, local drivers send you their price, and you choose. Packages, shopping runs and large items.";
+  "Delivery on Rodrigues: post what you need collected or bought, local drivers send their price and you choose. Free to ask, pay only when you accept.";
 
 export const metadata: Metadata = {
   title: TITLE,

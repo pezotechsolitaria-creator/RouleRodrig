@@ -31,7 +31,7 @@ export const revalidate = 3600;
 // half of this site is looked after.
 
 const DESCRIPTION =
-  "Tous nos guides sur Rodrigues en français : plages, activités, itinéraires, hébergement, taxi et location de scooter ou de voiture — écrits par des gens qui vivent sur l'île.";
+  "Rodrigues en français, par des gens qui y vivent : 11 guides sur les plages, les activités, où dormir, le taxi et la location de scooter ou de voiture.";
 
 export const metadata: Metadata = {
   title: "Rodrigues en français — le guide | Roule Rodrigues",

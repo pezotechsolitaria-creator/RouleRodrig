@@ -14,7 +14,7 @@ import { ogImages } from "@/lib/share-image";
 export const revalidate = 3600;
 
 const DESCRIPTION =
-  "Answers to common questions about renting a scooter or car on Rodrigues Island with Roule Rodrigues — booking, deposits, delivery, licences, payment and pickup.";
+  "Renting a scooter or car in Rodrigues? Answers on booking, licences, deposits, delivery and payment, with no minimum rental period.";
 
 export const metadata: Metadata = {
   title: "FAQ — scooter & car rental in Rodrigues | Roule Rodrigues",

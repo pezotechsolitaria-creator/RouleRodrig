@@ -49,7 +49,7 @@ export const EXPERIENCES: Record<ServiceType, ExperienceCopy> = {
     subtitle: "Book a therapist — at your hotel, or theirs.",
     subtitleFr: "Réservez un massage — à votre hôtel ou chez le praticien.",
     description:
-      "Book a massage in Rodrigues — relaxation, deep tissue and traditional treatments. See the price, the duration and the next free slot, and book in a few taps.",
+      "Book a massage or spa treatment in Rodrigues with a local therapist. See the price, the duration and the next free slot.",
     emoji: "💆",
     filters: [
       { key: "relaxation", label: "Relaxation", labelFr: "Relaxation" },
@@ -71,7 +71,7 @@ export const EXPERIENCES: Record<ServiceType, ExperienceCopy> = {
     subtitle: "Find your next trip — big game, coastal or traditional.",
     subtitleFr: "Trouvez votre prochaine sortie — au gros, côtière ou traditionnelle.",
     description:
-      "Book a fishing trip in Rodrigues. Compare boats, captains, duration, group size and price, then reserve your date online.",
+      "Book a fishing trip in Rodrigues with a local captain: traditional fishing in the lagoon. Compare the group size and price.",
     emoji: "🎣",
     filters: [
       { key: "big game", label: "Big game", labelFr: "Au gros" },
@@ -94,7 +94,7 @@ export const EXPERIENCES: Record<ServiceType, ExperienceCopy> = {
     subtitle: "Lagoon, islets and sunsets — by boat.",
     subtitleFr: "Lagon, îlots et couchers de soleil — en bateau.",
     description:
-      "Book a boat trip in Rodrigues — lagoon cruises, islet excursions, snorkelling and sunset sailings. Duration, group size and price up front.",
+      "Book a boat trip in Rodrigues with a local skipper: lagoon outings and snorkelling. See group size and price, pick a date.",
     emoji: "⛵",
     filters: [
       { key: "snorkel", label: "Snorkelling", labelFr: "Snorkeling" },
@@ -122,7 +122,7 @@ export const EXPERIENCES: Record<ServiceType, ExperienceCopy> = {
     subtitle: "Walk the island with someone who grew up on it.",
     subtitleFr: "Parcourez l'île avec quelqu'un qui y a grandi.",
     description:
-      "Hike Rodrigues with a local guide — coastal paths, ridges and hidden valleys. See who they are, what they know and which languages they speak, then message them directly on WhatsApp.",
+      "Hike Rodrigues with a local guide: coastal paths, ridges and sunrise walks. See who leads it and what it costs, then book.",
     emoji: "🥾",
     filters: [
       { key: "coastal", label: "Coastal", labelFr: "Littoral" },
@@ -150,7 +150,7 @@ export const EXPERIENCES: Record<ServiceType, ExperienceCopy> = {
     subtitle: "A car, a driver, and a day that is entirely yours.",
     subtitleFr: "Une voiture, un chauffeur, et une journée entièrement à vous.",
     description:
-      "Hire a driver and a car by the half-day or the day in Rodrigues. No route to agree in advance and no fare to watch — stop where you like, stay as long as you like, and let somebody who knows the island do the driving.",
+      "Hire a private driver and car in Rodrigues by the half-day or the day, and stop wherever you like, with a local at the wheel.",
     emoji: "🚘",
     filters: [
       { key: "halfday", label: "Half day", labelFr: "Demi-journée" },
