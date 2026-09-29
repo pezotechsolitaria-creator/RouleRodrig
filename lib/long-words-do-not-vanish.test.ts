@@ -121,6 +121,48 @@ describe("the curated card's price line", () => {
   });
 });
 
+// ── THE FOUR THE AUDIT NEVER VERIFIED ───────────────────────────────────────
+//
+// Their reviewer agents died on a session limit, so they arrived as claims.
+// Re-measured here at 375px by rebuilding each row with its own classes and
+// the real French copy. Three held, one was overstated, and one was exactly
+// right:
+//
+//   103 of 204  a recent-place chip, in a two-column grid: "Port Mathurin
+//               ferry terminal" and "Port Mathurin town centre" BOTH rendered
+//               "Port Mathuri…"
+//   218 of 251  the /deliver review row's value — the phone number fits, the
+//               place name does not
+//   206 of 227  the chosen-option hint in French; its label fits
+//   180 of 215  the /orders list line, which ends "· 29 Se…" and loses the
+//               date that tells two orders from the same shop apart
+
+describe("the four findings that arrived unverified", () => {
+  it("the recent-place chips get a column each", () => {
+    const src = tsx("components/PlacePicker.tsx");
+    expect(src).toContain('<div className="mt-1.5 grid grid-cols-1 gap-1.5">');
+    expect(src).not.toContain('<div className="mt-1.5 grid grid-cols-2 gap-1.5">');
+  });
+
+  it("the /deliver review value wraps", () => {
+    expect(tsx("app/deliver/DeliverForm.tsx")).toContain(
+      't.bodySm, "mt-0.5 line-clamp-2 break-words text-offwhite"',
+    );
+  });
+
+  it("so does the chosen-option hint", () => {
+    expect(tsx("app/deliver/DeliverForm.tsx")).toContain(
+      't.meta, "block line-clamp-2 text-[#B0B0B0]"',
+    );
+  });
+
+  it("and the order list keeps its date", () => {
+    const src = tsx("app/orders/page.tsx");
+    expect(src).toContain('className="mt-0.5 line-clamp-2 font-dm text-xs text-muted"');
+    expect(src).not.toContain('className="mt-0.5 truncate font-dm text-xs text-muted"');
+  });
+});
+
 describe("the marketplace cart pill", () => {
   const src = tsx("components/shop/ShopChrome.tsx");
 

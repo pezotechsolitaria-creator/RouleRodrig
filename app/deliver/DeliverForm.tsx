@@ -2146,8 +2146,11 @@ function ChosenLine({
         >
           {label}
         </span>
+        {/* The hint is a sentence and gets 206px for one needing 227 in
+            French: "Nous vous livrons où vous êtes" lost its last word. The
+            label above it fits, so only this one wraps. */}
         {hint && (
-          <span className={cn(t.meta, "block truncate text-[#B0B0B0]")}>
+          <span className={cn(t.meta, "block line-clamp-2 text-[#B0B0B0]")}>
             {hint}
           </span>
         )}
@@ -2186,7 +2189,11 @@ function ReviewRow({
     >
       <span className="min-w-0 flex-1">
         <dt className={cn(t.meta, "text-[#B0B0B0]")}>{label}</dt>
-        <dd className={cn(t.bodySm, "mt-0.5 truncate text-offwhite")}>
+        {/* Wraps, not truncates: this is the value the customer is reviewing
+            before they commit. Measured at 375px, "Port Mathurin — Terminal
+            du Ferry" needs 251px against the 218 this column gets. A phone
+            number fits; a place name is what does not. */}
+        <dd className={cn(t.bodySm, "mt-0.5 line-clamp-2 break-words text-offwhite")}>
           {value}
         </dd>
       </span>

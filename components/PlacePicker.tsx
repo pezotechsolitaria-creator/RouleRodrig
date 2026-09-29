@@ -331,7 +331,13 @@ export default function PlacePicker({
           <p className="mt-3 font-dm text-[16px] text-[#B0B0B0]">
             {copy.recent}
           </p>
-          <div className="mt-1.5 grid grid-cols-2 gap-1.5">
+          {/* One column, not two. Measured at 375px: two columns give each
+              chip 103px for a name that needs 204, so "Port Mathurin ferry
+              terminal" and "Port Mathurin town centre" both render as
+              "Port Mathuri…" — two different saved places, identical on
+              screen, on the control whose whole purpose is picking the right
+              one quickly. Full width, each chip gets 305. */}
+          <div className="mt-1.5 grid grid-cols-1 gap-1.5">
             {recent.map((p) => (
               <Chip
                 key={`r-${p.id}-${p.name}`}

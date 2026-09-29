@@ -192,7 +192,11 @@ export default async function CustomerOrdersPage({
                 >
                   <div className="min-w-0">
                     <p className="font-dm text-sm font-medium text-offwhite">{o.order_number}</p>
-                    <p className="mt-0.5 truncate font-dm text-xs text-muted">
+                    {/* The date was the casualty: this line gets 180px and
+                        "Chez Banane · 2 item(s) · 29 Sept 2026" needs 215, so it
+                        ended at "· 29 Se…" — and the date is how you tell two
+                        orders from the same shop apart. */}
+                    <p className="mt-0.5 line-clamp-2 font-dm text-xs text-muted">
                       {(store as { name?: string } | null)?.name ?? "Order"} · {itemCount} item(s) · {fmtDate(o.created_at)}
                     </p>
                     {slot && (
@@ -276,7 +280,10 @@ function ActivityGroup({
           >
             <div className="min-w-0">
               <p className="truncate font-dm text-sm font-medium text-offwhite">{a.title}</p>
-              <p className="mt-0.5 truncate font-dm text-xs text-muted">
+              {/* The same line, in the second list on this page — reference
+                  then date, in the flexible column beside a shrink-0 stack.
+                  The test for the first one caught this sibling. */}
+              <p className="mt-0.5 line-clamp-2 font-dm text-xs text-muted">
                 {a.reference}
                 {a.date && (
                   <> · {new Date(a.date).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}</>
