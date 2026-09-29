@@ -631,14 +631,14 @@ export default function TaxiPage() {
                         target="_blank"
                         rel="noopener noreferrer"
                         onClick={() => logContact(d, "whatsapp")}
-                        className="flex-1 flex items-center justify-center gap-1.5 bg-green-500/15 text-green-400 hover:bg-green-500/25 text-xs font-syne font-bold px-3 py-2.5 rounded-full transition-colors"
+                        className="flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-full bg-green-500/15 px-3 py-2.5 font-syne text-xs font-bold text-green-400 transition-colors hover:bg-green-500/25"
                       >
                         <MessageCircle size={13} /> {tx.whatsapp}
                       </a>
                       <a
                         href={`tel:${d.phone.replace(/\s/g, "")}`}
                         onClick={() => logContact(d, "call")}
-                        className="flex items-center justify-center gap-1.5 bg-dark border border-white/10 hover:border-yellow/40 text-muted hover:text-yellow text-xs font-syne font-bold px-3 py-2.5 rounded-full transition-colors"
+                        className="flex min-h-11 items-center justify-center gap-1.5 rounded-full border border-white/10 bg-dark px-3 py-2.5 font-syne text-xs font-bold text-muted transition-colors hover:border-yellow/40 hover:text-yellow"
                       >
                         <Phone size={13} /> {tx.call}
                       </a>
@@ -647,7 +647,7 @@ export default function TaxiPage() {
                     {/* Rate / reviews button */}
                     <button
                       onClick={() => setReviewDriver(d)}
-                      className="flex items-center justify-center gap-1.5 text-xs font-dm text-muted hover:text-yellow border border-white/10 hover:border-yellow/40 px-3 py-2 rounded-full transition-colors"
+                      className="flex min-h-11 items-center justify-center gap-1.5 rounded-full border border-white/10 px-3 py-2 font-dm text-xs text-muted transition-colors hover:border-yellow/40 hover:text-yellow"
                     >
                       <Star size={12} />{" "}
                       {d.rating_count ? tx.reviewsRate : tx.rate}

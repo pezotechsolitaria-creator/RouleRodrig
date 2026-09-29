@@ -221,6 +221,26 @@ describe("the home page", () => {
   });
 });
 
+describe("reaching a taxi driver", () => {
+  const src = tsx("app/taxi/page.tsx");
+
+  it("WhatsApp, Call and Rate all clear the floor", () => {
+    // Measured at 375px: 222x36, 71x38 and 301x34. The first two are how a
+    // customer actually reaches a driver.
+    expect(src).toContain("flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-full bg-green-500/15");
+    expect(src).toContain("flex min-h-11 items-center justify-center gap-1.5 rounded-full border border-white/10 bg-dark");
+    expect(src).toContain("flex min-h-11 items-center justify-center gap-1.5 rounded-full border border-white/10 px-3 py-2");
+  });
+});
+
+describe("the trip planner's day picker", () => {
+  it("is 44 tall, and honest about its width", () => {
+    // Seven buttons in one row are 32px wide whatever the padding — the same
+    // ceiling the booking calendar's seven columns hit.
+    expect(tsx("components/TripPlanner.tsx")).toContain("h-11 flex-1 rounded-lg font-syne text-sm font-bold");
+  });
+});
+
 describe("the gallery dot still looks like a dot", () => {
   it("the painted pill moved into a span, so the button can be the target", () => {
     // Measured after: the button is 25 x 42 and the pill inside it is still

@@ -256,7 +256,11 @@ export default function TripPlanner() {
                     <button
                       key={n}
                       onClick={() => setDays(n)}
-                      className={`flex-1 h-10 rounded-lg font-syne font-bold text-sm transition-all ${
+                      // h-11, not h-10. Seven buttons sharing one row are 32px
+                      // wide whatever the padding — the same ceiling the
+                      // booking calendar's seven columns hit — so the axis that
+                      // can reach 44 does.
+                      className={`h-11 flex-1 rounded-lg font-syne text-sm font-bold transition-all ${
                         days === n
                           ? "bg-yellow text-dark"
                           : "bg-[#0d0d0d] border border-[#2a2a2a] text-muted hover:border-yellow/40 hover:text-offwhite"
