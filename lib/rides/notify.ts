@@ -93,26 +93,16 @@ export async function notifyRideOffers(rideId: string): Promise<OfferSendResult>
   }
 
   let targets: Target[] = [];
-  // What the customer pays in cash (quoted_price). taxi_offer_targets returns
-  // the driver's share as `price`; once a commission exists the message has to
-  // carry both, so the customer fare is read beside it. A failed read only
-  // drops the second line — the offer still goes out.
-  let customerPays: number | null = null;
   try {
     const admin = await getPrivileged();
     // The key is returned by a SECURITY DEFINER function and nowhere else, so
     // there is no query in the codebase that could accidentally ship it.
-    const [{ data, error }, fareRow] = await Promise.all([
-      admin.rpc("taxi_offer_targets", { p_request_id: rideId }),
-      admin.from("ride_requests").select("quoted_price").eq("id", rideId).maybeSingle(),
-    ]);
+    const { data, error } = await admin.rpc("taxi_offer_targets", { p_request_id: rideId });
     if (error) {
       console.error("taxi_offer_targets failed", error);
       return empty;
     }
     targets = (data ?? []) as Target[];
-    const qp = (fareRow.data as { quoted_price?: number | null } | null)?.quoted_price;
-    customerPays = typeof qp === "number" ? qp : null;
   } catch (err) {
     console.error("taxi_offer_targets threw", err);
     return empty;
@@ -153,7 +143,6 @@ export async function notifyRideOffers(rideId: string): Promise<OfferSendResult>
               })
             : "Now",
         price: t.price,
-        customerPays,
         acceptUrl: `${SITE_URL}/r/${t.token}`,
       });
 

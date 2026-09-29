@@ -140,7 +140,6 @@ export async function loadAttentionCounts(
     { data: refundsIgnored },
     { data: ridesAwaitingCallback },
     { data: blockedStoreRows },
-    { data: ridesAwaitingFare },
   ] = await Promise.all([
     admin.rpc("orderable_dish_count"),
     admin.rpc("empty_live_kitchen_count"),
@@ -152,8 +151,6 @@ export async function loadAttentionCounts(
     // The same query as the count, but it says WHO. The count alone was
     // unactionable: four shops cannot trade, work out which four yourself.
     admin.rpc("payment_blocked_stores"),
-    // M220 · Night / group airport transfers held until their fare is set.
-    admin.rpc("rides_awaiting_fare_count"),
   ]);
 
   return {
@@ -190,7 +187,6 @@ export async function loadAttentionCounts(
     taxiNoShows: num(taxiNoShows),
     refundsIgnored: num(refundsIgnored),
     ridesAwaitingCallback: num(ridesAwaitingCallback),
-    ridesAwaitingFare: num(ridesAwaitingFare),
   };
 }
 

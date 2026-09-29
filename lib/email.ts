@@ -2406,9 +2406,10 @@ function rideRows(b: RideEmailData): string {
   if (b.meetGreet)
     pairs.push(["Meet & greet · Accueil à l'arrivée", "Yes · Oui"]);
   if (b.zone) pairs.push(["Zone", `Zone ${b.zone}`]);
-  // A fare the owner still has to set is not "on request" in the vague sense:
-  // it is a specific promise — agreed with them before any driver is sent.
-  const pending = "To be confirmed with you before a driver is sent · À confirmer avec vous avant l'envoi d'un chauffeur";
+  // A hand-priced transfer (night, or a large group) has no fixed fare; since
+  // M222 it is offered to drivers straight away like any unpriced taxi ride,
+  // and the fare is agreed with the customer. Said as that, not as a hold.
+  const pending = "Priced by hand — agreed with you, not fixed in advance · Tarifé au cas par cas — convenu avec vous";
   if (b.returnTrip) {
     const r = b.returnTrip;
     pairs.push([
@@ -2462,12 +2463,12 @@ export async function sendRideEmails(
   // M221 · the reason in each language — the email is EN + FR like every
   // customer email here, so a French reader gets their own sentence too.
   const whyEn =
-    b.pendingReason === "group" ? "Transfers for a group this size are confirmed by hand"
+    b.pendingReason === "group" ? "Transfers for a group this size are priced by hand"
     : b.pendingReason === "evening" ? "Evening transfers are priced by hand"
     : b.pendingReason === "night" ? "Night transfers are priced by hand"
     : "This transfer is priced by hand";
   const whyFr =
-    b.pendingReason === "group" ? "Pour un groupe de cette taille, le transfert est confirmé au cas par cas"
+    b.pendingReason === "group" ? "Pour un groupe de cette taille, le transfert est tarifé au cas par cas"
     : b.pendingReason === "evening" ? "Les transferts du soir sont tarifés au cas par cas"
     : b.pendingReason === "night" ? "Les transferts de nuit sont tarifés au cas par cas"
     : "Ce transfert est tarifé au cas par cas";
@@ -2475,8 +2476,8 @@ export async function sendRideEmails(
     const body = `
       ${paragraph(
         b.farePending
-          ? // M220 · Not offered to drivers yet, so do not say it is.
-            `Hi ${escapeHtml(b.name)}, we've received your ${what} request. ${whyEn}, so <strong>we'll call you to agree the fare</strong> before a driver is sent. Nothing is charged until you agree.`
+          ? // M222 · Offered to drivers now like any unpriced taxi ride; the fare is agreed by hand.
+            `Hi ${escapeHtml(b.name)}, we've received your ${what} request and are offering it to drivers now. ${whyEn}, so <strong>the fare is agreed with you</strong> rather than fixed in advance. Nothing is charged until you agree.`
           : `Hi ${escapeHtml(b.name)}, we've received your ${what} request. This is a <strong>request</strong>, not a confirmed ride yet — we're offering it to drivers now, and one of them usually accepts within a few minutes.`,
       )}
       ${sectionLabel("Your ride · Votre course")}
@@ -2493,7 +2494,7 @@ export async function sendRideEmails(
       ${frHeading("Nous cherchons votre chauffeur")}
       ${paragraph(
         b.farePending
-          ? `Bonjour ${escapeHtml(b.name)}, nous avons bien reçu votre demande de course. ${whyFr} : <strong>nous vous appellerons pour convenir du prix</strong> avant d'envoyer un chauffeur. Rien n'est débité sans votre accord.`
+          ? `Bonjour ${escapeHtml(b.name)}, nous avons bien reçu votre demande de course et la proposons aux chauffeurs dès maintenant. ${whyFr} : <strong>le prix est convenu avec vous</strong>, il n'est pas fixé à l'avance. Rien n'est débité sans votre accord.`
           : `Bonjour ${escapeHtml(b.name)}, nous avons bien reçu votre demande de course. Il s'agit d'une <strong>demande</strong>, pas encore d'une course confirmée — nous la proposons aux chauffeurs maintenant, et l'un d'eux l'accepte généralement en quelques minutes.`,
       )}
       ${paragraph(`Nous vous joindrons au <strong>${escapeHtml(b.phone)}</strong> — par appel ou WhatsApp — dès qu'un chauffeur l'accepte, et il utilisera ce même numéro pour vous retrouver. Gardez votre téléphone à portée de main.`)}
@@ -2551,7 +2552,7 @@ export async function sendRideEmails(
     const body = `
       ${
         b.farePending
-          ? paragraph(`<strong style="color:${C.ink}">⚠️ Set the fare.</strong> ${
+          ? paragraph(`<strong style="color:${C.ink}">⚠️ Fare to agree.</strong> ${
               b.pendingReason === "group"
                 ? `This ${label.toLowerCase()} is for a group larger than the price list prices automatically`
                 : b.pendingReason === "evening"
@@ -2559,7 +2560,7 @@ export async function sendRideEmails(
                   : b.pendingReason === "night"
                     ? `This ${label.toLowerCase()} falls in the night window (priced by hand)`
                     : `This ${label.toLowerCase()} could not be priced automatically`
-            }. <strong>No driver is offered it until you set the fare</strong> in Rides — agree it with ${escapeHtml(b.name)} first.`)
+            }. It is being offered to drivers now with no fixed fare, like any unpriced taxi ride — <strong>agree the fare with ${escapeHtml(b.name)}</strong>.`)
           : ""
       }
       ${paragraph(`New <strong>${label}</strong> request from <strong>${escapeHtml(b.name)}</strong>. Drivers are being offered it automatically — open <strong>Rides</strong> in your admin dashboard to watch it, or to place it by hand if nobody accepts.`)}

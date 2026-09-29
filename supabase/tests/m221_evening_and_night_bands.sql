@@ -137,13 +137,15 @@ begin
     (b->>'price')::int = 230000 and not (b->>'farePending')::boolean
     and not r.fare_pending and r.quoted_price = 230000 and r.fare_breakdown->>'band' = 'evening', b::text);
 
-  -- A 23:00 arrival is held, and the booking says why.
+  -- A 23:00 arrival is priced by hand (reason = night) and, since M222, NOT held.
   q := quote_airport_transfer(-19.7577, 63.361, -19.6836, 63.4186, 1, 'one_way', d0 + interval '23 hours', null, null);
   b := create_ride_request('airport', 'scheduled', d0 + interval '23 hours', 'Plaine Corail Airport', -19.7577, 63.361,
       'Port Mathurin', -19.6836, 63.4186, 1, 0, null, 'MK144', false, 'Test M221 night', '+23057000006', null,
       (q->>'quoteId')::uuid, 'one_way', null, null);
-  insert into _t(name, ok, got) values ('a 23:00 arrival is held, and the legs carry reason = night',
-    (b->>'farePending')::boolean and b->'legs'->0->>'reason' = 'night', b::text);
+  select * into r from ride_requests where quote_id = (q->>'quoteId')::uuid;
+  insert into _t(name, ok, got) values ('a 23:00 arrival is priced by hand (reason = night) and NOT held (M222)',
+    (b->>'farePending')::boolean and b->'legs'->0->>'reason' = 'night'
+    and not r.fare_pending and r.quoted_price is null, b::text);
 
   -- Return package: evening out, day back.
   q := quote_airport_transfer(-19.7577, 63.361, -19.6836, 63.4186, 2, 'return',

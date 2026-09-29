@@ -196,9 +196,6 @@ export default function BookRide({
     reference: string;
     price: number | null;
     returnReference?: string | null;
-    /** "all": no leg goes to drivers until the owner sets its fare.
-     *  "some": one leg of a package is dispatched, the other waits. */
-    pending?: "all" | "some" | null;
   } | null>(null);
   // ── ONE WAY, OR BOTH WAYS AT ONCE ───────────────────────────────────────
   // M220. Airport only. A return package is two rides on two days, booked and
@@ -408,13 +405,6 @@ export default function BookRide({
         reference: b.reference,
         price: b.price ?? null,
         returnReference: b.returnReference ?? null,
-        // The booking's own per-leg flags, not a guess from the clock.
-        pending: (() => {
-          const legs = (b.legs ?? []) as { farePending?: boolean }[];
-          const n = legs.filter((l) => l.farePending).length;
-          if (legs.length ? n === legs.length : b.farePending === true) return "all" as const;
-          return n > 0 ? ("some" as const) : null;
-        })(),
       });
     } catch (e) {
       setError(e instanceof Error ? e.message : c.errors.generic);
@@ -431,24 +421,15 @@ export default function BookRide({
           <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-green-500/15 text-green-400">
             <Check size={28} />
           </span>
-          {/* ── A HELD FARE IS NOT "FINDING YOUR DRIVER" ──────────────────
-              A night (or large-group) transfer is not offered to anyone until
-              the owner sets its fare, so "a driver will accept in the next few
-              minutes" was a promise the system does not keep. Found by the
-              M221 review; the booking's own per-leg flags decide which text. */}
           <h2 className="mt-4 font-syne text-2xl font-extrabold text-offwhite">
-            {done.pending === "all" ? c.transfer.donePendingHeading : c.done.heading}
+            {c.done.heading}
           </h2>
           {/* c.done.body — written in all three languages at
               lib/rides/copy.i18n.ts and asserted by its own test, while this
-              screen rendered the English literal underneath it. */}
-          <p className="mt-2 font-dm text-sm text-muted">
-            {done.pending === "all"
-              ? c.transfer.donePendingBody
-              : done.pending === "some"
-                ? c.transfer.donePartialBody
-                : c.done.body}
-          </p>
+              screen rendered the English literal underneath it. Since M222
+              every airport transfer is offered to drivers straight away, as a
+              normal taxi is, so this is true for a hand-priced one too. */}
+          <p className="mt-2 font-dm text-sm text-muted">{c.done.body}</p>
           <p className="mt-4 font-bebas text-[11px] tracking-[0.28em] text-yellow">
             {c.done.referenceEyebrow}
           </p>

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { RIDES_COPY, KREOL_NEEDS_REVIEW } from "./copy.i18n";
 import { offerMessage } from "./model";
@@ -26,11 +26,10 @@ const code = (s: string) =>
 const M221 = read("supabase", "migrations", "20260929120000_m221_evening_and_night_bands.sql");
 const BOOK = read("app", "taxi", "book", "BookRide.tsx");
 const PAGE = read("app", "transfers", "page.tsx");
-const PANEL = read("app", "admin", "rides", "TransferPricingPanel.tsx");
-const ADMIN_ROUTE = read("app", "api", "admin", "transfer-pricing", "route.ts");
 const BOOK_ROUTE = read("app", "api", "rides", "route.ts");
 const OFFER_SCREEN = read("app", "r", "[token]", "RideOfferScreen.tsx");
 const DESK = read("app", "admin", "rides", "RidesDesk.tsx");
+const M222 = read("supabase", "migrations", "20260929150000_m222_airport_transfers_dispatch_like_taxi.sql");
 
 describe("the migration", () => {
   it("adds the evening band switched OFF, so the launch list re-prices exactly as it quoted", () => {
@@ -79,28 +78,17 @@ describe("the booking screen names the band it priced", () => {
   });
 });
 
-describe("the public page and the editor", () => {
+describe("the public page", () => {
   it("states each band in its own sentence, from the price list", () => {
     expect(PAGE).toMatch(/bandSentence\("Evening", p\.eveningMode/);
     expect(PAGE).toMatch(/bandSentence\("Night", p\.nightMode/);
     // No hours or surcharge typed into the page.
-    expect(code(PAGE)).not.toMatch(/\b(17|21|22):00\b|\b04:59\b|Rs 300\b/);
+    expect(code(PAGE)).not.toMatch(/(17|21|22):00|04:59|Rs 300/);
   });
 
   it("documents where the return package saves money, computed from the fares", () => {
     expect(PAGE).toContain("returnSentence(airport)");
-    expect(PANEL).toContain("returnDifference(");
-  });
-
-  it("offers both windows in the editor, and says night wins an overlap", () => {
-    expect(PANEL).toMatch(/<BandFields name="evening"/);
-    expect(PANEL).toMatch(/<BandFields name="night"/);
-    expect(PANEL).toContain("the Night rule applies to the shared hours");
-  });
-
-  it("stores the evening band and refuses a fixed band with no amount", () => {
-    expect(ADMIN_ROUTE).toMatch(/evening_surcharge: v\.eveningSurcharge != null \? toMinor\(v\.eveningSurcharge\) : current\.evening_surcharge/);
-    expect(ADMIN_ROUTE).toMatch(/v\.eveningMode !== "fixed" \|\| \(v\.eveningSurcharge \?\? 0\) > 0/);
+    expect(PAGE).toContain("returnDifference(p)");
   });
 });
 
@@ -113,25 +101,14 @@ describe("fixes from the adversarial review of M221", () => {
     expect(M221B).not.toMatch(/drop function/i);
   });
 
-  it("a publish that omits the evening band keeps the one in force — never switches it off", () => {
-    expect(ADMIN_ROUTE).toMatch(/eveningMode: z\.enum\(NIGHT_MODES\)\.optional\(\)/);
-    expect(code(ADMIN_ROUTE)).not.toMatch(/eveningMode: z\.enum\(NIGHT_MODES\)\.default\("none"\)/);
-    expect(ADMIN_ROUTE).toMatch(/evening_mode: v\.eveningMode \?\? current\.evening_mode/);
-  });
-
-  it("refuses a return fare dearer than one way, and says 'more' if one ever exists", () => {
-    expect(ADMIN_ROUTE).toMatch(/v\.returnEach\.every\(\(r, i\) => r <= v\.oneWay\[i\]\)/);
-    expect(PAGE).toContain("returnDifference(p)");
-    expect(PANEL).toContain("MORE per trip than one way");
-  });
-
   it("advertises the evening only for the hours night does not take", () => {
     expect(PAGE).toContain("effectiveEveningLabel(");
     expect(BOOK).toContain("effectiveEveningLabel(quote.eveningWindow, quote.nightWindow)");
   });
 
-  it("does not promise a driver in minutes when the fare is held", () => {
-    expect(BOOK).toMatch(/done\.pending === "all" \? c\.transfer\.donePendingHeading : c\.done\.heading/);
+  it("the booked screen is the normal taxi one again (nothing is held since M222)", () => {
+    expect(BOOK).not.toContain("donePendingHeading");
+    expect(BOOK).toMatch(/\{c\.done\.heading\}/);
   });
 });
 
@@ -186,36 +163,54 @@ describe("the reason travels to the email and the owner's alert", () => {
   });
 });
 
-describe("drivers see both numbers once a commission exists", () => {
-  const base = {
-    driverName: "Jean", service: "airport" as const, pickup: "Plaine Corail Airport",
-    dropoff: "Port Mathurin", passengers: 2, whenText: "Fri 18:30", acceptUrl: "https://x/r/t",
-  };
+// ── M222 · "no dashboards — just how a normal taxi uses it" ────────────────
+// The owner chose: booking, admin and driver screens all behave like a normal
+// taxi, and nothing new is built. There is no commission (0% everywhere).
+describe("airport transfers behave like a normal taxi (M222)", () => {
+  it("nothing is held: every ride is written with fare_pending = false", () => {
+    expect(M222).toMatch(/false, v_out,/);
+    expect(M222).toMatch(/false, v_back,/);
+    expect(M222).toMatch(/v_price, false,/);
+    expect(M222).not.toMatch(/coalesce\(\(v_out->>'manual'\)::boolean, false\), v_out/);
+  });
 
-  it("says 'You earn' once when there is no commission, as before", () => {
-    const m = offerMessage({ ...base, price: 230000, customerPays: 230000 });
+  it("retires the desk's set-the-fare function and its counter", () => {
+    expect(M222).toMatch(/drop function if exists public\.admin_set_ride_fare\(uuid, integer, text\);/);
+    expect(M222).toMatch(/drop function if exists public\.rides_awaiting_fare_count\(\);/);
+  });
+
+  it("auto-dispatch no longer filters on fare_pending", () => {
+    const fn = M222.slice(M222.indexOf("create or replace function public.auto_dispatch_rides"));
+    expect(fn).not.toMatch(/and not fare_pending/);
+  });
+
+  it("has no airport-only admin screens", () => {
+    expect(existsSync(join(ROOT, "app", "admin", "rides", "TransferPricingPanel.tsx"))).toBe(false);
+    expect(existsSync(join(ROOT, "app", "api", "admin", "transfer-pricing", "route.ts"))).toBe(false);
+    expect(code(DESK)).not.toMatch(/SetFare|FareSummary|TransferPricingPanel|SET THE FARE/);
+  });
+
+  it("drivers see an airport job exactly like a taxi job: 'You earn', no commission lines", () => {
+    const m = offerMessage({
+      driverName: "Jean", service: "airport", pickup: "Plaine Corail Airport", dropoff: "Port Mathurin",
+      passengers: 2, whenText: "Fri 18:30", price: 230000, acceptUrl: "https://x/r/t",
+    });
     expect(m).toContain("You earn: Rs 2,300");
-    expect(m).not.toContain("Customer pays");
+    expect(m).not.toMatch(/Customer pays|You keep|commission/i);
+    expect(code(OFFER_SCREEN)).not.toMatch(/YOU KEEP|commission/i);
   });
 
-  it("says what to collect and what to keep when there is", () => {
-    const m = offerMessage({ ...base, price: 207000, customerPays: 230000 });
-    expect(m).toContain("Customer pays you: Rs 2,300 cash");
-    expect(m).toContain("You keep: Rs 2,070");
-    expect(m).not.toContain("You earn");
-  });
-
-  it("labels the offer screen 'YOU KEEP' with the customer's fare and the commission", () => {
-    expect(OFFER_SCREEN).toMatch(/offer\.fare > offer\.price \?/);
-    expect(OFFER_SCREEN).toContain("YOU KEEP");
-    expect(OFFER_SCREEN).toContain("Roulé commission");
-  });
-});
-
-describe("a return package's two references sit together on the desk", () => {
-  it("names the partner trip by its reference", () => {
-    expect(DESK).toMatch(/r\.package_id === ride\.package_id && r\.id !== ride\.id/);
-    expect(DESK).toContain("rideReference(partner.id)");
+  it("a hand-priced fare is described as agreed with the customer, never as a hold", () => {
+    for (const l of ["en", "fr", "cr"] as const) {
+      const t = RIDES_COPY[l].book.transfer;
+      expect(t.nightManual("22:00–04:59")).not.toMatch(/before a driver|avant d.envoyer/i);
+    }
+    expect(code(PAGE)).not.toMatch(/before a driver is sent|confirm the vehicle|with you first/);
+    for (const l of ["en", "fr", "cr"] as const) {
+      const t = RIDES_COPY[l].book.transfer;
+      expect(t.eveningManual("17:00–21:59")).not.toMatch(/before a driver|avant d.envoyer/i);
+      expect(t.groupManual).not.toMatch(/first|d.abord/i);
+    }
   });
 });
 
@@ -273,14 +268,20 @@ describe("the confirmation email names the reason a fare is pending", () => {
     expect(c.html).toContain("Night transfers are priced by hand");
     expect(c.html).toContain("Les transferts de nuit sont tarifés au cas par cas");
     expect(c.html).not.toContain("Evening and night");
-    expect(sent.find((s) => s.type === "owner_ride_alert")!.html).toContain("falls in the night window");
+    // Offered to drivers straight away, like a normal taxi (M222).
+    expect(c.html).toContain("are offering it to drivers now");
+    expect(c.html).not.toContain("before a driver is sent");
+    const owner = sent.find((s) => s.type === "owner_ride_alert")!.html;
+    expect(owner).toContain("falls in the night window");
+    expect(owner).toContain("Fare to agree");
+    expect(owner).not.toContain("No driver is offered it");
   });
 
   it("a large group is not called night", async () => {
     const { sendRideEmails } = await import("@/lib/email");
     await sendRideEmails({ ...RIDE, pendingReason: "group" });
     const c = sent.find((s) => s.type === "ride_request_confirmation")!;
-    expect(c.html).toContain("Transfers for a group this size are confirmed by hand");
+    expect(c.html).toContain("Transfers for a group this size are priced by hand");
     expect(c.html).not.toMatch(/Night transfers|Evening transfers/);
   });
 });

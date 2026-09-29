@@ -360,10 +360,11 @@ export async function POST(req: NextRequest) {
           returnLeg
             ? `Return: ${pickupTimeLabel("scheduled", returnLeg.at ?? v.returnAt ?? null)}${created.returnReference ? ` · ${created.returnReference}` : ""}${v.returnFlightRef ? ` · ${v.returnFlightRef}` : ""}`
             : null,
-          // M220 · Night (or a large group): booked, and NOT offered to drivers
-          // until somebody sets the fare. This alert is the owner's cue.
+          // Night (or a large group): priced by hand. Since M222 it is offered to
+          // drivers straight away like any unpriced taxi ride; this line tells
+          // the owner the fare still has to be agreed with the customer.
           created.farePending
-            ? `⚠️ SET THE FARE${pendingReason ? ` (${pendingReason === "group" ? "large group" : `${pendingReason} window`})` : ""} — no driver is asked until you do`
+            ? `⚠️ Fare to agree by hand${pendingReason ? ` (${pendingReason === "group" ? "large group" : `${pendingReason} window`})` : ""} — offered to drivers now with no fixed fare`
             : null,
           v.flightRef ? `Flight: ${v.flightRef}` : null,
           v.meetGreet ? "Meet & greet requested" : null,

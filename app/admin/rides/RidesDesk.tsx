@@ -15,7 +15,6 @@ import { pickupTimeLabel, pickupClock,
   formatRidePrice, rideReference, type RideStatus, type RideService,
   isOpenRide,
 } from "@/lib/rides/model";
-import TransferPricingPanel from "./TransferPricingPanel";
 
 // ── THE DISPATCH DESK ───────────────────────────────────────────────────────
 //
@@ -47,13 +46,6 @@ type Ride = {
   // M120 — an airport or ferry run is planned around the flight, so the desk
   // has to be able to see it without opening the row.
   flight_ref?: string | null; meet_greet?: boolean | null;
-  // M220 — airport transfers priced by zone. A return package is two rides
-  // sharing a package_id; fare_pending means booked but held from dispatch
-  // until the fare is set on this desk.
-  trip_type?: "one_way" | "return" | null; leg?: "outbound" | "return" | null;
-  package_id?: string | null; transfer_zone?: number | null; road_km?: number | null;
-  fare_pending?: boolean | null;
-  driver_earnings?: number | null; platform_commission?: number | null; driver_pay?: number | null;
 };
 type Driver = {
   id: string; name: string; phone: string; whatsapp: string | null; vehicle: string | null;
@@ -344,19 +336,7 @@ export default function RidesDesk() {
                         </p>
                         <p className="mt-1 flex flex-wrap items-center gap-x-3 font-dm text-xs text-muted">
                           <span className="inline-flex items-center gap-1"><Users size={11} /> {r.passengers}</span>
-                          {r.fare_pending ? (
-                            <span className="rounded-md border border-orange-400/40 bg-orange-400/10 px-1.5 py-0.5 font-bebas text-[10px] tracking-[0.12em] text-orange-200">
-                              SET THE FARE
-                            </span>
-                          ) : (
-                            <span>{formatRidePrice(r.quoted_price, r.currency)}</span>
-                          )}
-                          {r.transfer_zone != null && <span>Zone {r.transfer_zone}</span>}
-                          {r.trip_type === "return" && (
-                            <span className="text-yellow/90">
-                              Return package · {r.leg === "return" ? "trip 2 of 2" : "trip 1 of 2"}
-                            </span>
-                          )}
+                          <span>{formatRidePrice(r.quoted_price, r.currency)}</span>
                           {r.taxi_drivers?.name && <span className="text-green-400">{r.taxi_drivers.name}</span>}
                           {r.offer_rounds > 0 && <span>round {r.offer_rounds}</span>}
                         </p>
@@ -452,20 +432,6 @@ export default function RidesDesk() {
                       className="text-xs"
                     />
                   </div>
-
-                  <FareSummary ride={ride} rides={rides ?? []} />
-                  {/* M220 · Booked, held from every driver until a fare is set.
-                      Also offered on an unpriced ride from before zones (a
-                      private hire, a pin nobody could route). */}
-                  {isOpenRide(ride.status) && (ride.fare_pending || ride.quoted_price == null) && (
-                    <SetFare
-                      ride={ride}
-                      busy={busy === "fare"}
-                      onSet={(rupees, note) =>
-                        void act({ action: "fare", rideId: ride.id, rupees, note }, "fare",
-                          "Fare set — it goes out to drivers on the next dispatch tick.")}
-                    />
-                  )}
 
                   <div className="mt-3 flex flex-wrap gap-2 border-t border-white/10 pt-3">
                     {(ride.status === "new" || ride.status === "dispatching") && (
@@ -1071,131 +1037,6 @@ ${url}
 }
 
 
-// ── WHAT THIS RIDE COSTS, AND WHO GETS WHAT ─────────────────────────────────
-//
-// M220. The customer's fare and the driver's pay are separate numbers now, with
-// Roulé's commission between them. Shown on the desk because it is the one
-// place both are needed at once: the customer is quoted one, the driver is
-// offered the other.
-function FareSummary({ ride, rides }: { ride: Ride; rides: Ride[] }) {
-  if (ride.quoted_price == null && ride.transfer_zone == null) return null;
-  const split =
-    ride.quoted_price != null &&
-    ride.driver_pay != null &&
-    ride.platform_commission != null &&
-    ride.platform_commission > 0;
-  // A return package is two rides with two references. Name the other one
-  // here, so the desk never has to hunt for the partner trip of a package.
-  const partner =
-    ride.trip_type === "return" && ride.package_id
-      ? rides.find((r) => r.package_id === ride.package_id && r.id !== ride.id) ?? null
-      : null;
-  return (
-    <p className="mt-3 flex flex-wrap gap-x-3 gap-y-1 border-t border-white/10 pt-3 font-dm text-xs text-muted">
-      {ride.transfer_zone != null && (
-        <span>
-          Zone <span className="text-offwhite">{ride.transfer_zone}</span>
-          {ride.road_km != null && ` · ${Math.round(Number(ride.road_km) * 10) / 10} km by road`}
-        </span>
-      )}
-      {ride.trip_type && (
-        <span>
-          {ride.trip_type === "return"
-            ? `Return package — ${ride.leg === "return" ? "the way back" : "the first trip"}`
-            : "One way"}
-        </span>
-      )}
-      {ride.trip_type === "return" && (
-        <span>
-          {partner ? (
-            <>
-              {ride.leg === "return" ? "First trip" : "Way back"}:{" "}
-              <span className="text-offwhite">{rideReference(partner.id)}</span>
-              {" · "}{pickupTimeLabel(partner.when_kind, partner.scheduled_at)}
-            </>
-          ) : (
-            // Finished or cancelled partners are not in the "Open rides" list.
-            <>Partner trip not in this list — switch to “Everything”</>
-          )}
-        </span>
-      )}
-      {ride.quoted_price != null && (
-        <span>
-          Customer pays <span className="text-offwhite">{formatRidePrice(ride.quoted_price, ride.currency)}</span>
-        </span>
-      )}
-      {split && (
-        <>
-          <span>
-            Driver earns <span className="text-offwhite">{formatRidePrice(ride.driver_pay, ride.currency)}</span>
-          </span>
-          <span>
-            Roulé keeps <span className="text-offwhite">{formatRidePrice(ride.platform_commission, ride.currency)}</span>
-          </span>
-        </>
-      )}
-    </p>
-  );
-}
-
-function SetFare({
-  ride, busy, onSet,
-}: {
-  ride: Ride;
-  busy: boolean;
-  onSet: (rupees: number, note: string | undefined) => void;
-}) {
-  const [value, setValue] = useState("");
-  const [note, setNote] = useState("");
-  const n = Number(value);
-  const valid = value.trim() !== "" && Number.isFinite(n) && n >= 1 && n <= 100_000;
-  return (
-    <div className="mt-3 rounded-xl border border-orange-400/30 bg-orange-400/[0.06] p-3">
-      <p className="font-dm text-xs text-orange-200">
-        <AlertTriangle size={12} className="mr-1 inline" />
-        {ride.fare_pending ? (
-          <>
-            <strong>No driver has been asked yet.</strong> This transfer is in the night window or is a
-            large group, so it is priced by hand. Agree the fare with {ride.customer_name}, then set it —
-            it goes out to drivers straight after.
-          </>
-        ) : (
-          <>This ride has no fare. Setting one tells the driver what they earn.</>
-        )}
-      </p>
-      <div className="mt-2 flex flex-wrap items-end gap-2">
-        <label className="w-32">
-          <span className="mb-1 block font-bebas text-[9px] tracking-[0.18em] text-muted">FARE Rs</span>
-          <input
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-            inputMode="decimal"
-            placeholder="e.g. 2000"
-            className="w-full rounded-lg border border-white/12 bg-dark px-2.5 py-2 font-dm text-sm text-offwhite focus:border-yellow/50 focus:outline-none"
-          />
-        </label>
-        <label className="min-w-[10rem] flex-1">
-          <span className="mb-1 block font-bebas text-[9px] tracking-[0.18em] text-muted">NOTE (OPTIONAL)</span>
-          <input
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            placeholder="e.g. agreed by phone, 21:30 arrival"
-            className="w-full rounded-lg border border-white/12 bg-dark px-2.5 py-2 font-dm text-sm text-offwhite focus:border-yellow/50 focus:outline-none"
-          />
-        </label>
-        <button
-          onClick={() => valid && onSet(n, note.trim() || undefined)}
-          disabled={!valid || busy}
-          className="inline-flex items-center gap-1.5 rounded-full bg-yellow px-4 py-2 font-dm text-sm font-bold text-dark disabled:opacity-50"
-        >
-          {busy ? <Loader2 size={14} className="animate-spin" /> : null}
-          Set fare
-        </button>
-      </div>
-    </div>
-  );
-}
-
 // ── THE FARES ───────────────────────────────────────────────────────────────
 //
 // The owner asked for test prices he can edit or delete after. The numbers seeded
@@ -1256,8 +1097,6 @@ function FaresPanel() {
 
   return (
     <div className="mt-4 space-y-3">
-      {/* M220 · The airport has its own price list: zones, packages, nights. */}
-      <TransferPricingPanel />
       <p className="rounded-xl border border-orange-400/25 bg-orange-400/[0.06] px-4 py-3 font-dm text-xs text-orange-200">
         <AlertTriangle size={13} className="mr-1.5 inline" />
         These are starting numbers, not real Rodriguan rates — change them before customers
@@ -1296,27 +1135,28 @@ function FareRow({
   const lbl = "block font-bebas text-[9px] tracking-[0.18em] text-muted mb-1";
 
   // ── THE AIRPORT ROW KEEPS ONLY ITS SWITCH ──────────────────────────────
-  // Since M220 nothing reads this row's fares: quote_ride('airport') forwards
-  // to the zone engine, whose numbers are in the panel above. Showing boxes
-  // that change nothing is how an owner edits a price and wonders why the
-  // screen ignored him. "Offer this" still works — it is how the zone engine
-  // learns the service is switched off.
+  // Airport transfers are priced by zone in the database (M220–M222) and
+  // nothing reads this row's fare boxes any more; the owner asked for no
+  // airport-only screens, so zone prices are changed on request, not here.
+  // "Offer this" still works: it is how the zone engine learns the service is
+  // switched off.
   if (p.service === "airport") {
     return (
       <div className={`rounded-2xl border p-4 ${f.isBookable ? "border-white/10 bg-dark-card" : "border-white/[0.06] bg-dark-card opacity-60"}`}>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <p className="font-syne text-base font-bold text-offwhite">{meta?.label ?? p.service}</p>
-          <label className="inline-flex items-center gap-2 font-dm text-xs text-muted">
+          <label className="inline-flex min-h-11 items-center gap-2 font-dm text-xs text-muted">
             <input type="checkbox" checked={f.isBookable}
               onChange={(e) => setF({ ...f, isBookable: e.target.checked })} className="accent-yellow" />
             Offer this
           </label>
         </div>
         <p className="mt-1 font-dm text-[11px] text-muted">
-          Priced by zone — set the fares in <span className="text-offwhite">Airport transfers</span> at the top of this page.
+          Priced by zone from Plaine Corail (see the prices on /transfers). To change them, ask for a
+          new price list — they are not edited here.
         </p>
         <button onClick={() => onSave(p.service, { isBookable: f.isBookable })} disabled={busy}
-          className="mt-3 rounded-full bg-yellow px-4 py-2 font-dm text-xs font-bold text-dark disabled:opacity-50">
+          className="mt-3 min-h-11 rounded-full bg-yellow px-4 py-2 font-dm text-xs font-bold text-dark disabled:opacity-50">
           {busy ? <Loader2 size={12} className="animate-spin" /> : "Save"}
         </button>
       </div>

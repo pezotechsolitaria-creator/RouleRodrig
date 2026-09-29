@@ -240,12 +240,12 @@ begin
     (select status from ride_requests where id = r2.id) = 'cancelled', null);
 end $$;
 
--- ── Night: booked, held, then priced by the owner ─────────────────────────
+-- ── Night: booked, priced by hand, dispatched like a normal taxi (M222) ───
 do $$
 declare
   eve timestamptz := date_trunc('day', now() at time zone 'Indian/Mauritius') at time zone 'Indian/Mauritius'
                      + interval '3 days 23 hours';            -- 23:00, night under every list
-  q jsonb; b jsonb; rid uuid; s jsonb;
+  q jsonb; b jsonb; rid uuid;
 begin
   q := quote_airport_transfer(-19.7577, 63.361, -19.7414, 63.4114, 1, 'one_way', eve, null, null);
   insert into _t(name, ok, got) values ('a night quote is written, with no price',
@@ -254,21 +254,15 @@ begin
       'Rivière Cocos', -19.7414, 63.4114, 1, 0, null, 'MK142', false, 'Test M220 night', '+23057000001', null,
       (q->>'quoteId')::uuid, 'one_way', null, null);
   select id into rid from ride_requests where quote_id = (q->>'quoteId')::uuid;
-  insert into _t(name, ok, got) values ('it books, flagged fare_pending, no price',
-    (b->>'farePending')::boolean and exists (select 1 from ride_requests where id = rid and fare_pending and quoted_price is null), b::text);
-  insert into _t(name, ok, got) values ('it counts on the owner''s attention list',
-    rides_awaiting_fare_count() >= 1, rides_awaiting_fare_count()::text);
-
-  s := admin_set_ride_fare(rid, 180000, 'agreed on the phone');
-  insert into _t(name, ok, got) values ('the owner sets Rs 1,800; the hold lifts',
-    exists (select 1 from ride_requests where id = rid and not fare_pending and quoted_price = 180000
-            and driver_earnings = 180000 and platform_commission = 0 and driver_pay = 180000), s::text);
-  begin
-    perform admin_set_ride_fare(rid, 1000, null);
-    insert into _t(name, ok, got) values ('and cannot set it twice', false, 'set twice');
-  exception when sqlstate 'RR093' then
-    insert into _t(name, ok, got) values ('and cannot set it twice', true, null);
-  end;
+  -- M222: priced by hand, but NOT held — it goes to drivers like any unpriced
+  -- taxi ride. The response still says farePending ("fare agreed by hand").
+  insert into _t(name, ok, got) values ('it books with no price, priced by hand, and is NOT held (M222)',
+    (b->>'farePending')::boolean and exists (select 1 from ride_requests where id = rid and not fare_pending and quoted_price is null), b::text);
+  -- The owner's "set the fare" function was retired with the desk box in
+  -- M222 (the owner asked for no airport-only screens); nothing sets a fare
+  -- after booking now.
+  insert into _t(name, ok, got) values ('the retired set-the-fare function is gone (M222)',
+    to_regprocedure('public.admin_set_ride_fare(uuid,integer,text)') is null, null);
 end $$;
 
 -- ── Callers that predate the migration ────────────────────────────────────
@@ -292,7 +286,7 @@ begin
     p_dropoff_label => 'Chez Marie', p_dropoff_lat => -19.7300, p_dropoff_lng => 63.4300,
     p_passengers => 1, p_luggage => 0, p_notes => null, p_flight_ref => 'MK140', p_meet_greet => false,
     p_customer_name => 'Test M220 pin', p_customer_phone => '+23057000003', p_customer_email => null);
-  insert into _t(name, ok, got) values ('an unzoned pin with no quote still books, held for a fare',
+  insert into _t(name, ok, got) values ('an unzoned pin with no quote still books, fare agreed by hand',
     (b->>'ok')::boolean and b->>'price' is null and (b->>'farePending')::boolean, b::text);
 
   b := create_ride_request(p_service => 'taxi', p_when_kind => 'now', p_scheduled_at => null,
@@ -311,7 +305,6 @@ select 'anon cannot execute ' || f, not has_function_privilege('anon', f, 'EXECU
     'public.quote_airport_transfer(double precision,double precision,double precision,double precision,integer,text,timestamptz,timestamptz,numeric)',
     'public.create_ride_request(text,text,timestamptz,text,double precision,double precision,text,double precision,double precision,integer,integer,text,text,boolean,text,text,text,uuid,text,timestamptz,text)',
     'public.quote_ride(text,double precision,double precision,double precision,double precision,integer,integer,timestamptz)',
-    'public.admin_set_ride_fare(uuid,integer,text)',
     'public.price_transfer_leg(bigint,numeric,text,integer,timestamptz)']) f;
 insert into _t(name, ok, got)
 select 'anon cannot read ' || t, not has_table_privilege('anon', t, 'SELECT'), null

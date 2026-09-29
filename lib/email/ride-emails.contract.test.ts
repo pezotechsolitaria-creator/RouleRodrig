@@ -200,19 +200,21 @@ describe("the emails a ride request sends", () => {
     expect(customer.html).toMatch(/14:00/);
   });
 
-  it("does not tell a night customer a driver is being found when none is asked yet", async () => {
-    // A night transfer is held from dispatch until the owner sets its fare.
-    // "We're offering it to drivers now" would be untrue, and the owner has to
-    // be told, loudly, that nothing moves until he acts.
+  it("tells a hand-priced customer the fare is agreed with them — and that drivers are being asked", async () => {
+    // Since M222 a night (or large-group) transfer is offered to drivers
+    // straight away, like any unpriced taxi ride; only the fare is agreed by
+    // hand. The email must say both, and never promise a hold that no longer
+    // exists. The owner is told the fare still has to be agreed.
     const { sendRideEmails } = await import("@/lib/email");
     await sendRideEmails({ ...RIDE, price: null, zone: 2, farePending: true });
     const customer = ofType("ride_request_confirmation")!;
-    expect(customer.html).toContain("we'll call you to agree the fare");
-    expect(customer.html).not.toContain("we're offering it to drivers now");
-    expect(customer.html).toContain("To be confirmed with you before a driver is sent");
+    expect(customer.html).toContain("are offering it to drivers now");
+    expect(customer.html).toContain("the fare is agreed with you");
+    expect(customer.html).not.toContain("before a driver is sent");
+    expect(customer.html).toContain("Priced by hand — agreed with you, not fixed in advance");
     const owner = ofType("owner_ride_alert")!;
-    expect(owner.html).toContain("Set the fare.");
-    expect(owner.html).toContain("No driver is offered it until you set the fare");
+    expect(owner.html).toContain("Fare to agree.");
+    expect(owner.html).not.toContain("No driver is offered it until you set the fare");
     expect(owner.html, "a missing field leaked into the email").not.toMatch(
       /\b(null|undefined|NaN)\b/,
     );

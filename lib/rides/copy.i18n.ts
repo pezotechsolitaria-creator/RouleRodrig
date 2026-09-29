@@ -210,11 +210,11 @@ const EN = {
       // M221 · two bands, each named for what it is. "Between 17:00–04:59"
       // read badly and, once the evening became a surcharge, was also untrue.
       nightManual: (window: string) =>
-        `Night transfers (${window}) are priced by hand. We'll call you to agree the fare before a driver is sent.`,
+        `Night transfers (${window}) are priced by hand: the fare is agreed with you, not fixed in advance.`,
       eveningManual: (window: string) =>
-        `Evening transfers (${window}) are priced by hand. We'll call you to agree the fare before a driver is sent.`,
+        `Evening transfers (${window}) are priced by hand: the fare is agreed with you, not fixed in advance.`,
       groupManual:
-        "For a group this size we confirm the vehicle and the fare with you first.",
+        "For a group this size the fare is agreed with you, not fixed in advance.",
       byHand: "We'll confirm",
       bandIncluded: (band: "evening" | "night", fee: string, window: string) =>
         `includes ${fee} ${band === "evening" ? "evening" : "night"} rate (${window})`,
@@ -223,13 +223,6 @@ const EN = {
         "The price changed while you were booking. Check the new fare and tap the button again.",
       alreadyBooked: "This trip is already booked — check your reference.",
       returnReferenceEyebrow: "RETURN TRIP REFERENCE",
-      // The booked screen when the fare is still the owner's to set — the
-      // usual "a driver will accept in minutes" would be untrue (M221 review).
-      donePendingHeading: "We have your booking",
-      donePendingBody:
-        "We'll call you to agree the fare, then send your driver. Nothing is charged until you agree.",
-      donePartialBody:
-        "Your first trip is being offered to drivers now. We'll call you to agree the fare for the other one before its driver is sent.",
     },
     cta: {
       back: "Back",
@@ -502,11 +495,11 @@ const FR: RidesCopy = {
       extraPeople: (n: number, fee: string) =>
         `dont ${fee} pour ${n} personne${n === 1 ? "" : "s"} de plus`,
       nightManual: (window: string) =>
-        `Les transferts de nuit (${window}) sont tarifés au cas par cas. Nous vous appellerons pour convenir du prix avant d’envoyer un chauffeur.`,
+        `Les transferts de nuit (${window}) sont tarifés au cas par cas : le prix est convenu avec vous, il n’est pas fixé à l’avance.`,
       eveningManual: (window: string) =>
-        `Les transferts du soir (${window}) sont tarifés au cas par cas. Nous vous appellerons pour convenir du prix avant d’envoyer un chauffeur.`,
+        `Les transferts du soir (${window}) sont tarifés au cas par cas : le prix est convenu avec vous, il n’est pas fixé à l’avance.`,
       groupManual:
-        "Pour un groupe de cette taille, nous confirmons d’abord le véhicule et le prix avec vous.",
+        "Pour un groupe de cette taille, le prix est convenu avec vous, il n’est pas fixé à l’avance.",
       byHand: "À confirmer",
       bandIncluded: (band: "evening" | "night", fee: string, window: string) =>
         `dont ${fee} de tarif ${band === "evening" ? "du soir" : "de nuit"} (${window})`,
@@ -515,11 +508,6 @@ const FR: RidesCopy = {
         "Le prix a changé pendant votre réservation. Vérifiez le nouveau tarif et appuyez à nouveau sur le bouton.",
       alreadyBooked: "Ce trajet est déjà réservé — vérifiez votre référence.",
       returnReferenceEyebrow: "RÉFÉRENCE DU RETOUR",
-      donePendingHeading: "Nous avons votre réservation",
-      donePendingBody:
-        "Nous vous appellerons pour convenir du prix, puis nous enverrons votre chauffeur. Rien n’est débité sans votre accord.",
-      donePartialBody:
-        "Votre premier trajet est proposé aux chauffeurs dès maintenant. Nous vous appellerons pour convenir du prix de l’autre avant d’envoyer son chauffeur.",
     },
     cta: {
       back: "Retour",
@@ -791,11 +779,11 @@ const CR: RidesCopy = {
       // (see the header) — until someone from the island writes the Kreol.
       // Listed in KREOL_NEEDS_REVIEW below.
       nightManual: (window: string) =>
-        `Les transferts de nuit (${window}) sont tarifés au cas par cas. Nous vous appellerons pour convenir du prix avant d’envoyer un chauffeur.`,
+        `Les transferts de nuit (${window}) sont tarifés au cas par cas : le prix est convenu avec vous, il n’est pas fixé à l’avance.`,
       eveningManual: (window: string) =>
-        `Les transferts du soir (${window}) sont tarifés au cas par cas. Nous vous appellerons pour convenir du prix avant d’envoyer un chauffeur.`,
+        `Les transferts du soir (${window}) sont tarifés au cas par cas : le prix est convenu avec vous, il n’est pas fixé à l’avance.`,
       groupManual:
-        "Pou enn group sa gran-la, nou konfirm loto ek pri la avek ou avan.",
+        "Pour un groupe de cette taille, le prix est convenu avec vous, il n’est pas fixé à l’avance.",
       byHand: "Pou konfirme",
       bandIncluded: (band: "evening" | "night", fee: string, window: string) =>
         `dont ${fee} de tarif ${band === "evening" ? "du soir" : "de nuit"} (${window})`,
@@ -804,12 +792,6 @@ const CR: RidesCopy = {
         "Pri la finn sanze pandan ou ti pe rezerve. Get nouvo pri la ek pes lor bouton la ankor.",
       alreadyBooked: "Sa trazé-la deza rezerve — get ou referans.",
       returnReferenceEyebrow: "REFERANS RETOUR",
-      // French until written in Kreol (M221, "do not invent Kreol").
-      donePendingHeading: "Nous avons votre réservation",
-      donePendingBody:
-        "Nous vous appellerons pour convenir du prix, puis nous enverrons votre chauffeur. Rien n’est débité sans votre accord.",
-      donePartialBody:
-        "Votre premier trajet est proposé aux chauffeurs dès maintenant. Nous vous appellerons pour convenir du prix de l’autre avant d’envoyer son chauffeur.",
     },
     cta: {
       back: "Retour",
@@ -977,15 +959,13 @@ export const KREOL_NEEDS_REVIEW: { path: string; fallback: "fr" | null }[] = [
   { path: "book.transfer.nightManual", fallback: "fr" },
   { path: "book.transfer.eveningManual", fallback: "fr" },
   { path: "book.transfer.bandIncluded", fallback: "fr" },
-  { path: "book.transfer.donePendingHeading", fallback: "fr" },
-  { path: "book.transfer.donePendingBody", fallback: "fr" },
-  { path: "book.transfer.donePartialBody", fallback: "fr" },
+  { path: "book.transfer.groupManual", fallback: "fr" },
   // M220 — drafted Kreol, unreviewed.
   ...[
     "tripGroupLabel", "oneWay", "returnPackage", "returnBlurb",
     "returnWhenLabelToAirport", "returnWhenLabelFromAirport", "returnFlightLabel",
     "returnNeedsTime", "zone", "fromAirport", "outbound", "returnLeg", "each", "total",
-    "extraPeople", "groupManual", "byHand", "payEachDriver", "priceChanged",
+    "extraPeople", "byHand", "payEachDriver", "priceChanged",
     "alreadyBooked", "returnReferenceEyebrow",
   ].map((k) => ({ path: `book.transfer.${k}`, fallback: null })),
 ];

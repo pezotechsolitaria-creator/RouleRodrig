@@ -193,18 +193,8 @@ describe("the escalations M93/M94 added", () => {
       .toBeLessThan(items.findIndex((i) => i.key === "taxi-no-shows"));
   });
 
-  it("treats a transfer waiting for its fare as work (M220)", () => {
-    // A night or large-group airport transfer is booked but offered to no
-    // driver until the owner sets the fare — often for somebody landing that
-    // evening. It is an action, not a statistic.
-    const item = attentionItems({ ridesAwaitingFare: 1 }).find((i) => i.key === "rides-fare");
-    expect(item, "no rides-fare item at all").toBeDefined();
-    expect(item!.severity).toBe("action");
-    expect(item!.href).toBe("/admin/rides");
-  });
-
   it("stays silent when nothing is stuck", () => {
-    expect(attentionItems({ refundsIgnored: 0, ridesAwaitingCallback: 0, ridesAwaitingFare: 0 })).toEqual([]);
+    expect(attentionItems({ refundsIgnored: 0, ridesAwaitingCallback: 0 })).toEqual([]);
   });
 });
 

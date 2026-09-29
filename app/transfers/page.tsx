@@ -81,7 +81,7 @@ function bandSentence(
   if (!mode || mode === "none" || !w) return null;
   switch (mode) {
     case "manual":
-      return `${name} transfers (${w}) are priced by hand: the booking is taken, and the fare is agreed with you before a driver is sent.`;
+      return `${name} transfers (${w}) are priced by hand: the fare is agreed with you, not fixed in advance.`;
     case "fixed":
       return `${name} transfers (${w}) add ${money(surcharge ?? 0)} per trip, included in the fare you are shown.`;
     case "multiplier":
@@ -219,7 +219,7 @@ export default async function TransfersPage() {
           },
           {
             q: "Do more passengers cost more?",
-            a: `The fare includes ${airport.includedPassengers === 1 ? "one passenger" : `${airport.includedPassengers} passengers`}. Each additional passenger adds ${money(airport.extraPassengerFee)} per trip, one way or return. For a group of more than ${airport.maxPricedPassengers} we confirm the vehicle and the fare with you first.`,
+            a: `The fare includes ${airport.includedPassengers === 1 ? "one passenger" : `${airport.includedPassengers} passengers`}. Each additional passenger adds ${money(airport.extraPassengerFee)} per trip, one way or return. For a group of more than ${airport.maxPricedPassengers} the fare is agreed with you, not fixed in advance.`,
           },
           ...(night
             ? [{ q: "What about evening and night arrivals?", a: night }]

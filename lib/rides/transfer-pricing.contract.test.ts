@@ -34,9 +34,6 @@ const QUOTE_ROUTE = read("app", "api", "rides", "quote", "route.ts");
 const BOOK_ROUTE = read("app", "api", "rides", "route.ts");
 const SERVER = read("lib", "rides", "transfer-server.ts");
 const SHAPES = read("lib", "rides", "transfer.ts");
-const PANEL = read("app", "admin", "rides", "TransferPricingPanel.tsx");
-const ADMIN_ROUTE = read("app", "api", "admin", "transfer-pricing", "route.ts");
-const RIDES_ADMIN = read("app", "api", "admin", "rides", "route.ts");
 
 describe("the owner's numbers are seeded exactly, and only in the database", () => {
   it("seeds the launch price list with his zones and fares", () => {
@@ -56,7 +53,7 @@ describe("the owner's numbers are seeded exactly, and only in the database", () 
   });
 
   it("types none of them into the booking screen, the shapes, or the admin form", () => {
-    for (const [name, src] of [["BookRide", BOOK], ["transfer.ts", SHAPES], ["panel", PANEL]] as const) {
+    for (const [name, src] of [["BookRide", BOOK], ["transfer.ts", SHAPES]] as const) {
       expect(code(src), name).not.toMatch(/\b(120000|150000|200000|170000|15000|1200|1500|2000|1700)\b/);
     }
   });
@@ -125,9 +122,14 @@ describe("the database keeps its promises", () => {
     expect(MIGRATION).toMatch(/p_quote_id uuid default null, p_trip_type text default 'one_way',\s*\n\s*p_return_at timestamptz default null, p_return_flight_ref text default null/);
   });
 
-  it("holds a ride with no agreed fare from auto-dispatch", () => {
+  it("held a ride with no agreed fare in M220 — and M222 releases that hold", () => {
+    // History, kept honest: M220 held hand-priced transfers for a fare set on a
+    // desk screen. The owner then asked for no airport-only screens (M222), so
+    // nothing is held; a hand-priced ride goes out like any unpriced taxi ride.
     const fn = MIGRATION.slice(MIGRATION.indexOf("create or replace function public.auto_dispatch_rides"));
     expect(fn.slice(0, 2500)).toMatch(/and not fare_pending/);
+    const m222 = read("supabase", "migrations", "20260929150000_m222_airport_transfers_dispatch_like_taxi.sql");
+    expect(m222.slice(m222.indexOf("create or replace function public.auto_dispatch_rides"))).not.toMatch(/and not fare_pending/);
   });
 
   it("refuses a quote that does not match the booking, field for field", () => {
@@ -147,7 +149,6 @@ describe("the database keeps its promises", () => {
     expect(MIGRATION).toMatch(/generated always as \(coalesce\(driver_earnings, quoted_price\)\) stored/);
     expect(MIGRATION).toMatch(/'price', v_r\.driver_pay,\s*\n\s*'fare', v_r\.quoted_price/);
     expect(MIGRATION).toMatch(/r\.driver_pay, r\.pickup_label, r\.dropoff_label/);
-    expect(RIDES_ADMIN).toMatch(/price: \(ride\?\.driver_pay as number \| null\) \?\? null/);
   });
 
   it("keeps every new function and table away from anon", () => {
@@ -156,23 +157,6 @@ describe("the database keeps its promises", () => {
     }
     expect(MIGRATION).toMatch(/revoke all on table public\.transfer_pricing_versions, public\.transfer_known_distances, public\.ride_quotes\s*\n\s*from public, anon, authenticated;/);
     expect(SHEET).toMatch(/revoke all on function public\.transfer_price_sheet\(\) from public, anon, authenticated;/);
-  });
-});
-
-describe("the admin publishes, never edits", () => {
-  it("inserts a new version and has no update path", () => {
-    expect(ADMIN_ROUTE).toMatch(/\.from\("transfer_pricing_versions"\)\s*\n\s*\.insert\(row\)/);
-    expect(code(ADMIN_ROUTE)).not.toMatch(/\.update\(|\.delete\(|\.upsert\(/);
-  });
-
-  it("converts rupees to minor units once, and leaves the percent alone", () => {
-    expect(ADMIN_ROUTE).toMatch(/const toMinor = \(r: number\) => Math\.round\(r \* 100\);/);
-    expect(ADMIN_ROUTE).toMatch(/commission_percent: Math\.round\(v\.commissionPercent \* 100\) \/ 100/);
-  });
-
-  it("sets a held fare through the database function", () => {
-    expect(RIDES_ADMIN).toMatch(/admin\.rpc\("admin_set_ride_fare", \{/);
-    expect(RIDES_ADMIN).toMatch(/p_price: Math\.round\(p\.rupees \* 100\)/);
   });
 });
 
