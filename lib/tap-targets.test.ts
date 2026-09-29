@@ -107,6 +107,7 @@ describe("the filter chips", () => {
     ["/experiences related types", "components/experiences/ExperiencesHub.tsx", "inline-flex min-h-11 items-center gap-1.5 rounded-full border px-3 py-1.5"],
     ["/food", "app/food/page.tsx", "inline-flex min-h-11 shrink-0 items-center justify-center rounded-full border px-3.5 py-2"],
     ["the guide pages", "components/PlaceDiscovery.tsx", "inline-flex min-h-11 shrink-0 items-center justify-center rounded-full border px-3.5 py-2"],
+    ["the island map", "components/MapSection.tsx", "flex min-h-11 items-center gap-2 rounded-full border px-3.5 py-1.5"],
   ];
 
   for (const [where, file, cls] of rails) {
@@ -122,6 +123,7 @@ describe("the filter chips", () => {
       ["app/food/page.tsx", '"shrink-0 rounded-full border px-3.5 py-2 font-dm text-xs'],
       ["components/PlaceDiscovery.tsx", '`shrink-0 rounded-full border px-3.5 py-2 font-dm text-xs'],
       ["components/experiences/ExperiencesHub.tsx", '"shrink-0 rounded-full px-3.5 py-2 font-dm text-xs'],
+      ["components/MapSection.tsx", "`flex items-center gap-2 text-xs font-dm px-3.5 py-1.5 rounded-full border"],
     ];
     for (const [file, old] of olds) {
       expect(tsx(file), file).not.toContain(old);

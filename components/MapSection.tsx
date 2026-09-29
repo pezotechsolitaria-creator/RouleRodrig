@@ -216,7 +216,11 @@ export default function MapSection({
           <button
             type="button"
             onClick={() => setFilter("all")}
-            className={`flex items-center gap-2 text-xs font-dm px-3.5 py-1.5 rounded-full border transition-colors ${
+            // min-h-11: px-3.5/py-1.5 on text-xs is a 30px chip, and these
+            // three rails are the only way to filter 42 places on the island
+            // map. Sixth rail of the same shape — see /explore, /experiences,
+            // /food and the guide pages.
+            className={`flex min-h-11 items-center gap-2 rounded-full border px-3.5 py-1.5 font-dm text-xs transition-colors ${
               filter === "all"
                 ? "bg-yellow text-dark border-yellow font-semibold"
                 : "border-dark-border text-muted hover:text-offwhite hover:border-yellow/40"
@@ -234,7 +238,7 @@ export default function MapSection({
             <button
               type="button"
               onClick={() => setFilter("popular")}
-              className={`flex items-center gap-2 text-xs font-dm px-3.5 py-1.5 rounded-full border transition-colors ${
+              className={`flex min-h-11 items-center gap-2 rounded-full border px-3.5 py-1.5 font-dm text-xs transition-colors ${
                 filter === "popular"
                   ? "bg-yellow text-dark border-yellow font-semibold"
                   : "border-yellow/40 text-yellow hover:border-yellow"
@@ -251,7 +255,7 @@ export default function MapSection({
                 key={key}
                 type="button"
                 onClick={() => setFilter(key)}
-                className={`flex items-center gap-2 text-xs font-dm px-3.5 py-1.5 rounded-full border transition-colors ${
+                className={`flex min-h-11 items-center gap-2 rounded-full border px-3.5 py-1.5 font-dm text-xs transition-colors ${
                   filter === key
                     ? "bg-yellow text-dark border-yellow font-semibold"
                     : "border-dark-border text-muted hover:text-offwhite hover:border-yellow/40"
