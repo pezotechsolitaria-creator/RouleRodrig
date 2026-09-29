@@ -100,6 +100,27 @@ describe("the free-text price is never cut", () => {
 // variable one under a single `truncate`, so the unshrinkable sibling pushed
 // the cut back into the words that never change.
 
+describe("the rating line on the home page", () => {
+  it("wraps instead of truncating beside the rating pill", () => {
+    // The pill is unshrinkable, so at 375px the caption got 84px for a line
+    // needing 124: "from verified ri…" — the words that say the rating can be
+    // trusted.
+    const src = tsx("components/ReviewsContact.tsx");
+    expect(src).toContain("mb-4 flex flex-wrap items-center justify-between gap-x-3 gap-y-2");
+    expect(src).toContain('<span className="min-w-0 font-dm text-sm text-muted">');
+    expect(src).not.toContain('<span className="font-dm text-sm text-muted truncate">');
+  });
+});
+
+describe("the curated card's price line", () => {
+  it("is the same free-text field, and gets the same three lines", () => {
+    // 128px column on /curated against lines needing 204 and 285.
+    const src = tsx("components/world-page/CurationCard.tsx");
+    expect(src).toContain("mt-0.5 line-clamp-3 font-dm text-[11px] leading-snug [overflow-wrap:anywhere]");
+    expect(src).not.toContain('className="mt-0.5 truncate font-dm text-[11px]"');
+  });
+});
+
 describe("the marketplace cart pill", () => {
   const src = tsx("components/shop/ShopChrome.tsx");
 

@@ -482,7 +482,9 @@ export default function AppHome({
                 <Link
                   key={t.href + t.label[0]}
                   href={t.href}
-                  className="flex items-center gap-1.5 rounded-full border border-white/10 px-3 py-1.5 font-dm text-xs font-medium text-offwhite/90 transition-colors hover:border-yellow/40 hover:text-yellow"
+                  // min-h-11: px-3/py-1.5 on text-xs is a 30px chip, and these
+                  // are the island's map, planner, guide and emergency number.
+                  className="flex min-h-11 items-center gap-1.5 rounded-full border border-white/10 px-3 py-1.5 font-dm text-xs font-medium text-offwhite/90 transition-colors hover:border-yellow/40 hover:text-yellow"
                 >
                   <t.icon className="h-4 w-4 text-yellow" />
                   {L(t.label)}
@@ -792,7 +794,7 @@ export default function AppHome({
               <Link
                 key={t.href + t.label[0]}
                 href={t.href}
-                className="flex shrink-0 items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 transition-colors hover:border-yellow/40 sm:gap-2 sm:px-4 sm:py-2"
+                className="flex min-h-11 shrink-0 items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 transition-colors hover:border-yellow/40 sm:gap-2 sm:px-4 sm:py-2"
               >
                 <t.icon className="h-3.5 w-3.5 text-yellow sm:h-[18px] sm:w-[18px]" />
                 <span className="font-dm text-[11px] font-medium text-offwhite/90 sm:text-[13px]">
@@ -999,9 +1001,12 @@ function Rail({
           </h2>
           <p className="font-dm text-xs text-muted">{subtitle}</p>
         </div>
+        {/* The "see all" beside every section heading: text-xs with no box of
+            its own. py-2.5 and a matching negative margin give it a target
+            without moving the heading it sits beside. */}
         <Link
           href={seeAll}
-          className="inline-flex shrink-0 items-center gap-1 font-dm text-xs text-yellow hover:underline"
+          className="-my-3.5 inline-flex shrink-0 items-center gap-1 py-3.5 font-dm text-xs text-yellow hover:underline"
         >
           {seeAllLabel} <ArrowRight size={13} />
         </Link>

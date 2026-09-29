@@ -164,9 +164,16 @@ export default function CurationCard({
         {/* The one fact, on its own line under the name — where a reader looks
             for it — rather than opposite the CTA, where it competed with the
             only thing on the card that is pressable. */}
+        {/* Not truncate: `meta` carries the owner's free-text price, and on
+            /curated at 375px that column is 128px wide against lines that need
+            204 and 285 — "from Rs 2500 per night (for one person…" and
+            "Rs 1899(Book for more than 2 days to g…". Three lines, and
+            overflow-wrap because "1899(Book" has no break of its own. Same
+            field, same fix as ExploreClient, ExperiencesHub and
+            ExperienceMarket. */}
         {meta && (
           <p
-            className="mt-0.5 truncate font-dm text-[11px]"
+            className="mt-0.5 line-clamp-3 font-dm text-[11px] leading-snug [overflow-wrap:anywhere]"
             style={{ color: "var(--cur-peach)" }}
           >
             {meta}

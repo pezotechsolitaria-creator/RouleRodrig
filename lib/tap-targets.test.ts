@@ -195,6 +195,32 @@ describe("targets grown by their own box", () => {
   });
 });
 
+// ── AND THE HOME PAGE'S OWN CONTROLS ────────────────────────────────────────
+//
+// Found by the same elementFromPoint sweep, on the page every visitor lands on.
+
+describe("the home page", () => {
+  it("gives the travel-tool chips a 44px box, in both rows", () => {
+    // Map, Planner, Guide and Emergency, at px-3/py-1.5 on text-xs = 30px.
+    const src = tsx("components/AppHome.tsx");
+    expect(src).toContain("flex min-h-11 items-center gap-1.5 rounded-full border border-white/10 px-3 py-1.5");
+    expect(src).toContain("flex min-h-11 shrink-0 items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.03]");
+  });
+
+  it("gives every section's see-all link one too", () => {
+    // text-xs with no box of its own: a 16px-tall target beside each heading.
+    // py-3.5 with a matching negative margin, rather than the after: ring —
+    // measured, the ring did not register where this link sits.
+    expect(tsx("components/AppHome.tsx")).toContain(
+      "-my-3.5 inline-flex shrink-0 items-center gap-1 py-3.5",
+    );
+  });
+
+  it("and the link that opens the reviews", () => {
+    expect(tsx("components/ReviewsContact.tsx")).toContain("relative -my-2.5 inline-flex shrink-0 items-center gap-1 py-2.5");
+  });
+});
+
 describe("the gallery dot still looks like a dot", () => {
   it("the painted pill moved into a span, so the button can be the target", () => {
     // Measured after: the button is 25 x 42 and the pill inside it is still

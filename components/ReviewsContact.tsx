@@ -389,8 +389,12 @@ export default function ReviewsContact({
           </div>
 
           {/* Rating + view all */}
-          <div className="flex items-center justify-between gap-3 mb-4">
-            <div className="flex items-center gap-2.5 min-w-0">
+          {/* flex-wrap, and the caption no longer truncates. The rating pill
+              beside it is unshrinkable, so at 375px the caption was given 84px
+              for a line that needs 124 and read "from verified ri…" — the
+              words that say the rating is trustworthy. */}
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+            <div className="flex min-w-0 items-center gap-2.5">
               {avg ? (
                 <>
                   <span className="flex items-center gap-1.5 rounded-full bg-yellow/12 px-3 py-1.5 ring-1 ring-inset ring-yellow/25">
@@ -398,7 +402,7 @@ export default function ReviewsContact({
                     <b className="font-syne text-offwhite text-sm">{avg}</b>
                     <span className="text-muted text-xs">/5</span>
                   </span>
-                  <span className="font-dm text-sm text-muted truncate">
+                  <span className="min-w-0 font-dm text-sm text-muted">
                     {language === "fr"
                       ? "d'avis vérifiés"
                       : language === "cr"
@@ -418,7 +422,9 @@ export default function ReviewsContact({
                 setDone(false);
                 setErr(null);
               }}
-              className="shrink-0 inline-flex items-center gap-1 text-yellow font-syne font-bold text-xs hover:gap-1.5 transition-all"
+              // text-xs with no padding is a 16px-tall target. py-2.5 with a
+              // matching negative margin keeps the row's spacing.
+              className="relative -my-2.5 inline-flex shrink-0 items-center gap-1 py-2.5 font-syne text-xs font-bold text-yellow transition-all after:absolute after:-inset-1 after:content-[''] hover:gap-1.5"
             >
               {reviews.length > 0 ? L.all : L.write} <ArrowRight size={13} />
             </button>
