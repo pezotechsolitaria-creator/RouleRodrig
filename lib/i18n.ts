@@ -215,6 +215,21 @@ const translations = {
       agreeLink: "Terms & Rental Policy",
       agreeError: "Please accept the Terms & Rental Policy to continue.",
       days: (n: number) => `${n} day${n !== 1 ? "s" : ""}`,
+      // ── HOW WOULD YOU LIKE TO PAY? (M220) ────────────────────────────────
+      // A stated preference, not a choice of outcome: the owner still decides
+      // whether to confirm it as paid in person or ask for the deposit.
+      // So every line a cash request reads is worded as a REQUEST. They used to
+      // say "we'll confirm your booking and how to pay in person" and "nothing
+      // is charged online" — both false the day the owner answers "pay the
+      // deposit" (admin_confirm_in_person is his call, M220; since M222 it even
+      // refuses outright when the customer has declared a transfer).
+      payChoiceLabel: "HOW WOULD YOU LIKE TO PAY?",
+      payChoiceOnline: "Online (deposit)",
+      payChoiceInPerson: "In person, in cash (we'll confirm)",
+      payChoiceInPersonHint:
+        "We check the vehicle is free first, then tell you whether you can pay in person or need to pay online. Nothing is charged until then.",
+      successDescInPerson: "Thanks — we'll tell you whether you can pay in person or need to pay online.",
+      checkingStep3InPerson: "We tell you whether you can pay in person or need to pay online. Nothing is charged until then.",
     },
 
     // Track / manage a booking (/manage-booking). The shell around the three
@@ -278,6 +293,29 @@ const translations = {
       windowPassedBody:
         "We could only keep it until the time above, so it has gone back to other customers. Nothing was charged. Those dates may well still be free — ask us and we will look again.",
       lookUpAnother: "Look up another",
+      // ── PAID IN PERSON (M220) ─────────────────────────────────────────────
+      // A booking the owner confirmed as paid in cash used to read "Confirmed"
+      // beside "Deposit to confirm Rs X", and its timeline ticked a Deposit
+      // step that never happened. These say what the customer brings instead.
+      rowPayAtPickupCash: "Pay at pickup (cash)",
+      rowPayOnArrivalCash: "Pay on arrival (cash)",
+      rowPaidSoFar: "Paid so far",
+      inPersonTitle: "Confirmed — you pay in person",
+      inPersonBodyVehicle:
+        "Nothing to pay online. You pay in cash when you pick up the vehicle.",
+      inPersonBodyPlace: "Nothing to pay online. You pay in cash when you arrive.",
+      inPersonPaidBody: "Nothing more to pay. Keep your reference for the day.",
+      timelineInPersonVehicle: ["Request sent", "Confirmed", "Pay in person", "Pick-up"],
+      timelineInPersonPlace: ["Request sent", "Confirmed", "Pay in person", "Arrival"],
+      // The customer ASKED to pay in person; the owner has not answered yet —
+      // and may answer "pay online" (M220), so this promises neither.
+      statusAwaitingConfirmation: "Awaiting confirmation",
+      askedInPersonBody:
+        "You asked to pay in person. We'll tell you whether you can, or whether you need to pay online. Nothing is charged until then.",
+      // A no-show is cancelled, but not by us and not for a reason the
+      // generic "the window passed" sentence describes.
+      noShowBody:
+        "This booking was cancelled because nobody came on the day. If that is wrong, message us and we will sort it out.",
     },
 
     // Contact
@@ -743,6 +781,22 @@ const translations = {
       eitherWay: "We message you on WhatsApp either way — free or not.",
       eitherWayEmailPrefix: "We email",
       eitherWaySuffix: "either way — free or not.",
+      // ── HOW WOULD YOU LIKE TO PAY? (M220) ────────────────────────────────
+      // "Online" here is the whole price, not a deposit: a place booking is
+      // settled in full (M210), so the vehicle form's "(deposit)" would be
+      // wrong on this one.
+      payChoiceLabel: "HOW WOULD YOU LIKE TO PAY?",
+      payChoiceOnline: "Online (full price)",
+      payChoiceInPerson: "In person, in cash (we'll confirm)",
+      // Replaces "Paid in full to confirm. Nothing further to settle on
+      // arrival." — false the moment the customer picks cash. Worded as a
+      // request, like everything below: the owner may still ask for the price
+      // online (M220), so "to pay in person" is not ours to promise.
+      inPersonNote: "Paying in person is a request — we'll tell you whether you can, or whether you need to pay online. Nothing is charged until then.",
+      totalInPerson: "Total price",
+      successInPerson: "Thanks — we'll tell you whether you can pay in person or need to pay online.",
+      step3InPerson:
+        "If it's free, we tell you whether you can pay in person or need to pay online. If it isn't, we suggest something else — and you've paid nothing.",
     },
     orderTrack: {
       title: "Track your order",
@@ -879,6 +933,10 @@ const translations = {
       timeRemaining: "Time remaining:",
       viewOnMap: "View on map",
       yourNote: "Your note",
+      // M220 — the words under a booking's amount, so a cash booking's price
+      // never reads as money already handed over.
+      amountToPayInPerson: "to pay in person",
+      amountPaid: "paid",
     },
     rating: {
       rateWhatYouBought: "Rate what you bought",
@@ -1203,6 +1261,13 @@ const translations = {
       agreeError:
         "Veuillez accepter les Conditions & Règles de location pour continuer.",
       days: (n: number) => `${n} jour${n > 1 ? "s" : ""}`,
+      payChoiceLabel: "COMMENT SOUHAITEZ-VOUS PAYER ?",
+      payChoiceOnline: "En ligne (acompte)",
+      payChoiceInPerson: "Sur place, en espèces (nous confirmons)",
+      payChoiceInPersonHint:
+        "Nous vérifions d'abord que le véhicule est libre, puis nous vous disons si vous pouvez payer sur place ou s'il faut payer en ligne. Rien n'est débité d'ici là.",
+      successDescInPerson: "Merci — nous vous dirons si vous pouvez payer sur place ou s'il faut payer en ligne.",
+      checkingStep3InPerson: "Nous vous disons si vous pouvez payer sur place ou s'il faut payer en ligne. Rien n'est débité d'ici là.",
     },
     manageBooking: {
       title: "Suivre votre commande",
@@ -1257,6 +1322,21 @@ const translations = {
       windowPassedBody:
         "Nous ne pouvions la garder que jusqu'à l'heure indiquée ci-dessus ; elle est repartie vers d'autres clients. Rien ne vous a été débité. Ces dates sont peut-être encore libres — écrivez-nous et nous reregardons.",
       lookUpAnother: "Suivre une autre réservation",
+      rowPayAtPickupCash: "À payer au retrait (espèces)",
+      rowPayOnArrivalCash: "À payer à l'arrivée (espèces)",
+      rowPaidSoFar: "Déjà payé",
+      inPersonTitle: "Confirmé — vous payez sur place",
+      inPersonBodyVehicle:
+        "Rien à payer en ligne. Vous payez en espèces au retrait du véhicule.",
+      inPersonBodyPlace: "Rien à payer en ligne. Vous payez en espèces à votre arrivée.",
+      inPersonPaidBody: "Plus rien à régler. Gardez votre référence pour le jour J.",
+      timelineInPersonVehicle: ["Demande envoyée", "Confirmé", "Paiement sur place", "Retrait"],
+      timelineInPersonPlace: ["Demande envoyée", "Confirmé", "Paiement sur place", "Arrivée"],
+      statusAwaitingConfirmation: "En attente de confirmation",
+      askedInPersonBody:
+        "Vous avez demandé à payer sur place. Nous vous dirons si c'est possible ou s'il faut payer en ligne. Rien n'est débité d'ici là.",
+      noShowBody:
+        "Cette réservation a été annulée car personne ne s'est présenté le jour prévu. Si c'est une erreur, écrivez-nous et nous arrangerons cela.",
     },
     contact: {
       eyebrow: "NOUS CONTACTER",
@@ -1678,6 +1758,14 @@ const translations = {
       eitherWay: "Nous vous écrivons sur WhatsApp dans tous les cas — payant ou non.",
       eitherWayEmailPrefix: "Nous écrivons à",
       eitherWaySuffix: "dans tous les cas — payant ou non.",
+      payChoiceLabel: "COMMENT SOUHAITEZ-VOUS PAYER ?",
+      payChoiceOnline: "En ligne (prix total)",
+      payChoiceInPerson: "Sur place, en espèces (nous confirmons)",
+      inPersonNote: "Payer sur place est une demande — nous vous dirons si c’est possible ou s’il faut payer en ligne. Rien n’est débité d’ici là.",
+      totalInPerson: "Prix total",
+      successInPerson: "Merci — nous vous dirons si vous pouvez payer sur place ou s’il faut payer en ligne.",
+      step3InPerson:
+        "Si c’est libre, nous vous disons si vous pouvez payer sur place ou s’il faut payer en ligne. Sinon, nous vous proposons autre chose — et vous n’avez rien payé.",
     },
     orderTrack: {
       title: "Suivre ma commande",
@@ -1810,6 +1898,8 @@ const translations = {
       timeRemaining: "Temps restant :",
       viewOnMap: "Voir sur la carte",
       yourNote: "Votre note",
+      amountToPayInPerson: "à payer sur place",
+      amountPaid: "payé",
     },
     rating: {
       rateWhatYouBought: "Notez ce que vous avez acheté",
@@ -2127,6 +2217,13 @@ const translations = {
       agreeError:
         "Silvouple aksepte bann Kondision & Reg Lokasion pou kontinie.",
       days: (n: number) => `${n} zour`,
+      payChoiceLabel: "KOUMA OU ANVI PEYE?",
+      payChoiceOnline: "Lor internet (depo)",
+      payChoiceInPerson: "Lor plas, an kas (nou pou konfirme)",
+      payChoiceInPersonHint:
+        "Nou verifye avan ki veikil la lib, apre nou dir ou si ou kapav pey lor plas ouswa si ou bizin pey lor internet. Nanye pa debite avan sa.",
+      successDescInPerson: "Mersi — nou pou dir ou si ou kapav pey lor plas ouswa si ou bizin pey lor internet.",
+      checkingStep3InPerson: "Nou dir ou si ou kapav pey lor plas ouswa si ou bizin pey lor internet. Nanye pa debite avan sa.",
     },
     manageBooking: {
       title: "Swiv ou komann",
@@ -2180,6 +2277,21 @@ const translations = {
       windowPassedBody:
         "Nou ti kapav gard li zis ziska ler ki ekrir lao la, apre li retourn pou lezot kliyan. Nanye pa finn debite. Kitfwa sa bann dat la ankor lib — ekrir nou ek nou pou regarde.",
       lookUpAnother: "Swiv enn lot rezervasion",
+      rowPayAtPickupCash: "Pou peye kan ou pran li (kas)",
+      rowPayOnArrivalCash: "Pou peye kan ou arive (kas)",
+      rowPaidSoFar: "Deza peye",
+      inPersonTitle: "Konfirmen — ou pey lor plas",
+      inPersonBodyVehicle:
+        "Nanye pou peye lor internet. Ou pey an kas kan ou vinn pran veikil la.",
+      inPersonBodyPlace: "Nanye pou peye lor internet. Ou pey an kas kan ou arive.",
+      inPersonPaidBody: "Nanye ankor pou peye. Gard ou referans pou sa zour la.",
+      timelineInPersonVehicle: ["Demann fini", "Konfirmen", "Pey lor plas", "Ranmas"],
+      timelineInPersonPlace: ["Demann fini", "Konfirmen", "Pey lor plas", "Arive"],
+      statusAwaitingConfirmation: "Pe atann konfirmasion",
+      askedInPersonBody:
+        "Ou finn dir ou anvi pey lor plas. Nou pou dir ou si ou kapav, ouswa si ou bizin pey lor internet. Nanye pa debite avan sa.",
+      noShowBody:
+        "Sa rezervasion la finn anile parski personn pa finn vini sa zour la. Si sa pa korek, ekrir nou ek nou pou regle sa.",
     },
     contact: {
       eyebrow: "KONTAKT NOU",
@@ -2590,6 +2702,14 @@ const translations = {
       eitherWay: "Nou ekrir ou lor WhatsApp toulede fason — peye ouswa non.",
       eitherWayEmailPrefix: "Nou ekrir lor",
       eitherWaySuffix: "toulede fason — peye ouswa non.",
+      payChoiceLabel: "KOUMA OU ANVI PEYE ?",
+      payChoiceOnline: "Lor internet (pri total)",
+      payChoiceInPerson: "Lor plas, an kas (nou pou konfirme)",
+      inPersonNote: "Pey lor plas se enn demann — nou pou dir ou si ou kapav, ouswa si ou bizin pey lor internet. Nanye pa debite avan sa.",
+      totalInPerson: "Pri total",
+      successInPerson: "Mersi — nou pou dir ou si ou kapav pey lor plas ouswa si ou bizin pey lor internet.",
+      step3InPerson:
+        "Si li lib, nou dir ou si ou kapav pey lor plas ouswa si ou bizin pey lor internet. Si li pa lib, nou propoz ou enn lot zafer — ek ou pa finn pey nanye.",
     },
     orderTrack: {
       title: "Swiv ou komand",
@@ -2722,6 +2842,8 @@ const translations = {
       timeRemaining: "Letan ki reste :",
       viewOnMap: "Get lor kart",
       yourNote: "Ou not",
+      amountToPayInPerson: "pou pey lor plas",
+      amountPaid: "peye",
     },
     rating: {
       rateWhatYouBought: "Not seki ou finn aste",

@@ -190,6 +190,11 @@ const EN = {
     slot: {
       bookedFor: "Booked for ",
     },
+    /** M220 — beside the amount on a booking paid in person. */
+    amountNote: {
+      to_pay_in_person: "to pay in person",
+      paid: "paid",
+    },
   },
 };
 
@@ -297,6 +302,10 @@ const FR: TrackCopy = {
     slot: {
       bookedFor: "Réservé pour ",
     },
+    amountNote: {
+      to_pay_in_person: "à payer sur place",
+      paid: "payé",
+    },
   },
 };
 
@@ -393,6 +402,10 @@ const CR: TrackCopy = {
     },
     slot: {
       bookedFor: "Rezerve pou ",
+    },
+    amountNote: {
+      to_pay_in_person: "pou peye lor plas",
+      paid: "peye",
     },
   },
 };

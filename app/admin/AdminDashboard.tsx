@@ -105,6 +105,27 @@ import { SITE_URL } from "@/lib/site";
 import { MASCOT_POSES } from "@/lib/mascot";
 import { EXPERIENCE_CATEGORIES } from "@/lib/experience-categories";
 import { parseVideoUrl, describeVideoUrl } from "@/lib/video";
+import { rupees } from "@/lib/bookings/in-person";
+import {
+  confirmedClashes,
+  deskFilterCounts,
+  fleetName,
+  isCarBooking,
+  matchesDeskFilter,
+  moneyStrip,
+  reminderText,
+  revenueSplit,
+  toldLine,
+  waHref,
+  type CashRow,
+} from "@/lib/admin/booking-money";
+import {
+  CashForm,
+  DeskNoticeLine,
+  InPersonConfirm,
+  PaymentStrip,
+  type DeskNotice,
+} from "./BookingMoney";
 
 type Section =
   | "dashboard"
@@ -928,14 +949,19 @@ function islandDate(offsetDays = 0): string {
   return now.toISOString().slice(0, 10);
 }
 
-function DashboardView({ onNavigate }: { onNavigate: (s: Section) => void }) {
+function DashboardView({ onNavigate, fleet }: { onNavigate: (s: Section) => void; fleet?: FleetItem[] }) {
   const [stats, setStats] = useState<{
     bookings: number;
     pending: number;
     confirmed: number;
     enquiries: number;
-    revenue: number;
+    /** WHOLE RUPEES actually recorded as received, rentals (M220). */
+    collected: number;
+    /** WHOLE RUPEES still owed at a handover on confirmed/completed rentals. */
+    toCollect: number;
   } | null>(null);
+  // The agenda row whose "Cash received" form is open.
+  const [cashFor, setCashFor] = useState<string | null>(null);
   const [allBookings, setAllBookings] = useState<Booking[]>([]);
   const [places, setPlaces] = useState<PlaceBooking[]>([]);
   const [loading, setLoading] = useState(true);
@@ -968,9 +994,8 @@ function DashboardView({ onNavigate }: { onNavigate: (s: Section) => void }) {
         pending: bookings.filter((b) => b.status === "pending").length,
         confirmed: bookings.filter((b) => b.status === "confirmed").length,
         enquiries: submissions.filter((s) => !s.handled).length,
-        revenue: bookings
-          .filter((b) => b.status === "confirmed" || b.status === "completed")
-          .reduce((sum, b) => sum + (b.total_amount ?? 0), 0),
+        // M220: money held vs money owed, never promised totals.
+        ...revenueSplit("vehicle", bookings),
       });
       setLoadError(false);
     } catch (err) {
@@ -998,21 +1023,81 @@ function DashboardView({ onNavigate }: { onNavigate: (s: Section) => void }) {
   const checkinsToday = places.filter((p) => placeActive(p) && p.start_date === today);
   const hasAgenda = pickupsToday.length || returnsToday.length || pickupsTomorrow.length || checkinsToday.length;
 
-  function waLink(b: Booking, kind: "pickup" | "return") {
-    const digits = (b.phone ?? "").replace(/\D/g, "");
-    const msg =
-      kind === "pickup"
-        ? `Hi ${b.name}, friendly reminder from Roule Rodrigues — your ${b.scooter} pickup is tomorrow. See you soon! 🛵`
-        : `Hi ${b.name}, reminder from Roule Rodrigues — your ${b.scooter} is due back today. Thanks for riding with us! 💛`;
-    return `https://wa.me/${digits}?text=${encodeURIComponent(msg)}`;
+  // The cash a paid-in-person rental still owes (M220) — the one figure the
+  // reminder, the card and the Cash received prefill all use.
+  const cashDue = (b: Booking) => {
+    const s = moneyStrip("vehicle", b, today);
+    return b.pay_in_person && s.toCollect ? s.toCollect : null;
+  };
+
+  // The vehicle's NAME: `scooter` holds the fleet id, and "veh-1788973628068"
+  // was reaching customers in these reminders.
+  function waLink(b: Booking, when: "today" | "tomorrow" | "return") {
+    const text = reminderText(when, b.name, fleetName(fleet, b.scooter), cashDue(b));
+    return waHref(b.phone, text) ?? "#";
   }
 
+  // "Collect Rs X in cash" + one tap to record it, on every agenda row that
+  // owes money at the handover. The same form as the rentals desk.
+  function cashLine(b: Booking | PlaceBooking, kind: "vehicle" | "place" = "vehicle") {
+    const s = moneyStrip(kind, b, today);
+    // No figure is fine for a cash booking with no price on it (M220 review):
+    // moneyStrip offers cash for it with toCollect null, and the form then
+    // has no ceiling and says the amount back before saving.
+    if (!s.canRecordPayment) return null;
+    return (
+      <div className="mt-1 space-y-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="font-dm text-xs font-bold text-yellow">
+            {!s.toCollect
+              ? "Collect cash — no price on the booking"
+              : b.pay_in_person
+                ? `Collect ${rupees(s.toCollect)} in cash`
+                : `Still owed ${rupees(s.toCollect)}`}
+          </span>
+          {cashFor !== b.id && (
+            <button
+              type="button"
+              onClick={() => setCashFor(b.id)}
+              className="inline-flex items-center gap-1 rounded-full border border-green-500/40 bg-green-500/10 px-2 py-0.5 font-dm text-[11px] text-green-400 transition-colors hover:bg-green-500/20"
+            >
+              <Banknote size={10} /> Cash received
+            </button>
+          )}
+        </div>
+        {cashFor === b.id && (
+          <CashForm
+            kind={kind}
+            id={b.id}
+            balance={s.toCollect}
+            today={today}
+            startDate={b.start_date}
+            onCancel={() => setCashFor(null)}
+            onDone={(n) => {
+              setCashFor(null);
+              // "Could not confirm it was recorded" comes back as a warning,
+              // and must not read as a green success.
+              if (n.tone === "good") toast.success(n.text);
+              else toast.warning(n.text);
+              void load();
+            }}
+          />
+        )}
+      </div>
+    );
+  }
+
+  const money = (n: number | undefined) => (stats && typeof n === "number" ? rupees(n) : "—");
   const cards = [
     { label: "Total Bookings",  value: stats?.bookings ?? "—",  icon: BookOpen,     color: "text-yellow",   section: "bookings"     as Section },
     { label: "Pending",          value: stats?.pending ?? "—",   icon: ClipboardList,color: "text-amber-400",section: "bookings"     as Section },
     { label: "Confirmed",        value: stats?.confirmed ?? "—", icon: CheckCircle,  color: "text-green-400",section: "bookings"     as Section },
     { label: "New Enquiries",    value: stats?.enquiries ?? "—", icon: Inbox,        color: "text-blue-400", section: "submissions"  as Section },
-    { label: "Est. Revenue",     value: stats ? `Rs ${stats.revenue.toLocaleString()}` : "—", icon: DollarSign, color: "text-yellow", section: "bookings" as Section },
+    // M220: "Est. Revenue" summed every confirmed total, so a cash rental
+    // counted as revenue the moment it was confirmed. Two figures instead:
+    // money recorded as received, and money still owed at a handover.
+    { label: "Collected · rentals",  value: money(stats?.collected), icon: DollarSign, color: "text-green-400", section: "money" as Section },
+    { label: "To collect · rentals", value: money(stats?.toCollect), icon: Banknote,   color: "text-yellow",    section: "money" as Section },
   ];
 
   return (
@@ -1056,20 +1141,22 @@ function DashboardView({ onNavigate }: { onNavigate: (s: Section) => void }) {
           </button>
         </div>
       ) : (
-        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
           {cards.map((card) => {
             const Icon = card.icon;
             return (
               <button
                 key={card.label}
                 onClick={() => onNavigate(card.section)}
-                className="bg-[#0d0d0d] border border-[#2a2a2a] rounded-2xl p-5 text-left hover:border-yellow/40 transition-colors group"
+                className="bg-[#0d0d0d] border border-[#2a2a2a] rounded-2xl p-5 text-left hover:border-yellow/40 transition-colors group min-w-0"
               >
                 <div className="flex items-start justify-between mb-4">
                   <Icon size={18} className={card.color} />
                   <Eye size={12} className="text-muted/30 group-hover:text-yellow/40 transition-colors" />
                 </div>
-                <p className={`font-syne font-extrabold text-3xl ${card.color} mb-1`}>
+                {/* Rupee figures are longer than counts; a smaller size keeps
+                    "Rs 25,401" on one line in a phone's half-width card. */}
+                <p className={`font-syne font-extrabold ${typeof card.value === "string" && card.value.startsWith("Rs") ? "text-xl sm:text-2xl" : "text-3xl"} ${card.color} mb-1 tabular-nums truncate`}>
                   {card.value}
                 </p>
                 <p className="font-dm text-muted text-xs">{card.label}</p>
@@ -1094,18 +1181,21 @@ function DashboardView({ onNavigate }: { onNavigate: (s: Section) => void }) {
               ) : (
                 <div className="space-y-2">
                   {pickupsToday.map((b) => (
-                    <div key={b.id} className="flex items-center justify-between gap-3">
+                    <div key={b.id}>
+                    <div className="flex items-center justify-between gap-3">
                       <div className="min-w-0">
                         <p className="font-dm text-offwhite text-sm truncate">
                           {b.name}{b.pickup_time && <span className="text-yellow font-medium"> · {fmtTime12(b.pickup_time)}</span>}
                         </p>
-                        <p className="font-dm text-muted text-xs truncate">{b.scooter}{b.asset_label ? ` · ${b.asset_label}` : ""}</p>
+                        <p className="font-dm text-muted text-xs truncate">{fleetName(fleet, b.scooter)}{b.asset_label ? ` · ${b.asset_label}` : ""}</p>
                       </div>
                       {b.phone && (
-                        <a href={waLink(b, "pickup")} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 bg-green-500/15 text-green-400 hover:bg-green-500/25 text-xs font-dm px-3 py-1.5 rounded-full transition-colors shrink-0">
+                        <a href={waLink(b, "today")} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 bg-green-500/15 text-green-400 hover:bg-green-500/25 text-xs font-dm px-3 py-1.5 rounded-full transition-colors shrink-0">
                           <Phone size={11} /> WhatsApp
                         </a>
                       )}
+                    </div>
+                    {cashLine(b)}
                     </div>
                   ))}
                 </div>
@@ -1121,14 +1211,15 @@ function DashboardView({ onNavigate }: { onNavigate: (s: Section) => void }) {
               ) : (
                 <div className="space-y-2">
                   {pickupsTomorrow.map((b) => (
-                    <div key={b.id} className="flex items-center justify-between gap-3">
+                    <div key={b.id}>
+                    <div className="flex items-center justify-between gap-3">
                       <div className="min-w-0">
                         <p className="font-dm text-offwhite text-sm truncate">{b.name}</p>
-                        <p className="font-dm text-muted text-xs truncate">{b.scooter}{b.asset_label ? ` · ${b.asset_label}` : ""}</p>
+                        <p className="font-dm text-muted text-xs truncate">{fleetName(fleet, b.scooter)}{b.asset_label ? ` · ${b.asset_label}` : ""}</p>
                       </div>
                       {b.phone && (
                         <a
-                          href={waLink(b, "pickup")}
+                          href={waLink(b, "tomorrow")}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="flex items-center gap-1.5 bg-green-500/15 text-green-400 hover:bg-green-500/25 text-xs font-dm px-3 py-1.5 rounded-full transition-colors shrink-0"
@@ -1136,6 +1227,8 @@ function DashboardView({ onNavigate }: { onNavigate: (s: Section) => void }) {
                           <Phone size={11} /> WhatsApp
                         </a>
                       )}
+                    </div>
+                    {cashLine(b)}
                     </div>
                   ))}
                 </div>
@@ -1152,10 +1245,11 @@ function DashboardView({ onNavigate }: { onNavigate: (s: Section) => void }) {
               ) : (
                 <div className="space-y-2">
                   {returnsToday.map((b) => (
-                    <div key={b.id} className="flex items-center justify-between gap-3">
+                    <div key={b.id}>
+                    <div className="flex items-center justify-between gap-3">
                       <div className="min-w-0">
                         <p className="font-dm text-offwhite text-sm truncate">{b.name}</p>
-                        <p className="font-dm text-muted text-xs truncate">{b.scooter}{b.asset_label ? ` · ${b.asset_label}` : ""}</p>
+                        <p className="font-dm text-muted text-xs truncate">{fleetName(fleet, b.scooter)}{b.asset_label ? ` · ${b.asset_label}` : ""}</p>
                       </div>
                       {b.phone && (
                         <a
@@ -1167,6 +1261,8 @@ function DashboardView({ onNavigate }: { onNavigate: (s: Section) => void }) {
                           <Phone size={11} /> WhatsApp
                         </a>
                       )}
+                    </div>
+                    {cashLine(b)}
                     </div>
                   ))}
                 </div>
@@ -1183,7 +1279,8 @@ function DashboardView({ onNavigate }: { onNavigate: (s: Section) => void }) {
               ) : (
                 <div className="space-y-2">
                   {checkinsToday.map((p) => (
-                    <div key={p.id} className="flex items-center justify-between gap-3">
+                    <div key={p.id}>
+                    <div className="flex items-center justify-between gap-3">
                       <div className="min-w-0">
                         <p className="font-dm text-offwhite text-sm truncate">{p.name}</p>
                         <p className="font-dm text-muted text-xs truncate">{p.place_name}{p.time_slot ? ` · ${p.time_slot}` : ""}</p>
@@ -1193,6 +1290,8 @@ function DashboardView({ onNavigate }: { onNavigate: (s: Section) => void }) {
                           <Phone size={11} /> WhatsApp
                         </a>
                       )}
+                    </div>
+                    {cashLine(p, "place")}
                     </div>
                   ))}
                 </div>
@@ -3049,7 +3148,25 @@ const STATUS_CONFIG: Record<
   confirmed: { label: "Confirmed", cls: "bg-green-500/10 text-green-400 border-green-500/30",   dot: "bg-green-400"   },
   cancelled: { label: "Cancelled", cls: "bg-red-500/10   text-red-400   border-red-500/30",     dot: "bg-red-400"     },
   completed: { label: "Completed", cls: "bg-blue-500/10  text-blue-400  border-blue-500/30",    dot: "bg-blue-400"    },
+  // M127 — a place booking the owner could not get. Rentals say this with
+  // 'cancelled' + unavailable_note; places have their own status. Without an
+  // entry here those rows fell back to "Checking" and looked still open.
+  unavailable: { label: "Not available", cls: "bg-red-500/10 text-red-400 border-red-500/30",   dot: "bg-red-400"     },
 };
+
+// "Confirmed" from the raw pill means THE BANK TRANSFER ARRIVED: the customer
+// is sent a receipt that says so. The owner used it for cash customers, which
+// is how four rentals came to be "confirmed" with nothing paid and nothing
+// written (M220). The pill still works — it is the right button for a
+// transfer — but from anything but a finished booking it now asks first. Not
+// for a booking already paid in person: the PATCH sends that one no receipt.
+function confirmIsTransfer(currentStatus: string, payInPerson?: boolean): boolean {
+  if (payInPerson || currentStatus === "completed") return true;
+  return confirm(
+    "Confirmed here means the BANK TRANSFER has arrived — the customer is sent a payment receipt saying so.\n\n" +
+      'If they will pay cash, press Cancel and use the "pays in person" choice on the card instead.',
+  );
+}
 
 // Booking reference (RR-XXXXXX = first 6 hex of the id). Same format the guest
 // gets in their confirmation email + Manage-Booking lookup, so the owner can
@@ -3067,39 +3184,100 @@ const bookingRef = (id: string) => "RR-" + id.replace(/-/g, "").slice(0, 6).toUp
 // vehicle (see lib/holds.ts) and emails a pay link with a deadline; declining
 // sends his own words, immediately, rather than leaving the customer in
 // "we're checking" forever.
+//
+// M220 adds the third answer he was already giving with the wrong button:
+// "yes, and they pay in person". And the panel now serves the Stay & Activity
+// desk too — M127 built the place Available/Unavailable actions, but nothing
+// on the desk could press them, so every place booking went straight from
+// "Checking" to the raw pills. One panel, so the two desks decide alike.
 function AvailabilityDecision({
-  booking,
+  kind,
+  id,
+  status,
+  paymentDueBy,
+  total,
+  phone,
   busy,
   onDone,
+  onNotice,
+  paymentPreference,
+  paymentReportedAt,
+  depositPaidAt,
 }: {
-  booking: Booking;
+  kind: "vehicle" | "place";
+  id: string;
+  status: string;
+  paymentDueBy?: string | null;
+  /** What the customer asked for on the form (M220). */
+  paymentPreference?: string | null;
+  /** The customer pressed "I have paid" — a declared transfer (M222). */
+  paymentReportedAt?: string | null;
+  /** When the first money was recorded; null = nothing recorded yet. */
+  depositPaidAt?: string | null;
+  /** The whole price, WHOLE RUPEES — caps "cash taken now". */
+  total: number | null;
+  phone: string | null;
   busy: boolean;
   onDone: () => void;
+  /** What the card keeps saying after the list reloads. */
+  onNotice: (n: DeskNotice) => void;
 }) {
-  const [mode, setMode] = useState<null | "approve" | "unavailable">(null);
+  const [mode, setMode] = useState<null | "approve" | "unavailable" | "in_person">(null);
   const [note, setNote] = useState("");
   const [hours, setHours] = useState("24");
   const [working, setWorking] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const thing = kind === "vehicle" ? "vehicle" : "slot";
 
   async function submit(decision: "approve" | "unavailable") {
     setWorking(true);
     setErr(null);
     try {
-      const res = await fetch("/api/admin/bookings/availability", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          id: booking.id,
-          decision,
-          note: decision === "unavailable" ? note : undefined,
-          hours: decision === "approve" ? Number(hours) || 24 : undefined,
-        }),
-      });
-      const j = (await res.json()) as { error?: string };
-      if (!res.ok) { setErr(j.error ?? "That didn't work."); return; }
+      // Same decision, two doors: M91's route for rentals, M127's PATCH for
+      // places (which caps the hold at 336h and the note at 600 characters).
+      const h = Number(hours) || 24;
+      const res =
+        kind === "vehicle"
+          ? await fetch("/api/admin/bookings/availability", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                id,
+                decision,
+                note: decision === "unavailable" ? note : undefined,
+                hours: decision === "approve" ? h : undefined,
+              }),
+            })
+          : await fetch("/api/admin/place-bookings", {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(
+                decision === "approve"
+                  ? { id, status: "approved", payWithinHours: Math.min(Math.max(h, 1), 336) }
+                  : { id, status: "unavailable", ...(note.trim() ? { note: note.trim().slice(0, 600) } : {}) },
+              ),
+            });
+      const j = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        emailed?: boolean | null;
+        hasEmail?: boolean;
+        paymentDueBy?: string | null;
+      };
+      if (!res.ok) {
+        setErr(res.status === 401 ? "Your admin session has expired — please sign in again." : j.error ?? "That didn't work.");
+        return;
+      }
       setMode(null);
       setNote("");
+      // The place route reports whether the customer heard; say so, because
+      // "he pressed Available and she was never told" is what M127 fixed.
+      if (kind === "place") {
+        const what =
+          decision === "approve"
+            ? `Held for them${j.paymentDueBy ? ` until ${new Date(j.paymentDueBy).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })}` : ""}.`
+            : "Marked not available.";
+        onNotice({ tone: j.emailed ? "good" : "warn", text: `${what} ${toldLine(j)}`, phone: j.emailed ? null : phone });
+      }
       onDone();
     } catch {
       setErr("Network problem — try again.");
@@ -3109,17 +3287,29 @@ function AvailabilityDecision({
   }
 
   const disabled = busy || working;
+  // M222: a transfer the customer says they sent is checked, never overwritten
+  // by "pays in person" — admin_confirm_in_person refuses it (RR004). Said here
+  // before he presses, not only as a refusal after.
+  const transferDeclared = !!paymentReportedAt && !depositPaidAt;
 
   return (
     <div className="rounded-xl border border-[#2a2a2a] bg-[#0d0d0d] p-3.5">
       <p className="font-bebas text-[9px] tracking-[0.2em] text-yellow">
-        {booking.status === "approved" ? "HELD — WAITING FOR PAYMENT" : "IS IT AVAILABLE?"}
+        {status === "approved" ? "HELD — WAITING FOR PAYMENT" : "IS IT AVAILABLE?"}
       </p>
 
-      {booking.status === "approved" && booking.payment_due_by && (
+      {/* M220 — what the customer said on the form. It decides nothing; it
+          makes "Yes — pays in person" the obvious choice when they asked. */}
+      {paymentPreference === "in_person" && (
+        <p className="mt-1.5 inline-flex rounded-full border border-yellow/30 bg-yellow/10 px-2.5 py-0.5 font-dm text-[11px] text-yellow">
+          Customer asked to pay in person (cash)
+        </p>
+      )}
+
+      {status === "approved" && paymentDueBy && (
         <p className="mt-1 font-dm text-[11px] text-muted/70">
-          Reserved until {new Date(booking.payment_due_by).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })}.
-          Nobody else is offered this vehicle until then.
+          Reserved until {new Date(paymentDueBy).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })}.
+          Nobody else is offered this {thing} until then.
         </p>
       )}
 
@@ -3131,8 +3321,24 @@ function AvailabilityDecision({
             onClick={() => setMode("approve")}
             className="inline-flex items-center gap-1.5 rounded-full border border-green-500/40 bg-green-500/10 px-3 py-1.5 font-syne text-[11px] font-bold text-green-400 transition-colors hover:bg-green-500/20 disabled:opacity-50"
           >
-            <BadgeCheck size={12} /> {booking.status === "approved" ? "Extend the hold" : "Yes — it's available"}
+            <BadgeCheck size={12} /> {status === "approved" ? "Extend the hold" : "Yes — it's available"}
           </button>
+          {/* M220 — confirmed now, paid by hand. Beside "available" rather
+              than among the status pills, because it is an answer to the
+              same question and it makes the same availability check. */}
+          <button
+            type="button"
+            disabled={disabled || transferDeclared}
+            onClick={() => setMode("in_person")}
+            className="inline-flex items-center gap-1.5 rounded-full border border-yellow/40 bg-yellow/10 px-3 py-1.5 font-syne text-[11px] font-bold text-yellow transition-colors hover:bg-yellow/20 disabled:opacity-50"
+          >
+            <Wallet size={12} /> {kind === "vehicle" ? "Yes — pays in person (cash)" : "Confirm — pays in person"}
+          </button>
+          {transferDeclared && (
+            <span className="self-center font-dm text-[11px] text-amber-400">
+              The customer says they sent a transfer — check it first.
+            </span>
+          )}
           <button
             type="button"
             disabled={disabled}
@@ -3142,6 +3348,22 @@ function AvailabilityDecision({
             <Ban size={12} /> Not available
           </button>
         </div>
+      )}
+
+      {mode === "in_person" && (
+        <InPersonConfirm
+          kind={kind}
+          id={id}
+          total={total}
+          phone={phone}
+          disabled={busy}
+          onCancel={() => setMode(null)}
+          onDone={(n) => {
+            setMode(null);
+            onNotice(n);
+            onDone();
+          }}
+        />
       )}
 
       {mode === "approve" && (
@@ -3157,7 +3379,7 @@ function AvailabilityDecision({
             hours, then release it
           </label>
           <p className="font-dm text-[11px] leading-relaxed text-muted/60">
-            The customer is emailed a pay link and told this exact deadline. Until it passes, this vehicle is not
+            The customer is emailed a pay link and told this exact deadline. Until it passes, this {thing} is not
             offered to anyone else.
           </p>
           <div className="flex gap-2">
@@ -3182,7 +3404,11 @@ function AvailabilityDecision({
             value={note}
             onChange={(e) => setNote(e.target.value)}
             rows={3}
-            placeholder="What should the customer know? e.g. That scooter is out those dates, but the Avenis is free and the same price — want it?"
+            placeholder={
+              kind === "vehicle"
+                ? "What should the customer know? e.g. That scooter is out those dates, but the Avenis is free and the same price — want it?"
+                : "What should the customer know? e.g. The boat is full that morning, but there is room at 2pm — want it?"
+            }
             className="w-full rounded-lg border border-[#2a2a2a] bg-[#0d0d0d] px-3 py-2 font-dm text-xs text-offwhite placeholder:text-muted/40 focus:border-yellow focus:outline-none"
           />
           <p className="font-dm text-[11px] leading-relaxed text-muted/60">
@@ -3231,6 +3457,10 @@ type MoneyRow = {
 function MoneyDesk({ onGo }: { onGo: (s: Section) => void }) {
   const [rows, setRows] = useState<MoneyRow[]>([]);
   const [escalation, setEscalation] = useState<{ armed: boolean; to: string[]; afterHours: number } | null>(null);
+  // M220 — cash agreed in person and not yet recorded, and today's takings.
+  // WHOLE RUPEES, both: see CashRow in lib/admin/booking-money.ts.
+  const [cash, setCash] = useState<CashRow[]>([]);
+  const [paymentsToday, setPaymentsToday] = useState<{ rupees: number; count: number } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
@@ -3243,8 +3473,15 @@ function MoneyDesk({ onGo }: { onGo: (s: Section) => void }) {
         const j = (await res.json()) as {
           rows: MoneyRow[];
           escalation?: { armed: boolean; to: string[]; afterHours: number };
+          cash?: CashRow[];
+          paymentsToday?: { rupees: number; count: number } | null;
         };
-        if (live) { setRows(j.rows ?? []); setEscalation(j.escalation ?? null); }
+        if (live) {
+          setRows(j.rows ?? []);
+          setEscalation(j.escalation ?? null);
+          setCash(j.cash ?? []);
+          setPaymentsToday(j.paymentsToday ?? null);
+        }
       } catch {
         if (live) setError(true);
       } finally {
@@ -3298,13 +3535,83 @@ function MoneyDesk({ onGo }: { onGo: (s: Section) => void }) {
     </div>
   );
 
+  // ── Today's takings (M220) ─────────────────────────────────────────────
+  // Everything recorded through "Cash received" (and cash taken at confirm),
+  // island day. Absent rather than "Rs 0" when the ledger could not be read.
+  const todayLine = paymentsToday && (
+    <p className="mb-4 font-dm text-xs text-offwhite/80">
+      {paymentsToday.count > 0 ? (
+        <>
+          Payments recorded today: <strong className="text-green-400">{rupees(paymentsToday.rupees)}</strong>{" "}
+          <span className="text-muted/60">({paymentsToday.count})</span>
+        </>
+      ) : (
+        <span className="text-muted/60">No payments recorded today yet.</span>
+      )}
+    </p>
+  );
+
+  // ── Cash to collect (M220) ─────────────────────────────────────────────
+  // Bookings the owner confirmed as paid in person, with money still owed.
+  // Overdue first: the pickup came and went and nothing was recorded — either
+  // the cash is in his pocket unrecorded, or it was a no-show. Read-only like
+  // the rest of this desk: the buttons live on the booking's own card.
+  const cashGroup = cash.length > 0 && (
+    <div className="mb-6 space-y-2">
+      <p className="font-bebas text-[10px] tracking-[0.25em] text-yellow">CASH TO COLLECT ({cash.length})</p>
+      {cash.map((c) => (
+        <div
+          key={`${c.kind}-${c.id}`}
+          className={`rounded-2xl border p-4 ${c.overdue ? "border-red-500/30 bg-red-500/[0.04]" : "border-[#2a2a2a] bg-[#0d0d0d]"}`}
+        >
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+            <span className="font-syne font-bold text-offwhite text-sm">{c.customer}</span>
+            <span className="font-dm text-[11px] text-muted/60">{c.reference}</span>
+            {c.item && <span className="font-dm text-[11px] text-muted/60">· {c.item}</span>}
+            <span className="font-syne font-bold text-yellow text-sm tabular-nums">Collect {rupees(c.toCollectRupees)}</span>
+            {c.paidRupees > 0 && c.totalRupees !== null && (
+              <span className="font-dm text-[11px] text-muted/60">
+                ({rupees(c.paidRupees)} of {rupees(c.totalRupees)} paid)
+              </span>
+            )}
+            {c.overdue && (
+              <span className="rounded-full border border-red-500/30 bg-red-500/10 px-2 py-0.5 font-bebas text-[10px] tracking-[0.15em] text-red-400">
+                OVERDUE
+              </span>
+            )}
+          </div>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            {c.startDate && (
+              <span className="font-dm text-[11px] text-muted/60">
+                {c.kind === "vehicle" ? "Pickup" : "Date"}{" "}
+                {new Date(c.startDate).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
+                {c.overdue && " — record the cash, or mark a no-show"}
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={() => onGo(c.kind === "vehicle" ? "bookings" : "place_bookings")}
+              className="ml-auto inline-flex items-center gap-1.5 rounded-full border border-[#2a2a2a] px-2.5 py-1 font-dm text-[11px] text-muted transition-colors hover:border-yellow/40 hover:text-yellow"
+            >
+              Open in {c.desk} <ChevronRight size={11} />
+            </button>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+
   if (rows.length === 0) {
     return (
       <>
       {escalationBanner}
+      {todayLine}
+      {cashGroup}
       <div className="rounded-2xl border border-[#2a2a2a] bg-[#0d0d0d] p-8 text-center">
         <Banknote size={22} className="mx-auto text-muted/40" />
-        <p className="mt-3 font-syne font-bold text-offwhite">Nobody is waiting on you</p>
+        <p className="mt-3 font-syne font-bold text-offwhite">
+          {cash.length > 0 ? "No transfers waiting on you" : "Nobody is waiting on you"}
+        </p>
         <p className="mt-1 font-dm text-xs text-muted/60">
           Every reported payment has been dealt with. New ones appear here the moment a customer says they have paid.
         </p>
@@ -3316,6 +3623,8 @@ function MoneyDesk({ onGo }: { onGo: (s: Section) => void }) {
   return (
     <div className="space-y-3">
       {escalationBanner}
+      {todayLine}
+      {cashGroup}
       <p className="font-dm text-xs text-muted/60">
         {rows.length} {rows.length === 1 ? "person is" : "people are"} waiting for you to confirm a payment. Oldest first.
       </p>
@@ -3432,13 +3741,30 @@ function BookingReceiptLink({ id, kind, hasReceipt, reportedAt }: {
   );
 }
 
+// The rentals desk's filter pills. "approved" is here because the status pill
+// that set it is gone (see below) and a held booking must still be findable;
+// "in_person" is the owner's cash book (M220).
+const VEHICLE_FILTERS = ["all", "pending", "approved", "confirmed", "in_person", "completed", "cancelled"] as const;
+const PLACE_FILTERS = ["all", "pending", "approved", "confirmed", "in_person", "completed", "cancelled", "unavailable"] as const;
+const FILTER_LABEL: Record<string, string> = { in_person: "Pays in person" };
+
 function BookingsManager({ fleet }: { fleet?: FleetItem[] }) {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [updating, setUpdating] = useState<string | null>(null);
-  const [filter, setFilter] = useState<"all" | Booking["status"]>("all");
+  const [filter, setFilter] = useState<(typeof VEHICLE_FILTERS)[number]>("all");
   const [q, setQ] = useState("");
+  // What each card says after an M220 action — kept here, not in the panel,
+  // because the panel disappears when the reload moves the booking on.
+  const [notices, setNotices] = useState<Record<string, DeskNotice>>({});
+  const noticeFor = (id: string) => (n: DeskNotice) => setNotices((prev) => ({ ...prev, [id]: n }));
+  const dismissNotice = (id: string) =>
+    setNotices((prev) => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
 
   // Physical units for a given booking's model (for the reassign dropdown)
   function unitsFor(scooter: string) {
@@ -3463,8 +3789,8 @@ function BookingsManager({ fleet }: { fleet?: FleetItem[] }) {
     }
   }
 
-  async function load() {
-    setLoading(true);
+  async function load(spinner = true) {
+    if (spinner) setLoading(true);
     setError(false);
     try {
       const res = await fetch("/api/admin/bookings");
@@ -3476,8 +3802,12 @@ function BookingsManager({ fleet }: { fleet?: FleetItem[] }) {
       setLoading(false);
     }
   }
+  // After an action on one card: re-read without blanking the list, so the
+  // owner keeps his place and the card's notice stays in view.
+  const reload = () => void load(false);
 
-  async function updateStatus(id: string, status: string) {
+  async function updateStatus(id: string, status: string, from: string, payInPerson?: boolean) {
+    if (status === "confirmed" && !confirmIsTransfer(from, payInPerson)) return;
     setUpdating(id);
     try {
       // Only reflect the new status once the server actually accepted it —
@@ -3491,6 +3821,9 @@ function BookingsManager({ fleet }: { fleet?: FleetItem[] }) {
       setBookings((prev) =>
         prev.map((b) => (b.id === id ? { ...b, status: status as Booking["status"] } : b))
       );
+      // The PATCH may also have written the transfer into the ledger; re-read
+      // so the payment strip shows the recorded amount, not "not recorded".
+      if (status === "confirmed") reload();
     } finally {
       setUpdating(null);
     }
@@ -3529,7 +3862,7 @@ function BookingsManager({ fleet }: { fleet?: FleetItem[] }) {
       <div className="text-center py-20">
         <p className="text-red-400 font-dm text-sm mb-4">Failed to load bookings.</p>
         <button
-          onClick={load}
+          onClick={() => load()}
           className="flex items-center gap-2 text-yellow font-dm text-sm mx-auto"
         >
           <RefreshCw size={14} /> Try again
@@ -3549,26 +3882,32 @@ function BookingsManager({ fleet }: { fleet?: FleetItem[] }) {
     );
 
   const query = q.trim().toLowerCase();
+  const today = islandDate(0);
   const shown = bookings.filter((b) => {
-    if (filter !== "all" && b.status !== filter) return false;
+    if (!matchesDeskFilter(b, filter)) return false;
     if (!query) return true;
     return (
       b.name.toLowerCase().includes(query) ||
       bookingRef(b.id).toLowerCase().includes(query) ||
       b.scooter.toLowerCase().includes(query) ||
+      // The name the card shows — nobody searches for "veh-1788973628068".
+      fleetName(fleet, b.scooter).toLowerCase().includes(query) ||
       (b.email ?? "").toLowerCase().includes(query) ||
       (b.phone ?? "").toLowerCase().includes(query) ||
       (b.asset_label ?? "").toLowerCase().includes(query)
     );
   });
-  const counts = { all: bookings.length } as Record<string, number>;
-  for (const b of bookings) counts[b.status] = (counts[b.status] ?? 0) + 1;
+  const counts = deskFilterCounts(bookings, VEHICLE_FILTERS);
+  // Two confirmed bookings on one single-unit vehicle, same days: from the
+  // rows already loaded, over the whole list (not the filtered one), so the
+  // partner is named even when it is scrolled away.
+  const clashes = confirmedClashes(bookings, fleet);
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-1.5 flex-wrap">
-          {(["all", "pending", "confirmed", "completed", "cancelled"] as const).map((f) => (
+          {VEHICLE_FILTERS.map((f) => (
             <button
               key={f}
               onClick={() => setFilter(f)}
@@ -3576,12 +3915,12 @@ function BookingsManager({ fleet }: { fleet?: FleetItem[] }) {
                 filter === f ? "bg-yellow text-dark border-yellow" : "border-[#2a2a2a] text-muted/70 hover:border-yellow/40 hover:text-yellow"
               }`}
             >
-              {f.toUpperCase()} ({counts[f] ?? 0})
+              {(FILTER_LABEL[f] ?? f).toUpperCase()} ({counts[f] ?? 0})
             </button>
           ))}
         </div>
         <button
-          onClick={load}
+          onClick={() => load()}
           className="flex items-center gap-1.5 text-muted/50 hover:text-yellow font-dm text-xs transition-colors"
         >
           <RefreshCw size={12} /> Refresh
@@ -3599,6 +3938,7 @@ function BookingsManager({ fleet }: { fleet?: FleetItem[] }) {
         <p className="text-muted/40 font-dm text-sm text-center py-10">No bookings match your filter.</p>
       ) : shown.map((b) => {
         const sc = STATUS_CONFIG[b.status] ?? STATUS_CONFIG.pending;
+        const clashWith = b.status === "confirmed" ? clashes.get(b.id) ?? [] : [];
         return (
           <div
             key={b.id}
@@ -3634,7 +3974,7 @@ function BookingsManager({ fleet }: { fleet?: FleetItem[] }) {
                   {sc.label}
                 </span>
                 <span className="font-bebas text-[10px] tracking-[0.15em] bg-yellow/10 text-yellow px-2.5 py-1 rounded-full">
-                  {b.scooter.toUpperCase()}
+                  {fleetName(fleet, b.scooter).toUpperCase()}
                 </span>
                 {b.asset_label && (
                   <span className="font-bebas text-[10px] tracking-[0.15em] bg-green-500/10 text-green-400 px-2.5 py-1 rounded-full">
@@ -3643,6 +3983,22 @@ function BookingsManager({ fleet }: { fleet?: FleetItem[] }) {
                 )}
               </div>
             </div>
+
+            {/* M220 review: the live duplicate pair (RR-87E663 / RR-BEFCA8)
+                was two confirmed bookings on a one-unit car, and nothing on
+                either card said so. A warning only — which one is the
+                duplicate is his call. */}
+            {clashWith.length > 0 && (
+              <p
+                role="note"
+                className="rounded-lg border border-red-500/30 bg-red-500/[0.06] px-3 py-2 font-dm text-[11px] leading-relaxed text-red-300"
+              >
+                <span className="font-bebas text-[10px] tracking-[0.15em] text-red-400">CLASH · </span>
+                {fleetName(fleet, b.scooter)} has one unit, and {clashWith.map(bookingRef).join(", ")}{" "}
+                {clashWith.length === 1 ? "is" : "are"} also confirmed for overlapping dates. If one is a duplicate,
+                cancel it.
+              </p>
+            )}
 
             {/* Reassign which physical unit (only when units are defined) */}
             {unitsFor(b.scooter).length > 0 && (
@@ -3737,22 +4093,57 @@ function BookingsManager({ fleet }: { fleet?: FleetItem[] }) {
                 booking is paid or cancelled there is nothing to decide. */}
             {(b.status === "pending" || b.status === "approved") && (
               <AvailabilityDecision
-                booking={b}
+                kind="vehicle"
+                id={b.id}
+                status={b.status}
+                paymentDueBy={b.payment_due_by}
+                paymentPreference={b.payment_preference}
+                paymentReportedAt={b.payment_reported_at}
+                depositPaidAt={b.deposit_paid_at}
+                total={b.total_amount}
+                phone={b.phone}
                 busy={updating === b.id}
-                onDone={load}
+                onDone={reload}
+                onNotice={noticeFor(b.id)}
               />
             )}
 
-            {/* Status actions */}
+            {/* ── M220: what it costs, what is in, what is still to collect ──
+                On every card, because "has this one paid?" is asked of all of
+                them — and "Cash received" / "No-show" live where the answer is. */}
+            <PaymentStrip
+              kind="vehicle"
+              id={b.id}
+              row={b}
+              today={today}
+              isCar={isCarBooking(fleet, b.scooter)}
+              onChanged={(n) => {
+                noticeFor(b.id)(n);
+                reload();
+              }}
+            />
+
+            {notices[b.id] && (
+              <DeskNoticeLine
+                notice={notices[b.id]}
+                onDismiss={() => dismissNotice(b.id)}
+              />
+            )}
+
+            {/* Status actions. No "Awaiting payment" pill: it set 'approved'
+                with no payment_due_by, and an approval with no deadline holds
+                nothing (lib/holds.ts) while telling the customer nothing. The
+                decision panel above is the only way to approve. */}
             <div className="flex items-center gap-2 pt-2 flex-wrap">
               <p className="font-bebas text-muted text-[9px] tracking-[0.2em] mr-1">UPDATE STATUS:</p>
-              {(["pending", "approved", "confirmed", "cancelled", "completed"] as const).map((s) => {
+              {(["pending", "confirmed", "cancelled", "completed"] as const).map((s) => {
                 const cfg = STATUS_CONFIG[s];
                 return (
                   <button
                     key={s}
                     disabled={b.status === s || updating === b.id}
-                    onClick={() => updateStatus(b.id, s)}
+                    onClick={() => updateStatus(b.id, s, b.status, b.pay_in_person)}
+                    title={s === "confirmed" ? "The bank transfer has arrived. For cash, use the pays-in-person choice." : undefined}
                     className={`flex items-center gap-1.5 font-bebas text-[9px] tracking-[0.12em] border px-2.5 py-1 rounded-full transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
                       b.status === s ? cfg.cls : "border-[#2a2a2a] text-muted/60 hover:border-yellow/40 hover:text-yellow"
                     }`}
@@ -3786,11 +4177,21 @@ function PlaceBookingsManager() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [updating, setUpdating] = useState<string | null>(null);
-  const [filter, setFilter] = useState<"all" | PlaceBooking["status"]>("all");
+  const [filter, setFilter] = useState<(typeof PLACE_FILTERS)[number]>("all");
   const [q, setQ] = useState("");
+  // Same as the rentals desk: the card keeps saying what happened (and
+  // whether to phone) after the reload moves the booking on.
+  const [notices, setNotices] = useState<Record<string, DeskNotice>>({});
+  const noticeFor = (id: string) => (n: DeskNotice) => setNotices((prev) => ({ ...prev, [id]: n }));
+  const dismissNotice = (id: string) =>
+    setNotices((prev) => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
 
-  async function load() {
-    setLoading(true);
+  async function load(spinner = true) {
+    if (spinner) setLoading(true);
     setError(false);
     try {
       const res = await fetch("/api/admin/place-bookings");
@@ -3802,8 +4203,10 @@ function PlaceBookingsManager() {
       setLoading(false);
     }
   }
+  const reload = () => void load(false);
 
-  async function updateStatus(id: string, status: string) {
+  async function updateStatus(id: string, status: string, from: string, payInPerson?: boolean) {
+    if (status === "confirmed" && !confirmIsTransfer(from, payInPerson)) return;
     setUpdating(id);
     try {
       const ok = await adminWrite("/api/admin/place-bookings", {
@@ -3813,6 +4216,8 @@ function PlaceBookingsManager() {
       });
       if (!ok) return;
       setRows((prev) => prev.map((b) => (b.id === id ? { ...b, status: status as PlaceBooking["status"] } : b)));
+      // Same as the rentals desk: the transfer may now be in the ledger.
+      if (status === "confirmed") reload();
     } finally {
       setUpdating(null);
     }
@@ -3844,7 +4249,7 @@ function PlaceBookingsManager() {
     return (
       <div className="text-center py-20">
         <p className="text-red-400 font-dm text-sm mb-4">Failed to load reservations.</p>
-        <button onClick={load} className="flex items-center gap-2 text-yellow font-dm text-sm mx-auto"><RefreshCw size={14} /> Try again</button>
+        <button onClick={() => load()} className="flex items-center gap-2 text-yellow font-dm text-sm mx-auto"><RefreshCw size={14} /> Try again</button>
       </div>
     );
 
@@ -3858,24 +4263,25 @@ function PlaceBookingsManager() {
     );
 
   const query = q.trim().toLowerCase();
+  const today = islandDate(0);
   const shown = rows.filter((b) => {
-    if (filter !== "all" && b.status !== filter) return false;
+    if (!matchesDeskFilter(b, filter)) return false;
     if (!query) return true;
     return (
       b.name.toLowerCase().includes(query) ||
+      bookingRef(b.id).toLowerCase().includes(query) ||
       b.place_name.toLowerCase().includes(query) ||
       (b.email ?? "").toLowerCase().includes(query) ||
       (b.phone ?? "").toLowerCase().includes(query)
     );
   });
-  const counts = { all: rows.length } as Record<string, number>;
-  for (const b of rows) counts[b.status] = (counts[b.status] ?? 0) + 1;
+  const counts = deskFilterCounts(rows, PLACE_FILTERS);
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-1.5 flex-wrap">
-          {(["all", "pending", "confirmed", "completed", "cancelled"] as const).map((f) => (
+          {PLACE_FILTERS.map((f) => (
             <button
               key={f}
               onClick={() => setFilter(f)}
@@ -3883,17 +4289,17 @@ function PlaceBookingsManager() {
                 filter === f ? "bg-yellow text-dark border-yellow" : "border-[#2a2a2a] text-muted/70 hover:border-yellow/40 hover:text-yellow"
               }`}
             >
-              {f.toUpperCase()} ({counts[f] ?? 0})
+              {(FILTER_LABEL[f] ?? f).toUpperCase()} ({counts[f] ?? 0})
             </button>
           ))}
         </div>
-        <button onClick={load} className="flex items-center gap-1.5 text-muted/50 hover:text-yellow font-dm text-xs transition-colors"><RefreshCw size={12} /> Refresh</button>
+        <button onClick={() => load()} className="flex items-center gap-1.5 text-muted/50 hover:text-yellow font-dm text-xs transition-colors"><RefreshCw size={12} /> Refresh</button>
       </div>
       <input
         type="text"
         value={q}
         onChange={(e) => setQ(e.target.value)}
-        placeholder="Search by name, place, email, phone…"
+        placeholder="Search by reference (RR-…), name, place, email, phone…"
         className="w-full bg-[#0d0d0d] border border-[#2a2a2a] rounded-xl px-4 py-2.5 text-sm text-offwhite font-dm placeholder:text-muted/40 focus:border-yellow focus:outline-none transition-colors"
       />
 
@@ -3906,7 +4312,19 @@ function PlaceBookingsManager() {
           <div key={b.id} className="bg-[#0d0d0d] border border-[#2a2a2a] rounded-2xl p-5 space-y-4">
             <div className="flex items-start justify-between gap-4 flex-wrap">
               <div>
-                <p className="font-syne font-bold text-offwhite text-sm">{b.name}</p>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="font-syne font-bold text-offwhite text-sm">{b.name}</p>
+                  {/* The code the customer quotes on the phone — the Money desk
+                      lists place bookings by it too. */}
+                  <button
+                    type="button"
+                    onClick={() => navigator.clipboard?.writeText(bookingRef(b.id))}
+                    title="Copy booking reference"
+                    className="font-mono text-[10px] text-yellow/90 bg-yellow/10 hover:bg-yellow/20 px-1.5 py-0.5 rounded transition-colors"
+                  >
+                    {bookingRef(b.id)}
+                  </button>
+                </div>
                 <p className="font-bebas text-muted text-[10px] tracking-[0.2em] mt-0.5">
                   {new Date(b.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
                 </p>
@@ -3971,6 +4389,48 @@ function PlaceBookingsManager() {
               reportedAt={b.payment_reported_at}
             />
 
+            {/* One row to decide how each booking is paid: available (a pay
+                link and a deadline), confirmed paid in person, or not
+                available — the same panel as the rentals desk. */}
+            {(b.status === "pending" || b.status === "approved") && (
+              <AvailabilityDecision
+                kind="place"
+                id={b.id}
+                status={b.status}
+                paymentDueBy={b.payment_due_by}
+                paymentPreference={b.payment_preference}
+                paymentReportedAt={b.payment_reported_at}
+                depositPaidAt={b.deposit_paid_at}
+                total={typeof b.deposit_amount === "number" ? b.deposit_amount : null}
+                phone={b.phone}
+                busy={updating === b.id}
+                onDone={reload}
+                onNotice={noticeFor(b.id)}
+              />
+            )}
+
+            {b.status === "unavailable" && b.unavailable_note && (
+              <p className="font-dm text-xs text-muted/70">
+                <span className="font-bebas text-[9px] tracking-[0.2em] text-muted">TOLD THE CUSTOMER: </span>
+                {b.unavailable_note}
+              </p>
+            )}
+
+            <PaymentStrip
+              kind="place"
+              id={b.id}
+              row={b}
+              today={today}
+              onChanged={(n) => {
+                noticeFor(b.id)(n);
+                reload();
+              }}
+            />
+
+            {notices[b.id] && (
+              <DeskNoticeLine notice={notices[b.id]} onDismiss={() => dismissNotice(b.id)} />
+            )}
+
             <div className="flex items-center gap-2 pt-2 flex-wrap">
               <p className="font-bebas text-muted text-[9px] tracking-[0.2em] mr-1">UPDATE STATUS:</p>
               {(["pending", "confirmed", "cancelled", "completed"] as const).map((s) => {
@@ -3979,7 +4439,8 @@ function PlaceBookingsManager() {
                   <button
                     key={s}
                     disabled={b.status === s || updating === b.id}
-                    onClick={() => updateStatus(b.id, s)}
+                    onClick={() => updateStatus(b.id, s, b.status, b.pay_in_person)}
+                    title={s === "confirmed" ? "The bank transfer has arrived. For cash, use the pays-in-person choice." : undefined}
                     className={`flex items-center gap-1.5 font-bebas text-[9px] tracking-[0.12em] border px-2.5 py-1 rounded-full transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
                       b.status === s ? cfg.cls : "border-[#2a2a2a] text-muted/60 hover:border-yellow/40 hover:text-yellow"
                     }`}
@@ -9449,7 +9910,7 @@ export default function AdminDashboard({
 
         <div className="flex-1 p-4 sm:p-6 lg:p-8 w-full max-w-3xl">
           {section === "dashboard" && (
-            <DashboardView onNavigate={selectSection} />
+            <DashboardView onNavigate={selectSection} fleet={content.fleet} />
           )}
           {section === "hero" && (
             <HeroEditor content={content} onChange={setContent} />

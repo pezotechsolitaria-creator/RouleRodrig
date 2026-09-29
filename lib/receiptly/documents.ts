@@ -228,6 +228,51 @@ const dates = (start: string, end: string): string =>
     ? `${shortDate(start)} – ${shortDate(end)}`
     : shortDate(start);
 
+// ── A BOOKING PAID IN PERSON (M220) ─────────────────────────────────────────
+//
+// The owner confirms a booking the customer will pay in cash, by hand. The
+// document that goes with it must say exactly that and nothing else: no
+// deposit (nobody is asked for one), no "Due" date (there is no pay-by
+// deadline — admin_confirm_in_person clears payment_due_by), and above all no
+// bank account. A customer holding a page that prints an account number pays
+// into it, and then pays again in cash at the counter.
+//
+// So the in-person block is decided HERE, from one flag, and it overrides
+// whatever `pay` and `dueOn` a caller passes — the rule cannot be forgotten at
+// a call site. Every character is WinAnsi-safe (see shortDate above).
+function inPersonPay(where: "pickup" | "arrival", reference: string, start: string) {
+  const when = start ? ` · ${shortDate(start)}` : "";
+  return where === "pickup"
+    ? {
+        payMethod: "Cash at pickup",
+        payReference: `Pay in person when you collect the vehicle${when} · Ref ${reference}`,
+      }
+    : {
+        payMethod: "Cash on arrival",
+        payReference: `Pay in person on arrival${when} · Ref ${reference}`,
+      };
+}
+
+// ── A RECEIPT FOR ONE PAYMENT OF SEVERAL (M220 review) ──────────────────────
+//
+// A booking paid in person can take several payments, and each gets its own
+// receipt. Its hero — "Received with thanks" — must be THIS payment: printing
+// the running total there told a customer who handed over Rs 3,152 that they
+// had just paid Rs 5,152. But the ladder and the badge read the same one
+// `receivedMinor`, so "Paid 3,152 · Balance 2,000 · PART PAID" would then
+// contradict a booking that is now paid in full.
+//
+// So what came before is itemised as its own negative line. The lines add up
+// to what was still owed when this payment was made, the ladder's Paid is this
+// payment, and its Balance and the badge are what is left after every payment
+// so far. The caller's notes state the booking total and the running total in
+// words. No deposit either: computeMoney() would recompute a percentage from
+// the net figure, and a deposit is behind them once money has changed hands.
+function paidBeforeLine(rupees: number | null | undefined): ReceiptlyLine | null {
+  if (typeof rupees !== "number" || !Number.isFinite(rupees) || rupees <= 0) return null;
+  return { description: "Received before this payment", qty: 1, unitMinor: -rupeesToMinor(rupees) };
+}
+
 // ── VEHICLE RENTALS (bookings) ──────────────────────────────────────────────
 
 export type VehicleDocInput = {
@@ -250,13 +295,24 @@ export type VehicleDocInput = {
   /** bookings.deposit_amount — WHOLE RUPEES. */
   depositRupees?: number | null;
   depositPct?: number | null;
-  /** bookings.amount_paid — WHOLE RUPEES. */
+  /** bookings.amount_paid — WHOLE RUPEES. On a per-payment receipt, this
+   *  payment only (see paidBeforeRupees). */
   paidRupees?: number | null;
+  /**
+   * WHOLE RUPEES received on EARLIER payments, for a receipt about ONE
+   * recorded payment (M220). Itemised as its own line; see paidBeforeLine().
+   */
+  paidBeforeRupees?: number | null;
   issuedOn: string;
   /** bookings.payment_due_by, as a date. */
   dueOn?: string;
   pay?: { method: string; reference: string } | null;
   notes?: string;
+  /**
+   * bookings.pay_in_person (M220). Cash at pickup: no deposit, no due date,
+   * and the pay block names the counter — `pay` and `dueOn` are ignored.
+   */
+  payInPerson?: boolean;
 };
 
 /**
@@ -281,11 +337,17 @@ export function vehicleRentalDoc(input: VehicleDocInput): ReceiptlyDoc | null {
   if (deliveryMinor > 0) {
     lines.push({ description: "Delivery and collection", qty: 1, unitMinor: deliveryMinor });
   }
+  const before = input.kind === "receipt" ? paidBeforeLine(input.paidBeforeRupees) : null;
+  if (before) lines.push(before);
 
   const depositMinor =
     typeof input.depositRupees === "number" && input.depositRupees > 0
       ? rupeesToMinor(input.depositRupees)
       : null;
+  const inPerson = input.payInPerson === true && input.kind !== "quote";
+  const pay = inPerson
+    ? inPersonPay("pickup", input.reference, input.startDate)
+    : { payMethod: input.pay?.method ?? "", payReference: input.pay?.reference ?? "" };
 
   return houseDoc({
     kind: input.kind,
@@ -308,17 +370,22 @@ export function vehicleRentalDoc(input: VehicleDocInput): ReceiptlyDoc | null {
     // on the document instead of the paragraph wires money for a vehicle
     // nobody has confirmed. The deposit appears once it is real, on the
     // confirmation.
-    ...(input.kind === "quote"
+    //
+    // Paid in person (M220): no deposit either. Nobody is asked for one, and
+    // "Deposit to confirm" as the hero figure would be a request for money
+    // online that the email beside it says is not wanted.
+    //
+    // A receipt for a later payment (M220): no deposit — see paidBeforeLine().
+    ...(input.kind === "quote" || inPerson || before
       ? { depositPct: null, depositFixedMinor: null }
       : depositBasis(totalMinor, depositMinor, input.depositPct)),
     receivedMinor:
       typeof input.paidRupees === "number" && input.paidRupees > 0
         ? rupeesToMinor(input.paidRupees)
         : 0,
-    payMethod: input.pay?.method ?? "",
-    payReference: input.pay?.reference ?? "",
+    ...pay,
     issuedOn: input.issuedOn,
-    dueOn: input.dueOn,
+    dueOn: inPerson ? "" : input.dueOn,
     notes: input.notes ?? "",
   });
 }
@@ -346,11 +413,19 @@ export type PlaceDocInput = {
    * deposit, which is why nothing below sets one.
    */
   priceRupees: number | null | undefined;
+  /** On a per-payment receipt, this payment only (see paidBeforeRupees). */
   paidRupees?: number | null;
+  /** WHOLE RUPEES received on EARLIER payments (M220); see paidBeforeLine(). */
+  paidBeforeRupees?: number | null;
   issuedOn: string;
   dueOn?: string;
   pay?: { method: string; reference: string } | null;
   notes?: string;
+  /**
+   * place_bookings.pay_in_person (M220). Cash on arrival: no due date, and
+   * the pay block names the arrival — `pay` and `dueOn` are ignored.
+   */
+  payInPerson?: boolean;
 };
 
 export function placeReservationDoc(input: PlaceDocInput): ReceiptlyDoc | null {
@@ -373,6 +448,12 @@ export function placeReservationDoc(input: PlaceDocInput): ReceiptlyDoc | null {
   const lines: ReceiptlyLine[] = [
     { description: input.placeName, qty: 1, unitMinor: rupeesToMinor(input.priceRupees) },
   ];
+  const before = input.kind === "receipt" ? paidBeforeLine(input.paidBeforeRupees) : null;
+  if (before) lines.push(before);
+  const inPerson = input.payInPerson === true && input.kind !== "quote";
+  const pay = inPerson
+    ? inPersonPay("arrival", input.reference, input.startDate)
+    : { payMethod: input.pay?.method ?? "", payReference: input.pay?.reference ?? "" };
 
   return houseDoc({
     kind: input.kind,
@@ -395,10 +476,9 @@ export function placeReservationDoc(input: PlaceDocInput): ReceiptlyDoc | null {
       typeof input.paidRupees === "number" && input.paidRupees > 0
         ? rupeesToMinor(input.paidRupees)
         : 0,
-    payMethod: input.pay?.method ?? "",
-    payReference: input.pay?.reference ?? "",
+    ...pay,
     issuedOn: input.issuedOn,
-    dueOn: input.dueOn,
+    dueOn: inPerson ? "" : input.dueOn,
     notes: input.notes ?? "",
   });
 }

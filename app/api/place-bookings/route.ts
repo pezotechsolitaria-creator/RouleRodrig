@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getPrivileged } from "@/lib/supabase/admin";
+import { getPrivileged, hasServiceRole } from "@/lib/supabase/admin";
 import { getContentWithStatus } from "@/lib/content";
 import { sendPlaceBookingEmails, upsertBrevoContact } from "@/lib/email";
 import { enqueueNotification } from "@/lib/notifications/queue";
@@ -7,6 +7,7 @@ import { guard } from "@/lib/rate-limit";
 import { isActiveHold } from "@/lib/holds";
 import { quoteStay } from "@/lib/stay-pricing";
 import { isValidPhone, isValidEmail } from "@/lib/phone";
+import { parsePaymentPreference } from "@/lib/bookings/payment-preference";
 
 // ── Public: create a Stay·Eat·Do reservation request + confirmation emails ──
 // Category-aware capacity:
@@ -30,11 +31,20 @@ export async function POST(req: NextRequest) {
     time_slot?: string | null;
     message?: string | null;
     arrival?: string | null;
+    /** M220 — 'online' | 'in_person' | absent. What the customer SAID; the owner decides. */
+    payment_preference?: unknown;
   };
   try {
     body = await req.json();
   } catch {
     return NextResponse.json({ error: "Invalid request" }, { status: 400 });
+  }
+
+  // Refused with a sentence rather than left to the table's CHECK, which
+  // would surface as a 500 from the insert.
+  const preference = parsePaymentPreference(body.payment_preference);
+  if (!preference.ok) {
+    return NextResponse.json({ error: preference.error }, { status: 400 });
   }
 
   const place_id = (body.place_id ?? "").trim();
@@ -195,7 +205,28 @@ export async function POST(req: NextRequest) {
     message,
     deposit_amount,
     status: "pending" as const,
+    // M220. Stored as said; it changes nothing about the status or the price.
+    payment_preference: preference.value,
   };
+
+  // ── NO KEY, NO BOOKING — AND SAY SO (M221) ─────────────────────────────
+  // getPrivileged() falls back to the visitor's own client when
+  // SUPABASE_SERVICE_ROLE_KEY is missing, and after M221 that client holds no
+  // INSERT on place_bookings: every reservation would fail at the insert with
+  // a raw RLS error and a 500. Refuse up front, loudly in the log and with
+  // somewhere to go for the customer — the rule guest checkout follows.
+  if (!hasServiceRole()) {
+    console.error(
+      "place-bookings: SUPABASE_SERVICE_ROLE_KEY missing — reservations cannot be saved (M221 removed the public insert)",
+    );
+    return NextResponse.json(
+      {
+        error:
+          "Bookings are temporarily unavailable — message us on WhatsApp and we will book it for you.",
+      },
+      { status: 503 },
+    );
+  }
 
   const supabase = await getPrivileged();
 
@@ -294,6 +325,8 @@ export async function POST(req: NextRequest) {
         (record.time_slot ? ` · ${record.time_slot}` : "") +
         (record.guests ? ` · ${record.guests} guests` : "") +
         (arrival ? `\n🛬 Arrival: ${arrival}` : "") +
+        // M220: the owner decides from this alert how the booking is paid.
+        (record.payment_preference === "in_person" ? `\n\u{1F4B5} Wants to pay in person (cash)` : "") +
         (record.phone ? `\n📞 ${record.phone}` : ""),
     });
   } catch {

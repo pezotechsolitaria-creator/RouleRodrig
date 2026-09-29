@@ -61,7 +61,9 @@ export async function listActivitiesForCustomer(opts: {
     email
       ? admin
           .from("bookings")
-          .select("id, scooter, start_date, end_date, status, amount_paid, deposit_amount, email")
+          // total_amount + pay_in_person (M220): a booking paid in person shows
+          // what is still to pay, not an unpaid deposit as if it were paid.
+          .select("id, scooter, start_date, end_date, status, amount_paid, deposit_amount, total_amount, pay_in_person, email")
           .ilike("email", email)
           .order("start_date", { ascending: false })
           .limit(50)
@@ -69,7 +71,7 @@ export async function listActivitiesForCustomer(opts: {
     email
       ? admin
           .from("place_bookings")
-          .select("id, place_name, category, start_date, end_date, status, deposit_paid_at, amount_paid, deposit_amount, email")
+          .select("id, place_name, category, start_date, end_date, status, deposit_paid_at, amount_paid, deposit_amount, pay_in_person, email")
           .ilike("email", email)
           .order("start_date", { ascending: false })
           .limit(50)
@@ -157,6 +159,8 @@ export async function listActivitiesForCustomer(opts: {
           status: row.status as string | null,
           amount_paid: row.amount_paid as number | null,
           deposit_amount: row.deposit_amount as number | null,
+          total_amount: row.total_amount as number | null,
+          pay_in_person: row.pay_in_person as boolean | null,
         },
         today,
       ),
@@ -176,6 +180,7 @@ export async function listActivitiesForCustomer(opts: {
           deposit_paid_at: row.deposit_paid_at as string | null,
           amount_paid: row.amount_paid as number | null,
           deposit_amount: row.deposit_amount as number | null,
+          pay_in_person: row.pay_in_person as boolean | null,
         },
         today,
       ),

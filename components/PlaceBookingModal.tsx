@@ -15,6 +15,7 @@ import PaymentHelp from "@/components/payments/PaymentHelp";
 import { isValidPhone, isValidEmail } from "@/lib/phone";
 import { useLanguage } from "@/context/LanguageContext";
 import type { RecommendedPlace } from "@/lib/defaults";
+import type { PaymentPreference } from "@/lib/bookings/payment-preference";
 
 // The published cancellation tiers, read rather than restated. See the block
 // that renders them for why this component reads the defaults directly.
@@ -51,9 +52,15 @@ export default function PlaceBookingModal({
   const [formState, setFormState] = useState<FormState>("idle");
   const [ranges, setRanges] = useState<Range[]>([]);
   const [form, setForm] = useState({ name: "", email: "", phone: "", start: "", end: "", slot: "", qty: 1, guests: "", message: "", arrival: "" });
+  // M220 — how the customer would like to pay. Online by default, so the
+  // existing flow is unchanged for anyone who leaves it alone. Only asked of a
+  // listing with a price: a request-only listing has nothing to pay online.
+  const [payment, setPayment] = useState<PaymentPreference>("online");
+  const hasPrice = Number(place.depositAmount) > 0 || (isStay && Number(place.nightlyRate) > 0);
+  const payInPerson = hasPrice && payment === "in_person";
   // After a successful request: the created booking + whether a deposit is due,
   // and whether that deposit has been paid (→ confirmed celebration).
-  const [result, setResult] = useState<{ bookingId: string; depositAmount: number | null } | null>(null);
+  const [result, setResult] = useState<{ bookingId: string; depositAmount: number | null; inPerson?: boolean } | null>(null);
   // Payment now happens after approval, not in this modal, so nothing here
   // sets this any more — it still gates the celebration a returning
   // customer sees on an already-paid booking.
@@ -145,6 +152,8 @@ export default function PlaceBookingModal({
           guests: isStay && form.guests ? Number(form.guests) : null,
           message: form.message || null,
           arrival: isStay && form.arrival.trim() ? form.arrival.trim() : null,
+          // Only when it was asked: a request-only listing sends nothing.
+          payment_preference: hasPrice ? payment : null,
         }),
       });
       const j = await res.json().catch(() => ({}));
@@ -154,8 +163,9 @@ export default function PlaceBookingModal({
         place_category: place.category,
         quantity: qty,
         has_deposit: Boolean((j.depositAmount ?? 0) > 0),
+        payment_preference: hasPrice ? payment : null,
       });
-      setResult({ bookingId: j.bookingId, depositAmount: j.depositAmount ?? null });
+      setResult({ bookingId: j.bookingId, depositAmount: j.depositAmount ?? null, inPerson: payInPerson });
       setFormState("success");
     } catch {
       setFormState("error");
@@ -230,9 +240,16 @@ export default function PlaceBookingModal({
                   we cannot confirm what we have not checked. The boats and
                   guesthouses are not ours, and taking money for a slot we then
                   cannot get is a refund, a PayPal fee and a lost customer. */}
+              {result.inPerson ? (
+                // M220: they asked to pay in cash, so the next thing they hear
+                // is whether they may, not a payment link — and never a promise
+                // that they can: the owner decides.
+                <p className="mt-1 text-muted font-dm text-sm">{t.placeBooking.successInPerson}</p>
+              ) : (
               <p className="mt-1 text-muted font-dm text-sm">
                 We&apos;re checking with {place.name} now — <strong className="text-offwhite">nothing has been charged.</strong>
               </p>
+              )}
             </div>
 
             <motion.div
@@ -255,7 +272,8 @@ export default function PlaceBookingModal({
                   <dd className="text-offwhite text-right">{qty}</dd>
                 </div>
                 <div className="flex justify-between gap-3 border-t border-dark-border pt-2">
-                  <dt className="text-muted">{t.placeBooking.totalToPay}</dt>
+                  {/* "Total to pay now" is false for a cash request (M220). */}
+                  <dt className="text-muted">{result.inPerson ? t.placeBooking.totalInPerson : t.placeBooking.totalToPay}</dt>
                   <dd className="text-yellow font-syne font-bold text-right">Rs {result.depositAmount.toLocaleString()}</dd>
                 </div>
               </dl>
@@ -278,11 +296,15 @@ export default function PlaceBookingModal({
                 </li>
                 <li className="flex gap-2.5">
                   <span className="font-bebas text-yellow">3</span>
+                  {result.inPerson ? (
+                    <span>{t.placeBooking.step3InPerson}</span>
+                  ) : (
                   <span>
                     If it&apos;s free, that message has a link to pay{" "}
                     <strong className="text-yellow">Rs {result.depositAmount.toLocaleString()}</strong> and confirm.
                     If it isn&apos;t, we suggest something else — and you&apos;ve paid nothing.
                   </span>
+                  )}
                 </li>
               </ol>
 
@@ -472,6 +494,49 @@ export default function PlaceBookingModal({
               className={`${inputCls} resize-none`} disabled={formState === "loading"}
             />
 
+            {/* ── HOW WOULD YOU LIKE TO PAY? (M220) ────────────────────────
+                The owner: "people tend to pay on cash by hand". This records
+                what the customer says; the owner still decides. Online stays
+                the default and its flow is unchanged. Asked only of a listing
+                with a price — a request-only one has nothing to pay online. */}
+            {hasPrice && (
+              <fieldset disabled={formState === "loading"}>
+                <legend className="font-bebas text-muted text-[10px] tracking-[0.25em] block mb-2">
+                  {t.placeBooking.payChoiceLabel}
+                </legend>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {([
+                    ["online", t.placeBooking.payChoiceOnline],
+                    ["in_person", t.placeBooking.payChoiceInPerson],
+                  ] as const).map(([value, label]) => (
+                    <label
+                      key={value}
+                      className={`flex min-h-[44px] cursor-pointer items-center gap-2.5 rounded-xl border px-3.5 py-2.5 font-dm text-sm transition-colors ${
+                        payment === value
+                          ? "border-yellow bg-yellow/10 text-offwhite"
+                          : "border-dark-border text-muted hover:border-yellow/40"
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="place-payment-preference"
+                        value={value}
+                        checked={payment === value}
+                        onChange={() => setPayment(value)}
+                        className="h-4 w-4 shrink-0 accent-yellow"
+                      />
+                      {label}
+                    </label>
+                  ))}
+                </div>
+                {/* Activities carry no quote box, so the note that replaces
+                    "Paid in full to confirm" is shown here for them. */}
+                {payInPerson && !quote && (
+                  <p className="mt-1.5 font-dm text-[11px] text-muted/70">{t.placeBooking.inPersonNote}</p>
+                )}
+              </fieldset>
+            )}
+
             {quote && (
               <div className="rounded-xl border border-yellow/20 bg-yellow/5 p-3">
                 {quote.flat ? (
@@ -496,7 +561,9 @@ export default function PlaceBookingModal({
                   </>
                 )}
                 <p className="mt-1 font-dm text-[10px] text-muted/60">
-                  {t.placeBooking.paidInFull}
+                  {/* M220: "Paid in full to confirm. Nothing further to settle
+                      on arrival." is false the moment they pick cash. */}
+                  {payInPerson ? t.placeBooking.inPersonNote : t.placeBooking.paidInFull}
                 </p>
               </div>
             )}

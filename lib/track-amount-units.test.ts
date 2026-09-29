@@ -47,7 +47,16 @@ describe("the tracking card shows the amount the customer actually paid", () => 
   it("the API converts at the edge, so the units no longer differ on the wire", () => {
     // They still differ in the DATABASE — a booking is rupees, an order is
     // cents — which is exactly why the conversion belongs here and once.
-    expect(API).toMatch(/amountCents: rupeesToCents\(/);
+    //
+    // M220: a booking's figure now comes from bookingAmount() in
+    // lib/activity.ts — the same function /orders uses, so a booking paid in
+    // person reads "to pay in person" on both — and IT does the rupees→cents
+    // conversion, once. The route passes its result through untouched.
+    expect(API).toContain("amountCents: money.amountCents");
+    expect(API).toContain("const money = bookingAmount(kind, {");
+    const ACTIVITY = readFileSync(join(ROOT, "lib", "activity.ts"), "utf8");
+    const amount = ACTIVITY.slice(ACTIVITY.indexOf("export function bookingAmount("));
+    expect(amount.slice(0, amount.indexOf("\n}\n"))).toMatch(/amountCents: rupeesToCents\(/);
     expect(API).toMatch(/amountCents: \(o\.total/);
     // And nothing leaves this route under the old ambiguous name.
     expect(API).not.toMatch(/^\s*amount:/m);

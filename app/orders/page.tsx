@@ -6,7 +6,7 @@ import Link from "next/link";
 import BackLink from "@/components/BackLink";
 import { redirect } from "next/navigation";
 import { listActivitiesForCustomer } from "@/lib/activity-server";
-import { groupActivities, type Activity } from "@/lib/activity";
+import { groupActivities, type Activity, type ActivityAmountNote } from "@/lib/activity";
 import { ClipboardList } from "lucide-react";
 import NotificationCenter from "@/components/NotificationCenter";
 import NotificationPreferences from "@/components/orders/NotificationPreferences";
@@ -104,6 +104,11 @@ export default async function CustomerOrdersPage({
   });
   const bookings = activities.filter((a) => a.kind !== "order");
   const grouped = groupActivities(bookings);
+  // M220: what a booking's amount IS, when a bare figure would read as paid.
+  const amountNotes: AmountNotes = {
+    to_pay_in_person: t.ordersPage.amountToPayInPerson,
+    paid: t.ordersPage.amountPaid,
+  };
 
   return (
     <main className="min-h-screen bg-dark px-4 pb-28 pt-10 text-offwhite md:pb-16">
@@ -149,9 +154,9 @@ export default async function CustomerOrdersPage({
           <section className="mt-6">
             <h2 className="font-bebas text-[11px] tracking-[0.3em] text-yellow">BOOKINGS</h2>
             <div className="mt-2.5 space-y-4">
-              {grouped.now.length > 0 && <ActivityGroup title={t.ordersPage.happeningNow} items={grouped.now} />}
-              {grouped.upcoming.length > 0 && <ActivityGroup title={t.ordersPage.comingUp} items={grouped.upcoming} />}
-              {grouped.past.length > 0 && <ActivityGroup title="Past" items={grouped.past} dim />}
+              {grouped.now.length > 0 && <ActivityGroup title={t.ordersPage.happeningNow} items={grouped.now} notes={amountNotes} />}
+              {grouped.upcoming.length > 0 && <ActivityGroup title={t.ordersPage.comingUp} items={grouped.upcoming} notes={amountNotes} />}
+              {grouped.past.length > 0 && <ActivityGroup title="Past" items={grouped.past} notes={amountNotes} dim />}
             </div>
           </section>
         )}
@@ -249,11 +254,14 @@ export default async function CustomerOrdersPage({
  * of unifying tracking is that the customer stops having to notice which
  * backend produced a thing.
  */
+type AmountNotes = Record<ActivityAmountNote, string>;
+
 function ActivityGroup({
-  title, items, dim = false,
+  title, items, notes, dim = false,
 }: {
   title: string;
   items: Activity[];
+  notes: AmountNotes;
   dim?: boolean;
 }) {
   return (
@@ -277,6 +285,7 @@ function ActivityGroup({
             </div>
             <div className="flex shrink-0 flex-col items-end gap-1.5">
               {a.amountCents != null && a.amountCents > 0 && (
+                <>
                 <span className="font-dm text-sm font-semibold text-offwhite">
                   {/* ── ONE UNIT, NO BRANCH (M162, M165, and now this) ──────
                       This read `kind === "order" ? cents : rupees`, which was
@@ -288,6 +297,12 @@ function ActivityGroup({
                       There is nothing left to branch on. */}
                   Rs {centsToDisplay(a.amountCents)}
                 </span>
+                {/* M220: a cash booking's figure is what is still to bring,
+                    and it must not read as money already handed over. */}
+                {a.amountNote && (
+                  <span className="-mt-1 font-dm text-[11px] text-muted">{notes[a.amountNote]}</span>
+                )}
+                </>
               )}
               <Badge variant="outline" className="border-white/15 text-muted">
                 {a.statusLabel}

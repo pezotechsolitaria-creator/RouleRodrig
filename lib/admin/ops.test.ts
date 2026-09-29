@@ -365,3 +365,32 @@ describe("a live kitchen with an empty menu", () => {
     expect(item?.count ?? 0).toBe(0);
   });
 });
+
+describe("cash agreed in person and never recorded (M220)", () => {
+  // The owner confirms cash customers by hand. Once the pickup day has come
+  // and nothing is recorded, either the cash is in his pocket unrecorded (so
+  // every total and receipt is wrong) or it was a no-show still holding the
+  // vehicle. Nobody else will ever notice, so the bell does.
+  it("sends unrecorded rental cash to the rentals desk", () => {
+    const item = attentionItems({ cashUnrecordedRentals: 2 }).find((i) => i.key === "cash-unrecorded-rentals");
+    expect(item, "no cash-unrecorded-rentals item at all").toBeDefined();
+    expect(item!.label).toBe("Pickups with no payment recorded");
+    expect(item!.href).toBe("/admin/content#bookings");
+    expect(item!.count).toBe(2);
+  });
+
+  it("sends stays and activities to their own desk", () => {
+    const item = attentionItems({ cashUnrecordedPlaces: 1 }).find((i) => i.key === "cash-unrecorded-places");
+    expect(item!.href).toBe("/admin/content#place_bookings");
+  });
+
+  it("is work, but never outranks a customer who is waiting right now", () => {
+    const items = attentionItems({ cashUnrecordedRentals: 9, openOrders: { food: 1 } });
+    expect(items.find((i) => i.key === "cash-unrecorded-rentals")!.severity).toBe("action");
+    expect(items[0].key).toBe("open-orders-food");
+  });
+
+  it("stays silent when every in-person booking is paid or not yet due", () => {
+    expect(attentionItems({ cashUnrecordedRentals: 0, cashUnrecordedPlaces: 0 })).toEqual([]);
+  });
+});

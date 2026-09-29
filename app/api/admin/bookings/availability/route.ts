@@ -90,9 +90,12 @@ export async function POST(req: NextRequest) {
     // Best-effort, after the write. The reservation is real whether or not the
     // mail provider is having a good minute, and a failed email must not tell
     // the owner his approval did not happen.
+    // Reported back (M220) so the desk can say "phone them" when it did not
+    // go out — the place desk already does.
+    let emailed = false;
     try {
       const { sendAvailabilityConfirmed } = await import("@/lib/email");
-      await sendAvailabilityConfirmed({
+      emailed = await sendAvailabilityConfirmed({
         id,
         email: (row.email as string) ?? null,
         name: (row.name as string) ?? "there",
@@ -118,7 +121,13 @@ export async function POST(req: NextRequest) {
       console.error("availability approved: email failed", e);
     }
 
-    return NextResponse.json({ ok: true, status: "approved", paymentDueBy: dueBy });
+    return NextResponse.json({
+      ok: true,
+      status: "approved",
+      paymentDueBy: dueBy,
+      emailed,
+      hasEmail: typeof row.email === "string" && row.email.trim() !== "",
+    });
   }
 
   // ── Not available ────────────────────────────────────────────────────────

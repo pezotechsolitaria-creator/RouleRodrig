@@ -53,6 +53,18 @@ import {
 } from "./receiptly/documents";
 import { resendProvider } from "./email/providers/resend";
 import { brevoProvider } from "./email/providers/brevo";
+// M220 — a booking paid in person. What is owed, paid and still to collect is
+// asked of lib/bookings/in-person.ts, and the card lines built from it live in
+// a pure module so every branch is tested; nothing here re-derives a balance.
+import { amountPaidRupees, balanceRupees } from "./bookings/in-person";
+import {
+  cashDueSentence,
+  collectLine,
+  hasStarted,
+  placeMoneyLines,
+  prefersInPerson,
+  vehicleMoneyLines,
+} from "./bookings/payment-lines";
 
 interface BookingEmailData {
   /** Booking row id. Only used to derive a stable idempotency key — never shown
@@ -75,6 +87,18 @@ interface BookingEmailData {
   asset_label?: string | null;
   pickup_time?: string | null;
   return_time?: string | null;
+  // ── M220: what has actually been paid, and how ─────────────────────────
+  // All optional: the cron hands over `select("*")` rows that carry them, the
+  // request email hands over the row it just inserted (status 'pending').
+  status?: string | null;
+  pay_in_person?: boolean | null;
+  /** bookings.amount_paid — WHOLE RUPEES, the running total received. */
+  amount_paid?: number | null;
+  deposit_paid_at?: string | null;
+  payment_reported_at?: string | null;
+  /** What the customer asked for when booking: 'online' | 'in_person'. */
+  payment_preference?: string | null;
+  no_show_at?: string | null;
 }
 
 // "1617" → "Rs 1,617"
@@ -618,8 +642,9 @@ function summaryRows(b: BookingEmailData): string {
       "Booking reference · Référence",
       `<b>${b.ref}</b> — manage at roulerodrig.com/manage-booking`,
     ]);
-  pairs.push(["Vehicle · Véhicule", b.scooter]);
-  if (b.asset_label) pairs.push(["Unit · Unité", b.asset_label]);
+  // The fleet name and unit label are typed by the owner in /admin.
+  pairs.push(["Vehicle · Véhicule", escapeHtml(b.scooter)]);
+  if (b.asset_label) pairs.push(["Unit · Unité", escapeHtml(b.asset_label)]);
   pairs.push(
     [
       "Pickup · Retrait",
@@ -635,33 +660,35 @@ function summaryRows(b: BookingEmailData): string {
   );
 
   // Full, itemised cost so the customer sees exactly what the booking costs for
-  // their dates — rental for N days, delivery, total, then the deposit that
-  // confirms it and the balance due at pickup.
+  // their dates — rental for N days, delivery, total, then what has been paid
+  // and what is left.
   const total = typeof b.total_amount === "number" ? b.total_amount : null;
   const delivery = typeof b.delivery_fee === "number" ? b.delivery_fee : null;
 
-  if (total != null && delivery != null) {
-    const rental = total - delivery;
-    pairs.push([
-      `Rental · Location (${b.days} day${b.days !== 1 ? "s" : ""})`,
-      rs(rental),
-    ]);
-    pairs.push([
-      "Delivery · Livraison",
-      delivery > 0 ? `${rs(delivery)} (drop-off + pickup)` : "Free · Gratuite",
-    ]);
-    pairs.push(["Total · Total", rs(total)]);
-    if (typeof b.deposit_amount === "number" && b.deposit_amount > 0) {
-      const pct = b.deposit_pct ?? 0;
+  if (total != null) {
+    if (delivery != null) {
+      const rental = total - delivery;
       pairs.push([
-        `Deposit to confirm · Acompte (${pct}%)`,
-        rs(b.deposit_amount),
+        `Rental · Location (${b.days} day${b.days !== 1 ? "s" : ""})`,
+        rs(rental),
       ]);
       pairs.push([
-        "Balance at pickup · Solde au retrait",
-        rs(total - b.deposit_amount),
+        "Delivery · Livraison",
+        delivery > 0 ? `${rs(delivery)} (drop-off + pickup)` : "Free · Gratuite",
       ]);
     }
+    pairs.push(["Total · Total", rs(total)]);
+    // ── M220: THE LINES UNDER THE TOTAL COME FROM WHAT WAS PAID ─────────
+    //
+    // These two lines were "Deposit to confirm" and "Balance at pickup =
+    // total − deposit" on every rental, paid or not. For a booking paid in
+    // person that told the customer — and the owner, in his own reminder —
+    // a balance that assumed a deposit nobody paid: RR-329D81 read Rs 3,864
+    // when Rs 5,152 was owed. vehicleMoneyLines() prints the cash still to
+    // pay at pickup, a deposit only once it arrived, and the plan only while
+    // the booking is still a request. The island's today lets the return
+    // reminder say "Still to pay (cash)", not "at pickup", once pickup is past.
+    pairs.push(...vehicleMoneyLines(b, issueDate()));
   } else if (b.total_price) {
     // Fallback for older/edge bookings without the numeric breakdown.
     pairs.push(["Estimated total · Total estimé", b.total_price]);
@@ -770,16 +797,31 @@ export async function sendBookingEmails(
     // The deposit is now quoted as a figure to EXPECT, never as an instruction,
     // and the account details appear only in sendAvailabilityConfirmed() below
     // — sent after approval, linking straight to /manage-booking.
+    //
+    // M220 review: not to a customer who asked to pay in person. "A 25%
+    // deposit secures the vehicle" is an online payment they said they do not
+    // want, and the owner may well confirm it in cash; the card below says
+    // "In person, to be confirmed" instead (vehicleMoneyLines).
+    const askedInPerson = prefersInPerson(b);
     const depositKnown =
-      typeof b.deposit_amount === "number" && b.deposit_amount > 0;
+      !askedInPerson && typeof b.deposit_amount === "number" && b.deposit_amount > 0;
     const expectEn = depositKnown
       ? ` When it is confirmed, a ${b.deposit_pct}% deposit of <b>${rs(b.deposit_amount as number)}</b> secures the vehicle and the rest is paid at pickup.`
       : "";
     const expectFr = depositKnown
       ? ` Une fois confirmée, un acompte de ${b.deposit_pct}% soit <b>${rs(b.deposit_amount as number)}</b> réserve le véhicule, le solde se règle au retrait.`
       : "";
-    const payEn = `<b>No payment is due yet.</b> We check the vehicle is free for your dates first — usually within a few hours.${expectEn} We will then email you a link to pay by bank transfer or PayPal. You will never be charged for a vehicle we cannot provide. Any question? Email <a href="mailto:${CONTACT_EMAIL}" style="color:${C.ink};font-weight:600">${CONTACT_EMAIL}</a> and a real person will answer.`;
-    const payFr = `<b>Aucun paiement n'est dû pour l'instant.</b> Nous vérifions d'abord que le véhicule est libre à ces dates — généralement sous quelques heures.${expectFr} Nous vous enverrons ensuite un lien pour régler par virement bancaire ou PayPal. Vous ne serez jamais débité pour un véhicule que nous ne pouvons pas fournir. Une question ? Écrivez à <a href="mailto:${CONTACT_EMAIL}" style="color:${C.ink};font-weight:600">${CONTACT_EMAIL}</a>.`;
+    // ── M220: ONLINE IS NOT THE ONLY WAY TO PAY ────────────────────────────
+    // "People tend to pay on cash by hand" — the owner. This email promised a
+    // bank-transfer-or-PayPal link and nothing else, so a customer who meant to
+    // pay at the counter read it as "you must pay online". The owner can now
+    // confirm a booking paid in person, so say so, and say who decides. When
+    // the customer asked for it on the form (payment_preference), acknowledge
+    // it without promising it.
+    const inPersonEn = ` — or pay in person, when we agree it with you.${askedInPerson ? ` <b>You asked to pay in person</b> — we'll tell you whether we can.` : ""}`;
+    const inPersonFr = ` — ou payer en personne, si nous en convenons ensemble.${askedInPerson ? ` <b>Vous avez demandé à payer en personne</b> — nous vous dirons si c'est possible.` : ""}`;
+    const payEn = `<b>No payment is due yet.</b> We check the vehicle is free for your dates first — usually within a few hours.${expectEn} We will then email you a link to pay by bank transfer or PayPal${inPersonEn} You will never be charged for a vehicle we cannot provide. Any question? Email <a href="mailto:${CONTACT_EMAIL}" style="color:${C.ink};font-weight:600">${CONTACT_EMAIL}</a> and a real person will answer.`;
+    const payFr = `<b>Aucun paiement n'est dû pour l'instant.</b> Nous vérifions d'abord que le véhicule est libre à ces dates — généralement sous quelques heures.${expectFr} Nous vous enverrons ensuite un lien pour régler par virement bancaire ou PayPal${inPersonFr} Vous ne serez jamais débité pour un véhicule que nous ne pouvons pas fournir. Une question ? Écrivez à <a href="mailto:${CONTACT_EMAIL}" style="color:${C.ink};font-weight:600">${CONTACT_EMAIL}</a>.`;
 
     const body = `
       ${paragraph(`Thank you for choosing Roule Rodrigues. We've received your booking request — our team will confirm availability and payment details shortly, usually within a few hours (often via WhatsApp).`)}
@@ -867,6 +909,11 @@ export async function sendBookingEmails(
           rows([
             ...(b.phone ? ([["Phone", b.phone]] as [string, string][]) : []),
             ...(b.email ? ([["Email", b.email]] as [string, string][]) : []),
+            // M220: the customer's stated preference, so the owner can confirm
+            // it as paid in person from the desk instead of asking.
+            ...(prefersInPerson(b)
+              ? ([["Wants to pay", "In person (cash)"]] as [string, string][])
+              : []),
           ]),
       )}
       ${b.message ? paragraph(`<strong style="color:${C.ink}">Customer note:</strong> ${b.message}`) : ""}
@@ -1288,6 +1335,222 @@ export async function sendPlaceUnavailable(b: {
   });
 }
 
+// ── M220 · CONFIRMED, PAYS IN PERSON ───────────────────────────────────────
+//
+// The owner: "accept a booking directly without paying on the website as
+// people tend to pay on cash by hand". He was already doing it, with the
+// 'Confirmed' pill — and the customer was told nothing in writing: a web push
+// at most, then a pickup reminder quoting a balance that assumed a deposit
+// nobody had paid.
+//
+// This is the written confirmation that was missing. It says the three things
+// a cash customer needs and nothing that would send them to a bank: it is
+// confirmed; bring Rs X in cash (what is still owed — the whole price unless
+// cash was taken as it was confirmed); nothing to pay online. The attached
+// document is the same booking confirmation the online flow sends, in its
+// in-person form (lib/receiptly/documents.ts): no deposit, no deadline, no
+// account number.
+//
+// Its own idempotency key, `booking_confirmed_in_person:{id}`, so pressing the
+// button twice — or the route retrying — can never send it twice. The type is
+// the registered *_booking_status / *_status one: it IS the status email for
+// a confirmation, and an unregistered name would send at the wrong priority.
+
+const inPersonKey = (id: string) => `booking_confirmed_in_person:${id}`;
+
+/** A date-only ISO string as a customer reads it, in their language. */
+function dayLabel(iso: string | null | undefined, locale: "en-GB" | "fr-FR"): string {
+  if (!iso || iso.length < 10) return "";
+  const d = new Date(`${iso.slice(0, 10)}T00:00:00Z`);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString(locale, { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
+}
+
+/** A rental confirmed by the owner, to be paid in cash at pickup. */
+export async function sendVehicleConfirmedInPerson(
+  raw: BookingEmailData & { id: string },
+): Promise<boolean> {
+  if (!raw.email) return false;
+  const b = await withVehicleName(raw);
+  const { wa, logo } = await getBrand();
+  const vcat = await vehicleCategory(raw.scooter);
+  const ref = (b.ref ?? "").trim() || "RR-" + b.id.replace(/-/g, "").slice(0, 6).toUpperCase();
+  const due = balanceRupees("vehicle", b);
+  const paid = amountPaidRupees(b);
+  const name = escapeHtml(b.name);
+  const vehicle = escapeHtml(b.scooter);
+  const cal = buildCalendar(b);
+
+  const payEn =
+    due === null
+      ? `Pay in cash when you pick up the <strong>${vehicle}</strong> — we will confirm the amount with you. <strong>Nothing to pay online.</strong>`
+      : due > 0
+        ? `Pay <strong>${rs(due)} in cash</strong> when you pick up the <strong>${vehicle}</strong>. <strong>Nothing to pay online.</strong>${paid > 0 ? ` We have already received ${rs(paid)} — thank you.` : ""}`
+        : `It is already <strong>paid in full</strong>, so there is nothing more to pay — just bring your licence and pick up the <strong>${vehicle}</strong>.`;
+  const payFr =
+    due === null
+      ? `Réglez en espèces au retrait de votre véhicule, <strong>${vehicle}</strong> — nous vous confirmerons le montant. <strong>Rien à payer en ligne.</strong>`
+      : due > 0
+        ? `Réglez <strong>${rs(due)} en espèces</strong> au retrait de votre véhicule, <strong>${vehicle}</strong>. <strong>Rien à payer en ligne.</strong>${paid > 0 ? ` Nous avons déjà reçu ${rs(paid)} — merci.` : ""}`
+        : `Elle est déjà <strong>entièrement réglée</strong> : plus rien à payer — apportez simplement votre permis pour retirer votre véhicule, <strong>${vehicle}</strong>.`;
+
+  const body = `
+    ${paragraph(`Good news ${name} — your booking is confirmed. ${payEn}`)}
+    ${sectionLabel("Your booking · Votre réservation")}
+    ${detailCard(summaryRows({ ...b, ref }))}
+    <div style="text-align:center;margin-bottom:6px">${primaryButton(cal.gcal, "📅 Add to calendar · Ajouter au calendrier")}</div>
+    ${sectionLabel("At pickup, please bring")}
+    ${checkList([
+      "A valid driver's licence",
+      ...(due ? [`${rs(due)} in cash`] : []),
+      `Your booking reference, ${ref}`,
+      "A valid ID or passport if requested",
+    ])}
+    ${paragraph(`Plans changed? Reply to this email or message us on WhatsApp — the sooner we know, the sooner someone else can have the vehicle.`)}
+    ${sepFr()}
+    ${frHeading("Réservation confirmée")}
+    ${paragraph(`Bonne nouvelle ${name} — votre réservation est confirmée. ${payFr}`)}
+    ${sectionLabel("Au retrait, merci d'apporter")}
+    ${checkList([
+      "Un permis de conduire valide",
+      ...(due ? [`${rs(due)} en espèces`] : []),
+      `Votre référence de réservation, ${ref}`,
+      "Une pièce d'identité ou un passeport si demandé",
+    ])}
+    ${paragraph(`Un changement ? Répondez à cet e-mail ou écrivez-nous sur WhatsApp.`)}
+    ${wa ? `<div style="text-align:center">${waButton(wa, `Hi Roule Rodrigues! About booking ${ref} — `, "💬 WhatsApp")}</div>` : ""}`;
+
+  const type = vehicleEmailType("booking_status", vcat);
+  return send({
+    to: raw.email,
+    subject: due
+      ? `Confirmed — pay ${rs(due)} in cash at pickup · Réservation confirmée 🛵`
+      : `Your booking is confirmed · Réservation confirmée 🛵`,
+    html: shell({
+      preheader: "Nothing to pay online · Rien à payer en ligne.",
+      eyebrow: "Booking confirmed · Réservation confirmée",
+      title: "Your booking is confirmed",
+      body,
+      logo,
+    }),
+    type,
+    key: inPersonKey(b.id),
+    relatedType: "booking",
+    relatedId: b.id,
+    attachments: attachmentsFor(
+      vehicleRentalDoc({
+        kind: "confirmation",
+        reference: ref,
+        customerName: b.name,
+        customerEmail: raw.email,
+        customerPhone: b.phone,
+        vehicle: b.scooter,
+        startDate: b.start_date,
+        endDate: b.end_date,
+        pickupTime: b.pickup_time,
+        days: b.days ?? 1,
+        totalRupees: b.total_amount,
+        deliveryRupees: b.delivery_fee,
+        paidRupees: paid > 0 ? paid : null,
+        // Cash at pickup: no deposit, no due date, no bank account — decided
+        // inside the builder so it cannot be forgotten here.
+        payInPerson: true,
+        issuedOn: issueDate(),
+        // M220 review: the whole price can be taken in cash as it is
+        // confirmed. A PDF that then says "pay in cash when you collect" under
+        // a PAID IN FULL badge asks for the money twice. The cash sentence
+        // stays whenever something is owed, or the total is unknown.
+        notes:
+          due === 0
+            ? "Paid in full. Bring your driver's licence and this reference."
+            : "Confirmed and held for you. Pay in cash when you collect the vehicle; nothing is paid online. " +
+              "Bring your driver's licence and this reference.",
+      }),
+    ),
+  });
+}
+
+/** A stay, a table or an experience confirmed by the owner, paid on arrival. */
+export async function sendPlaceConfirmedInPerson(
+  b: PlaceBookingEmailData & { id: string },
+): Promise<boolean> {
+  if (!b.email) return false;
+  const { wa, logo } = await getBrand();
+  const ref = (b.ref ?? "").trim() || "RR-" + b.id.replace(/-/g, "").slice(0, 6).toUpperCase();
+  const due = balanceRupees("place", b);
+  const paid = amountPaidRupees(b);
+  const name = escapeHtml(b.name);
+  const place = escapeHtml(b.place_name);
+
+  const payEn =
+    due === null
+      ? `Pay in cash on arrival — we will confirm the amount with you. <strong>Nothing to pay online.</strong>`
+      : due > 0
+        ? `Pay <strong>${rs(due)} on arrival (cash)</strong>. <strong>Nothing to pay online.</strong>${paid > 0 ? ` We have already received ${rs(paid)} — thank you.` : ""}`
+        : `It is already <strong>paid in full</strong> — nothing more to pay.`;
+  const payFr =
+    due === null
+      ? `Réglez en espèces à votre arrivée — nous vous confirmerons le montant. <strong>Rien à payer en ligne.</strong>`
+      : due > 0
+        ? `Réglez <strong>${rs(due)} à votre arrivée (en espèces)</strong>. <strong>Rien à payer en ligne.</strong>${paid > 0 ? ` Nous avons déjà reçu ${rs(paid)} — merci.` : ""}`
+        : `Elle est déjà <strong>entièrement réglée</strong> — plus rien à payer.`;
+
+  const body = `
+    ${paragraph(`Good news ${name} — your reservation at <strong>${place}</strong> is confirmed. ${payEn}`)}
+    ${detailCard(placeRows({ ...b, ref }))}
+    ${paragraph(`Plans changed? Reply to this email or message us on WhatsApp, so the place can be offered to someone else.`)}
+    ${sepFr()}
+    ${frHeading("Réservation confirmée")}
+    ${paragraph(`Bonne nouvelle ${name} — votre réservation à <strong>${place}</strong> est confirmée. ${payFr}`)}
+    ${paragraph(`Un changement ? Répondez à cet e-mail ou écrivez-nous sur WhatsApp.`)}
+    ${wa ? `<div style="text-align:center">${waButton(wa, `Hi Roule Rodrigues! About reservation ${ref} — `, "💬 WhatsApp")}</div>` : ""}`;
+
+  // One resolved type for the router AND the log, like every place sender.
+  const type = placeEmailType("status", b.category);
+  return send({
+    to: b.email,
+    subject: due
+      ? `Confirmed — pay ${rs(due)} on arrival · Réservation confirmée — ${ref}`
+      : `Your reservation is confirmed · Réservation confirmée — ${ref}`,
+    html: shell({
+      preheader: "Nothing to pay online · Rien à payer en ligne.",
+      eyebrow: "Reservation confirmed · Réservation confirmée",
+      title: "Your reservation is confirmed",
+      body,
+      logo,
+    }),
+    type,
+    key: inPersonKey(b.id),
+    relatedType: "place_booking",
+    relatedId: b.id,
+    attachments: attachmentsFor(
+      placeReservationDoc({
+        kind: "confirmation",
+        reference: ref,
+        customerName: b.name,
+        customerEmail: b.email,
+        customerPhone: b.phone,
+        placeName: b.place_name,
+        category: b.category,
+        startDate: b.start_date,
+        endDate: b.end_date,
+        timeSlot: b.time_slot,
+        guests: b.guests,
+        quantity: b.quantity,
+        priceRupees: b.deposit_amount,
+        paidRupees: paid > 0 ? paid : null,
+        payInPerson: true,
+        issuedOn: issueDate(),
+        // M220 review: paid in full as it was confirmed asks for nothing more.
+        notes:
+          due === 0
+            ? "Paid in full. Show this reference if asked."
+            : "Confirmed. Pay in cash on arrival; nothing is paid online. Show this reference if you are asked for it.",
+      }),
+    ),
+  });
+}
+
 // ── "WE HAVE YOUR MONEY" — THE ONE EMAIL THAT DID NOT EXIST ───────────────
 //
 // Every other step of a booking told the customer something: the request was
@@ -1312,6 +1575,137 @@ export async function sendPlaceUnavailable(b: {
 // calls this. Neither caller calls it without that evidence: a booking with no
 // deposit_paid_at and no payment_reported_at gets no receipt, because a receipt
 // for money nobody can show is worse than no receipt.
+//
+// ── ONE RECORDED PAYMENT (M220) ──────────────────────────────────────────────
+//
+// Cash, MCB Juice or a card at the counter is recorded by the owner as a row in
+// booking_payments, and a booking can take several (a deposit in cash, the rest
+// at pickup). The same two senders write those receipts — one design, one
+// document — with four extra facts: which payment (so each gets its OWN
+// receipt, keyed `payment_receipt:{paymentId}` rather than once per booking),
+// how much has been paid in all (so the balance is true after the second
+// payment), the day it changed hands, and whether the rest is paid in person.
+// Omit them and a sender behaves as it did for PayPal and the bank-transfer
+// pill — once per booking, the running total as the PDF's figure — except
+// that its note now also says what is left, and from the pickup / arrival day
+// on nobody is asked to bring anything (M220 review).
+
+type RecordedPayment = {
+  /** booking_payments.id — makes the receipt per payment. */
+  paymentId?: string | null;
+  /** The running total received, WHOLE RUPEES (amount_paid). */
+  paidToDate?: number | null;
+  /** The island day the money changed hands, YYYY-MM-DD. Defaults to today. */
+  receivedOn?: string | null;
+  /** The booking is paid in person: the balance is "in cash", and the
+   *  document drops the deposit and any bank details. */
+  payInPerson?: boolean | null;
+};
+
+/** Everything received so far: the running total when known, never less than
+ *  this payment. */
+function paidToDate(received: number | null, total?: number | null): number | null {
+  const running = typeof total === "number" && Number.isFinite(total) && total > 0 ? Math.round(total) : null;
+  if (running == null) return received;
+  return Math.max(running, received ?? 0);
+}
+
+/** "in cash" / "en espèces" — the method as a sentence says it. */
+function methodPhrase(method: string): { en: string; fr: string } {
+  switch (method) {
+    case "Cash":
+      return { en: "in cash", fr: "en espèces" };
+    case "Bank transfer":
+      return { en: "by bank transfer", fr: "par virement bancaire" };
+    case "MCB Juice":
+      return { en: "by MCB Juice", fr: "par MCB Juice" };
+    case "Card":
+      return { en: "by card", fr: "par carte" };
+    case "PayPal":
+      return { en: "by PayPal", fr: "par PayPal" };
+    default:
+      return { en: `by ${escapeHtml(method)}`, fr: `par ${escapeHtml(method)}` };
+  }
+}
+
+/**
+ * The document's note: this payment, the running total when it differs, and
+ * what is left. M220 review: a per-payment PDF's hero is THIS payment, so the
+ * running total and the balance are said here in words — "of Rs <total>"
+ * because that PDF's own Total is net of the earlier payments.
+ */
+function receiptNote(n: {
+  received: number | null;
+  method: string;
+  on: string;
+  paidSoFar: number | null;
+  ref: string;
+  total?: number | null;
+  /** Pre-built: " Still to pay: Rs 3,152, in cash at pickup." or " Paid in full." */
+  left?: string;
+}): string {
+  const what = n.received != null ? `${rs(n.received)} received` : "Received";
+  const of = typeof n.total === "number" && n.total > 0 ? ` of ${rs(n.total)}` : "";
+  const soFar =
+    n.paidSoFar != null && n.received != null && n.paidSoFar > n.received
+      ? ` Paid so far: ${rs(n.paidSoFar)}${of}.`
+      : "";
+  return `${what} by ${n.method} on ${n.on}.${soFar}${n.left ?? ""} Reference ${n.ref}.`;
+}
+
+/**
+ * What this receipt's document counts as received (M220 review). A receipt
+ * for ONE recorded payment shows that payment as "Received with thanks" and
+ * itemises the earlier ones (lib/receiptly/documents.ts, paidBeforeLine); the
+ * once-per-booking PayPal / bank-transfer receipt keeps the running total.
+ */
+function receiptFigures(
+  paymentId: string | null | undefined,
+  received: number | null,
+  paidSoFar: number | null,
+): { paidRupees: number | null; paidBeforeRupees: number | null } {
+  if (!paymentId || received == null) return { paidRupees: paidSoFar, paidBeforeRupees: null };
+  const before = paidSoFar != null ? paidSoFar - received : 0;
+  return { paidRupees: received, paidBeforeRupees: before > 0 ? before : null };
+}
+
+/**
+ * One PDF per payment needs one NAME per payment: two "Receipt-RR-4F2A1B.pdf"
+ * in a downloads folder overwrite each other or turn into "(1)" (M220 review).
+ * Receipt-RR-4F2A1B-<first 6 of the payment id>.pdf; untouched without one.
+ */
+function perPaymentName(
+  files: { name: string; content: string }[],
+  paymentId: string | null | undefined,
+): { name: string; content: string }[] {
+  const tag = (paymentId ?? "").replace(/[^A-Za-z0-9]/g, "").slice(0, 6).toUpperCase();
+  if (!tag) return files;
+  return files.map((f) => ({ ...f, name: f.name.replace(/\.pdf$/i, `-${tag}.pdf`) }));
+}
+
+/** The receipt's detail card, shared by both senders. `item` is pre-escaped. */
+function receiptRows(
+  ref: string,
+  item: [string, string],
+  when: string,
+  received: number | null,
+  method: string,
+  on: string,
+  paidSoFar: number | null,
+  balance: number | null,
+  stillLabel = "Still to pay",
+): [string, string][] {
+  const out: [string, string][] = [["Reference", ref], item, [item[0] === "Vehicle" ? "Dates" : "When", when]];
+  if (received != null) out.push(["Received", rs(received)]);
+  out.push(["Paid by", escapeHtml(method)], ["Received on", dayLabel(on, "en-GB")]);
+  if (paidSoFar != null && received != null && paidSoFar > received) out.push(["Paid so far", rs(paidSoFar)]);
+  if (balance != null) out.push(balance > 0 ? [stillLabel, rs(balance)] : ["Balance", "Paid in full"]);
+  return out;
+}
+
+/** Per payment when there is one; otherwise once per booking, as before. */
+const receiptKey = (type: EmailType, id: string, paymentId?: string | null): string | null =>
+  paymentId ? `payment_receipt:${paymentId}` : keyFor(type, id);
 
 /** A rental's deposit, or its full price, has been received. */
 export async function sendBookingPaymentReceipt(b: {
@@ -1334,15 +1728,36 @@ export async function sendBookingPaymentReceipt(b: {
   deposit_pct?: number | null;
   /** What was actually received, WHOLE RUPEES. */
   received: number | null;
-  /** "PayPal" or "Bank transfer" — printed, so keep it true. */
+  /** "PayPal", "Bank transfer", "Cash", "MCB Juice", "Card" — printed, so
+   *  keep it true. */
   method: string;
-}): Promise<boolean> {
+} & RecordedPayment): Promise<boolean> {
   if (!b.email) return false;
   const { wa, logo } = await getBrand();
   const ref = "RR-" + b.id.replace(/-/g, "").slice(0, 6).toUpperCase();
   const total = typeof b.total_amount === "number" ? b.total_amount : null;
   const received = typeof b.received === "number" && b.received > 0 ? b.received : null;
-  const balance = total != null && received != null ? Math.max(0, total - received) : null;
+  // M220: the balance is what is left after EVERY payment so far, not after
+  // this one — a second cash payment must not be told the first never happened.
+  const paidSoFar = paidToDate(received, b.paidToDate);
+  const balance =
+    paidSoFar != null ? balanceRupees("vehicle", { total_amount: total, amount_paid: paidSoFar }) : null;
+  const on = b.receivedOn || issueDate();
+  const how = methodPhrase(b.method);
+  const vehicle = escapeHtml(b.scooter);
+  // M220 review: cash recorded at the counter on (or after) pickup day. The
+  // pickup is not ahead of them any more, so there is nothing to "bring", and
+  // what is left is "Still to pay (cash)", not "at pickup".
+  const started = hasStarted(b, issueDate());
+  const still =
+    started && b.payInPerson
+      ? { en: "Still to pay (cash)", fr: "Reste à payer (espèces)" }
+      : { en: "Still to pay", fr: "Reste à payer" };
+  const where = started
+    ? { en: "", fr: "" }
+    : b.payInPerson
+      ? { en: ", in cash at pickup", fr: ", en espèces au retrait" }
+      : { en: ", at pickup", fr: ", au retrait" };
 
   const receipt = vehicleRentalDoc({
     kind: "receipt",
@@ -1359,38 +1774,51 @@ export async function sendBookingPaymentReceipt(b: {
     deliveryRupees: b.delivery_fee,
     depositRupees: b.deposit_amount,
     depositPct: b.deposit_pct,
-    paidRupees: received,
+    ...receiptFigures(b.paymentId, received, paidSoFar),
+    payInPerson: b.payInPerson === true,
     issuedOn: issueDate(),
-    notes: `Received by ${b.method} on ${issueDate()}. Reference ${ref}.`,
+    notes: receiptNote({
+      received,
+      method: b.method,
+      on,
+      paidSoFar,
+      ref,
+      total,
+      left: balance == null ? "" : balance > 0 ? ` ${still.en}: ${rs(balance)}${where.en}.` : " Paid in full.",
+    }),
   });
 
   const balanceEn =
-    balance != null && balance > 0
-      ? ` The balance of <strong>${rs(balance)}</strong> is payable at pickup.`
-      : " Nothing further is owed.";
+    balance == null
+      ? ""
+      : balance > 0
+        ? ` ${still.en}: <strong>${rs(balance)}</strong>${where.en}.`
+        : " <strong>Paid in full</strong> — nothing more to pay.";
   const balanceFr =
-    balance != null && balance > 0
-      ? ` Le solde de <strong>${rs(balance)}</strong> se règle au retrait.`
-      : " Plus rien n'est dû.";
+    balance == null
+      ? ""
+      : balance > 0
+        ? ` ${still.fr} : <strong>${rs(balance)}</strong>${where.fr}.`
+        : " <strong>Payé intégralement</strong> — plus rien à régler.";
+  // A receipt sent as the booking is confirmed (PayPal, the bank-transfer
+  // pill) says so; a later payment on a booking already confirmed does not.
+  const confirmedEn = b.paymentId ? "" : ", and your booking is confirmed";
+  const confirmedFr = b.paymentId ? "" : ", et votre réservation est confirmée";
 
   const body = `
-    ${paragraph(`Thank you ${escapeHtml(b.name)} — we have received ${received != null ? `<strong>${rs(received)}</strong>` : "your payment"} for <strong>${escapeHtml(b.scooter)}</strong>, and your booking is confirmed.${balanceEn}`)}
-    ${detailCard(
-      rows([
-        ["Reference", ref],
-        ["Vehicle", b.scooter],
-        ["Dates", `${fmtDate(b.start_date)} → ${fmtDate(b.end_date)}`],
-        ...(received != null ? ([["Received", rs(received)]] as [string, string][]) : []),
-        ["Paid by", b.method],
-      ]),
-    )}
-    ${paragraph(`Your receipt is attached as a PDF — keep it, and bring it with you if you can.`)}
+    ${paragraph(`Thank you ${escapeHtml(b.name)} — we received ${received != null ? `<strong>${rs(received)}</strong>` : "your payment"} ${how.en} on ${dayLabel(on, "en-GB")} for <strong>${vehicle}</strong>${confirmedEn}.${balanceEn}`)}
+    ${detailCard(rows(receiptRows(ref, ["Vehicle", vehicle], `${fmtDate(b.start_date)} → ${fmtDate(b.end_date)}`, received, b.method, on, paidSoFar, balance, still.en)))}
+    ${
+      started
+        ? paragraph(`Your receipt is attached as a PDF — keep it.`)
+        : `${paragraph(`Your receipt is attached as a PDF — keep it, and bring it with you if you can.`)}
     ${sectionLabel("Before your pickup, please bring")}
-    ${checkList(["A valid driver's licence", "This receipt or your booking reference", "A valid ID or passport if requested"])}
+    ${checkList(["A valid driver's licence", "This receipt or your booking reference", "A valid ID or passport if requested"])}`
+    }
     ${sepFr()}
     ${frHeading("Paiement reçu")}
-    ${paragraph(`Merci ${escapeHtml(b.name)} — nous avons bien reçu ${received != null ? `<strong>${rs(received)}</strong>` : "votre paiement"} pour <strong>${escapeHtml(b.scooter)}</strong>, et votre réservation est confirmée.${balanceFr}`)}
-    ${paragraph(`Votre reçu est joint en PDF — conservez-le et présentez-le si possible au retrait.`)}
+    ${paragraph(`Merci ${escapeHtml(b.name)} — nous avons bien reçu ${received != null ? `<strong>${rs(received)}</strong>` : "votre paiement"} ${how.fr} le ${dayLabel(on, "fr-FR")} pour <strong>${vehicle}</strong>${confirmedFr}.${balanceFr}`)}
+    ${paragraph(started ? `Votre reçu est joint en PDF — conservez-le.` : `Votre reçu est joint en PDF — conservez-le et présentez-le si possible au retrait.`)}
     ${wa ? `<div style="text-align:center">${waButton(wa, `Hi Roule Rodrigues! About booking ${ref} — `, "💬 WhatsApp")}</div>` : ""}`;
 
   const type = vehicleEmailType("payment_confirmation", b.vehicleCategory);
@@ -1405,10 +1833,10 @@ export async function sendBookingPaymentReceipt(b: {
       logo,
     }),
     type,
-    key: keyFor(type, b.id),
+    key: receiptKey(type, b.id, b.paymentId),
     relatedType: "booking",
     relatedId: b.id,
-    attachments: attachmentsFor(receipt),
+    attachments: perPaymentName(attachmentsFor(receipt), b.paymentId),
   });
 }
 
@@ -1431,11 +1859,48 @@ export async function sendPlacePaymentReceipt(b: {
   /** What was actually received, WHOLE RUPEES. */
   received: number | null;
   method: string;
-}): Promise<boolean> {
+} & RecordedPayment): Promise<boolean> {
   if (!b.email) return false;
   const { wa, logo } = await getBrand();
   const ref = "RR-" + b.id.replace(/-/g, "").slice(0, 6).toUpperCase();
   const received = typeof b.received === "number" && b.received > 0 ? b.received : null;
+  const paidSoFar = paidToDate(received, b.paidToDate);
+  const on = b.receivedOn || issueDate();
+  const how = methodPhrase(b.method);
+  const place = escapeHtml(b.placeName);
+  // A balance line only for a recorded payment (M220). An online reservation
+  // is paid in full by the one payment this receipt is for (M210), and PayPal's
+  // captured figure can differ from the price by a rupee of conversion — a
+  // "Still to pay: Rs 1" on that receipt would be noise, not news.
+  const balance =
+    (b.paymentId || b.payInPerson) && paidSoFar != null
+      ? balanceRupees("place", { deposit_amount: b.price, amount_paid: paidSoFar })
+      : null;
+  // M220 review: recorded on (or after) the arrival day, "on arrival" is past:
+  // the remainder is "Still to pay (cash)" and the receipt asks for nothing.
+  const started = hasStarted(b, issueDate());
+  const still =
+    started && b.payInPerson
+      ? { en: "Still to pay (cash)", fr: "Reste à payer (espèces)" }
+      : { en: "Still to pay", fr: "Reste à payer" };
+  const where =
+    !started && b.payInPerson
+      ? { en: ", in cash on arrival", fr: ", en espèces à votre arrivée" }
+      : { en: "", fr: "" };
+  const balanceEn =
+    balance == null
+      ? ""
+      : balance > 0
+        ? ` ${still.en}: <strong>${rs(balance)}</strong>${where.en}.`
+        : " <strong>Paid in full</strong> — nothing more to pay.";
+  const balanceFr =
+    balance == null
+      ? ""
+      : balance > 0
+        ? ` ${still.fr} : <strong>${rs(balance)}</strong>${where.fr}.`
+        : " <strong>Payé intégralement</strong> — plus rien à régler.";
+  const confirmedEn = b.paymentId ? "" : ` Your reservation for ${escapeHtml(b.when)} is confirmed.`;
+  const confirmedFr = b.paymentId ? "" : ` Votre réservation du ${escapeHtml(b.when)} est confirmée.`;
 
   const receipt = placeReservationDoc({
     kind: "receipt",
@@ -1451,27 +1916,28 @@ export async function sendPlacePaymentReceipt(b: {
     guests: b.guests,
     quantity: b.quantity,
     priceRupees: b.price,
-    paidRupees: received,
+    ...receiptFigures(b.paymentId, received, paidSoFar),
+    payInPerson: b.payInPerson === true,
     issuedOn: issueDate(),
-    notes: `Received by ${b.method} on ${issueDate()}. Reference ${ref}.`,
+    notes: receiptNote({
+      received,
+      method: b.method,
+      on,
+      paidSoFar,
+      ref,
+      total: b.price,
+      left: balance == null ? "" : balance > 0 ? ` ${still.en}: ${rs(balance)}${where.en}.` : " Paid in full.",
+    }),
   });
 
   const body = `
-    ${paragraph(`Thank you ${escapeHtml(b.name)} — we have received ${received != null ? `<strong>${rs(received)}</strong>` : "your payment"} for <strong>${escapeHtml(b.placeName)}</strong>. Your reservation for ${escapeHtml(b.when)} is confirmed.`)}
-    ${detailCard(
-      rows([
-        ["Reference", ref],
-        ["Reservation", b.placeName],
-        ["When", b.when],
-        ...(received != null ? ([["Received", rs(received)]] as [string, string][]) : []),
-        ["Paid by", b.method],
-      ]),
-    )}
-    ${paragraph(`Your receipt is attached as a PDF — keep it, and show it on arrival if you are asked for it.`)}
+    ${paragraph(`Thank you ${escapeHtml(b.name)} — we received ${received != null ? `<strong>${rs(received)}</strong>` : "your payment"} ${how.en} on ${dayLabel(on, "en-GB")} for <strong>${place}</strong>.${confirmedEn}${balanceEn}`)}
+    ${detailCard(rows(receiptRows(ref, ["Reservation", place], escapeHtml(b.when), received, b.method, on, paidSoFar, balance, still.en)))}
+    ${paragraph(started ? `Your receipt is attached as a PDF — keep it.` : `Your receipt is attached as a PDF — keep it, and show it on arrival if you are asked for it.`)}
     ${sepFr()}
     ${frHeading("Paiement reçu")}
-    ${paragraph(`Merci ${escapeHtml(b.name)} — nous avons bien reçu ${received != null ? `<strong>${rs(received)}</strong>` : "votre paiement"} pour <strong>${escapeHtml(b.placeName)}</strong>. Votre réservation du ${escapeHtml(b.when)} est confirmée.`)}
-    ${paragraph(`Votre reçu est joint en PDF — conservez-le et présentez-le à votre arrivée si on vous le demande.`)}
+    ${paragraph(`Merci ${escapeHtml(b.name)} — nous avons bien reçu ${received != null ? `<strong>${rs(received)}</strong>` : "votre paiement"} ${how.fr} le ${dayLabel(on, "fr-FR")} pour <strong>${place}</strong>.${confirmedFr}${balanceFr}`)}
+    ${paragraph(started ? `Votre reçu est joint en PDF — conservez-le.` : `Votre reçu est joint en PDF — conservez-le et présentez-le à votre arrivée si on vous le demande.`)}
     ${wa ? `<div style="text-align:center">${waButton(wa, `Hi Roule Rodrigues! About reservation ${ref} — `, "💬 WhatsApp")}</div>` : ""}`;
 
   const type = placeEmailType("payment_confirmation", b.category);
@@ -1486,10 +1952,10 @@ export async function sendPlacePaymentReceipt(b: {
       logo,
     }),
     type,
-    key: keyFor(type, b.id),
+    key: receiptKey(type, b.id, b.paymentId),
     relatedType: "place_booking",
     relatedId: b.id,
-    attachments: attachmentsFor(receipt),
+    attachments: perPaymentName(attachmentsFor(receipt), b.paymentId),
   });
 }
 
@@ -1503,13 +1969,17 @@ export async function sendPickupReminder(
   if (!to) return false;
   const b = await withVehicleName(raw);
   const { wa, logo } = await getBrand();
+  // M220: a customer paying in person is told, the day before, what to bring.
+  const cash = cashDueSentence("vehicle", b);
   const body = `
     ${paragraph(`Hi ${b.name}, this is a friendly reminder that your rental starts <strong>tomorrow</strong>. 🛵`)}
+    ${cash ? paragraph(`<strong style="color:${C.ink}">${cash.en}</strong>`) : ""}
     ${detailCard(summaryRows(b))}
     ${paragraph(`Please bring your driver's licence and arrive a few minutes early. We can't wait to help you discover Rodrigues Island — see you tomorrow!`)}
     ${sepFr()}
     ${frHeading("À demain !")}
     ${paragraph(`Bonjour ${b.name}, petit rappel : votre location commence <strong>demain</strong>. 🛵 Merci d'apporter votre permis de conduire et d'arriver quelques minutes en avance. Nous avons hâte de vous aider à découvrir l'île Rodrigues — à demain !`)}
+    ${cash ? paragraph(`<strong style="color:${C.ink}">${cash.fr}</strong>`) : ""}
     ${wa ? `<div style="text-align:center">${waButton(wa, `Hi! About my Roule Rodrigues pickup tomorrow (${b.scooter}) — `, "💬 WhatsApp")}</div>` : ""}`;
   const type = vehicleEmailType(
     "pickup_reminder",
@@ -1630,8 +2100,13 @@ function ownerActionEmail(
 ): string {
   const verb = kind === "deliver" ? "Deliver" : "Collect";
   const when = kind === "deliver" ? fmtDate(b.start_date) : fmtDate(b.end_date);
+  // M220: the cash the owner takes at the door, in the words he acts on. On a
+  // collect reminder it only appears if the cash was never recorded — which is
+  // exactly when he needs to ask for it, or press "Cash received".
+  const collect = collectLine("vehicle", b);
   const body = `
     ${paragraph(`<strong style="color:${C.ink}">${verb} tomorrow</strong> (${when}) for <strong>${b.name}</strong>.`)}
+    ${collect ? paragraph(`<strong style="color:${C.ink}">${collect}${kind === "collect" ? " — not recorded as received yet" : ""}.</strong>`) : ""}
     ${detailCard(summaryRows(b) + rows(b.phone ? ([["Phone", b.phone]] as [string, string][]) : []))}
     ${b.phone ? `<div style="text-align:center">${waButton(b.phone, `Hi ${b.name}, this is Roule Rodrigues about your ${b.scooter} ${kind === "deliver" ? "pickup" : "return"} tomorrow — `, "💬 Message " + b.name)}</div>` : ""}`;
   return shell({
@@ -1649,9 +2124,10 @@ export async function sendAdminPickupReminder(
   const owner = await ownerInbox();
   const b = await withVehicleName(raw);
   const { logo } = await getBrand();
+  const collect = collectLine("vehicle", b);
   return send({
     to: owner,
-    subject: `🛵 Deliver tomorrow: ${b.name} — ${b.scooter}`,
+    subject: `🛵 Deliver tomorrow: ${b.name} — ${b.scooter}${collect ? ` · ${collect}` : ""}`,
     html: ownerActionEmail(b, "deliver", logo),
     type: "owner_pickup_reminder",
     key: keyFor("owner_pickup_reminder", bookingKeyPart(raw)),
@@ -1702,6 +2178,14 @@ interface PlaceBookingEmailData {
    * document.
    */
   deposit_amount?: number | null;
+  // ── M220: paid in person ───────────────────────────────────────────────
+  status?: string | null;
+  pay_in_person?: boolean | null;
+  /** place_bookings.amount_paid — WHOLE RUPEES, the running total received. */
+  amount_paid?: number | null;
+  /** What the customer asked for when booking: 'online' | 'in_person'. */
+  payment_preference?: string | null;
+  no_show_at?: string | null;
 }
 
 function placeRows(b: PlaceBookingEmailData): string {
@@ -1712,10 +2196,10 @@ function placeRows(b: PlaceBookingEmailData): string {
       "Booking reference · Référence",
       `<b>${b.ref}</b> — manage at roulerodrig.com/manage-booking`,
     ]);
-  pairs.push(["Place · Lieu", b.place_name]);
+  pairs.push(["Place · Lieu", escapeHtml(b.place_name)]);
   pairs.push([sameDay ? "Date" : "Check-in · Arrivée", fmtDate(b.start_date)]);
   if (!sameDay) pairs.push(["Check-out · Départ", fmtDate(b.end_date)]);
-  if (b.time_slot) pairs.push(["Time · Heure", b.time_slot]);
+  if (b.time_slot) pairs.push(["Time · Heure", escapeHtml(b.time_slot)]);
   const qty = b.quantity ?? 0;
   if (qty > 0) {
     const unit =
@@ -1727,6 +2211,9 @@ function placeRows(b: PlaceBookingEmailData): string {
     pairs.push([unit, String(qty)]);
   }
   if (b.guests) pairs.push(["Guests · Invités", String(b.guests)]);
+  // M220: a reservation paid in person carries what to pay on arrival — the
+  // customer's reminder and the owner's both read this card.
+  pairs.push(...placeMoneyLines(b, issueDate()));
   return rows(pairs);
 }
 
@@ -2144,13 +2631,29 @@ export async function sendPlaceBookingEmails(
   const { wa, logo } = await getBrand();
 
   if (b.email) {
+    // M220: how it can be paid, once it is checked — online as before, or in
+    // person when the owner agrees it. The customer's stated preference is
+    // acknowledged, never promised: the venue is not his.
+    //
+    // M220 review: only when there IS a price. A request-only listing stores
+    // no deposit_amount (the whole price, M210), so there is nothing to pay
+    // online and a "pay by bank transfer or PayPal" paragraph would promise a
+    // link that never comes. And "once it is confirmed" had the order wrong:
+    // an online reservation is paid BEFORE it is confirmed, once the owner has
+    // checked it is free.
+    const askedInPerson = prefersInPerson(b);
+    const priced = typeof b.deposit_amount === "number" && b.deposit_amount > 0;
+    const payEn = `Nothing is charged yet. Once we have checked it is free, you can pay online by bank transfer or PayPal — or in person, when we agree it with you.${askedInPerson ? ` <b>You asked to pay in person</b> — we'll tell you whether we can.` : ""}`;
+    const payFr = `Rien n'est débité pour l'instant. Une fois la disponibilité vérifiée, vous pourrez régler en ligne par virement bancaire ou PayPal — ou en personne, si nous en convenons ensemble.${askedInPerson ? ` <b>Vous avez demandé à payer en personne</b> — nous vous dirons si c'est possible.` : ""}`;
     const body = `
       ${paragraph(`Hi ${b.name}, we've received your reservation request for <strong>${b.place_name}</strong>. Our team will confirm availability with the venue and get back to you shortly.`)}
       ${detailCard(placeRows(b))}
+      ${priced ? paragraph(payEn) : ""}
       ${paragraph(`<span style="color:${C.muted};font-size:13px">This is a request, not yet a confirmed reservation — we'll be in touch to finalise everything.</span>`)}
       ${sepFr()}
       ${frHeading("Merci pour votre réservation !")}
       ${paragraph(`Bonjour ${b.name}, nous avons bien reçu votre demande de réservation pour <strong>${b.place_name}</strong>. Notre équipe confirmera la disponibilité auprès de l'établissement et reviendra vers vous très vite.`)}
+      ${priced ? paragraph(payFr) : ""}
       ${paragraph(`<span style="color:${C.muted};font-size:13px">Il s'agit d'une demande, pas encore d'une réservation confirmée — nous vous recontacterons pour tout finaliser.</span>`)}
       ${wa ? `<div style="text-align:center">${waButton(wa, `Hi Roule Rodrigues! I just requested ${b.place_name} for ${fmtDate(b.start_date)}.`, "💬 WhatsApp")}</div>` : ""}`;
     const type = placeEmailType("booking_confirmation", b.category);
@@ -2202,6 +2705,10 @@ export async function sendPlaceBookingEmails(
           rows([
             ...(b.phone ? ([["Phone", b.phone]] as [string, string][]) : []),
             ...(b.email ? ([["Email", b.email]] as [string, string][]) : []),
+            // M220: the customer's stated preference, for the owner to act on.
+            ...(prefersInPerson(b)
+              ? ([["Wants to pay", "In person (cash)"]] as [string, string][])
+              : []),
           ]),
       )}
       ${b.message ? paragraph(`<strong style="color:${C.ink}">Note:</strong> ${b.message}`) : ""}
@@ -2232,12 +2739,16 @@ export async function sendPlaceReminder(
 ): Promise<boolean> {
   if (!b.email) return false;
   const { wa, logo } = await getBrand();
+  // M220: "Pay Rs X in cash on arrival" for a reservation paid in person.
+  const cash = cashDueSentence("place", b);
   const body = `
     ${paragraph(`Hi ${b.name}, a friendly reminder — your reservation at <strong>${b.place_name}</strong> is <strong>tomorrow</strong> (${fmtDate(b.start_date)}). 🌴`)}
+    ${cash ? paragraph(`<strong style="color:${C.ink}">${cash.en}</strong>`) : ""}
     ${detailCard(placeRows(b))}
     ${sepFr()}
     ${frHeading("À demain !")}
     ${paragraph(`Bonjour ${b.name}, petit rappel — votre réservation à <strong>${b.place_name}</strong> est <strong>demain</strong> (${fmtDate(b.start_date)}). 🌴`)}
+    ${cash ? paragraph(`<strong style="color:${C.ink}">${cash.fr}</strong>`) : ""}
     ${wa ? `<div style="text-align:center">${waButton(wa, `Hi! About my ${b.place_name} reservation tomorrow — `, "💬 WhatsApp")}</div>` : ""}`;
   const type = placeEmailType("reminder", b.category);
   return send({
@@ -2297,13 +2808,16 @@ export async function sendAdminPlaceReminder(
 ): Promise<boolean> {
   const owner = await ownerInbox();
   const { logo } = await getBrand();
+  // M220: cash to collect on arrival, when the reservation is paid in person.
+  const collect = collectLine("place", b);
   const body = `
     ${paragraph(`<strong style="color:${C.ink}">Reservation tomorrow</strong> (${fmtDate(b.start_date)}) — <strong>${b.name}</strong> at <strong>${b.place_name}</strong>.`)}
+    ${collect ? paragraph(`<strong style="color:${C.ink}">${collect} on arrival.</strong>`) : ""}
     ${detailCard(placeRows(b) + rows(b.phone ? ([["Phone", b.phone]] as [string, string][]) : []))}
     ${b.phone ? `<div style="text-align:center">${waButton(b.phone, `Hi ${b.name}, this is Roule Rodrigues about your ${b.place_name} reservation tomorrow — `, "💬 Message " + b.name)}</div>` : ""}`;
   return send({
     to: owner,
-    subject: `🌴 Reservation tomorrow: ${b.name} — ${b.place_name}`,
+    subject: `🌴 Reservation tomorrow: ${b.name} — ${b.place_name}${collect ? ` · ${collect}` : ""}`,
     html: shell({
       eyebrow: "Reservation reminder",
       title: "Reservation tomorrow",

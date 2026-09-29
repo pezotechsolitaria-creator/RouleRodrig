@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
-import { getPrivileged } from "@/lib/supabase/admin";
+import { getPrivileged, hasServiceRole } from "@/lib/supabase/admin";
 import { getContent } from "@/lib/content";
 import { sendBookingEmails, upsertBrevoContact } from "@/lib/email";
 import { enqueueNotification } from "@/lib/notifications/queue";
 import { guardShared } from "@/lib/rate-limit";
 import { isActiveHold, HOLDING_STATUSES } from "@/lib/holds";
 import { isValidPhone, isValidEmail } from "@/lib/phone";
+import { parsePaymentPreference } from "@/lib/bookings/payment-preference";
 import {
   priceBreakdown,
   rentalDays,
@@ -60,11 +60,20 @@ export async function POST(req: NextRequest) {
     delivery_fee?: number | null;
     message?: string | null;
     partner_code?: string | null;
+    /** M220 — 'online' | 'in_person' | absent. What the customer SAID; the owner decides. */
+    payment_preference?: unknown;
   };
   try {
     body = await req.json();
   } catch {
     return NextResponse.json({ error: "Invalid request" }, { status: 400 });
+  }
+
+  // Before any lookup or availability read: a value the table's CHECK would
+  // refuse is answered with a sentence here, not a 500 from the insert.
+  const preference = parsePaymentPreference(body.payment_preference);
+  if (!preference.ok) {
+    return NextResponse.json({ error: preference.error }, { status: 400 });
   }
 
   // Validation
@@ -172,6 +181,26 @@ export async function POST(req: NextRequest) {
 
   let asset_id: string | null = null;
   let asset_label: string | null = null;
+
+  // ── NO KEY, NO BOOKING — AND SAY SO (M221) ─────────────────────────────
+  // Every read and the insert below run through getPrivileged(), and without
+  // SUPABASE_SERVICE_ROLE_KEY it quietly hands back the visitor's own client.
+  // Once M221 takes INSERT away from anon and authenticated, that client can
+  // no longer write a booking: every request would die at the insert as a
+  // generic 500, and the only trace would be an RLS error per customer. The
+  // same fail-loud rule guest checkout follows (app/api/checkout/route.ts).
+  if (!hasServiceRole()) {
+    console.error(
+      "bookings: SUPABASE_SERVICE_ROLE_KEY missing — vehicle bookings cannot be saved (M221 removed the public insert)",
+    );
+    return NextResponse.json(
+      {
+        error:
+          "Bookings are temporarily unavailable — message us on WhatsApp and we will book it for you.",
+      },
+      { status: 503 },
+    );
+  }
 
   // ── Double-booking guard + auto-assign a free physical unit ──
   try {
@@ -347,9 +376,19 @@ export async function POST(req: NextRequest) {
       (body.partner_code ?? "")?.toString().trim().toUpperCase() || null,
     asset_id,
     asset_label,
+    // M220. Stored as said; it changes nothing about the status or the money.
+    payment_preference: preference.value,
   };
 
-  const supabase = await createClient();
+  // ── THE SERVER WRITES THE ROW, NOT THE VISITOR (M221) ────────────────────
+  // This insert ran on the visitor's own client, which meant `anon` needed an
+  // INSERT grant on bookings — and RLS checked only status = 'pending'. So
+  // anyone holding the public key could POST a row straight to the table with
+  // deposit_paid_at set (a "paid" hold that blocks a vehicle for free), a
+  // doctored total_amount, or — since M220 — pay_in_person. Every figure here
+  // is computed server-side above; the service role now writes it, and M221
+  // takes the public write grants away.
+  const supabase = await getPrivileged();
   const { error } = await supabase.from("bookings").insert([record]);
   if (error) {
     // ── NEVER SHOW THE DATABASE TO A CUSTOMER ────────────────────────────
@@ -439,6 +478,10 @@ export async function POST(req: NextRequest) {
           : record.total_price
             ? `\n💰 ${record.total_price}`
             : "") +
+        // M220: the owner reads this on his phone and decides from it whether
+        // to "Confirm — pays in person" or ask for the deposit, so the
+        // customer's answer belongs here and not only in the admin card.
+        (record.payment_preference === "in_person" ? `\n\u{1F4B5} Wants to pay in person (cash)` : "") +
         (record.phone ? `\n📞 ${record.phone}` : "") +
         // ── WHERE TO TAKE IT (M159) ──────────────────────────────────────
         // The delivery address arrives in the customer own note — "Amener le

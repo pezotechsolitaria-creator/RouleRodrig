@@ -145,7 +145,8 @@ function buildContent(doc: ReceiptlyDoc, mark: Mark): string {
   const hero = heroAmount(doc, m);
   const fmt = (v: number) => formatMoney(v, c);
   /** Bare, because the column head says RS once for the whole numeric field. */
-  const bare = (v: number) => fmt(v).replace(/^[^\d-]+\s*/, "");
+  // The sign survives, the symbol does not: "-Rs 2,000" → "-2,000".
+  const bare = (v: number) => fmt(v).replace(/^(-?)[^\d-]+\s*/, "$1");
 
   // ══ FROZEN ZONE ══════════════════════════════════════════════════════════
   // Every baseline below is an absolute from theme.Y. Nothing here moves

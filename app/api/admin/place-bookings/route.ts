@@ -5,6 +5,7 @@ import { getPrivileged } from '@/lib/supabase/admin';
 import { PAYMENT_WINDOW_HOURS } from '@/lib/holds';
 import { sendPlaceAvailabilityConfirmed, sendPlaceUnavailable } from '@/lib/email';
 import { sendPaymentReceipt } from '@/lib/receipts/payment-receipt';
+import { audit } from '@/lib/admin/audit';
 
 // ── THE OWNER DECIDES AVAILABILITY, AND THE CUSTOMER IS TOLD (M127) ────────
 //
@@ -79,7 +80,7 @@ export async function PATCH(req: NextRequest) {
   const { data: current, error: readErr } = await supabase
     .from('place_bookings')
     // One string literal: supabase-js reads the row type out of it.
-    .select('id, name, email, phone, place_name, category, start_date, end_date, time_slot, guests, quantity, deposit_amount, status')
+    .select('id, name, email, phone, place_name, category, start_date, end_date, time_slot, guests, quantity, deposit_amount, deposit_paid_at, status, pay_in_person')
     .eq('id', id)
     .maybeSingle();
 
@@ -152,7 +153,47 @@ export async function PATCH(req: NextRequest) {
   // the vehicle desk: `confirmed` from here means the owner matched a declared
   // transfer against his statement, and sendPaymentReceipt refuses a row that
   // carries no evidence of payment at all.
-  if (status === 'confirmed' && current.status !== 'confirmed') {
+  //
+  // M220: not for a booking paid in person — its money is recorded through
+  // /api/admin/bookings/in-person, with a receipt that names the real method.
+  if (status === 'confirmed' && current.status !== 'confirmed' && !current.pay_in_person) {
+    // FIRST, the transfer into the ledger — deposit_amount is the WHOLE price
+    // here (M210), in rupees. Same reasons and same RPC as the rentals desk
+    // (app/api/admin/bookings/route.ts): the pill never wrote an amount, so
+    // the card read "amount not recorded"; recording before the receipt makes
+    // it read amount_paid. Best-effort, and not when reinstating a completed
+    // booking, which the desk does not treat as "the transfer arrived".
+    const price = typeof current.deposit_amount === 'number' ? Math.round(current.deposit_amount) : 0;
+    if (!current.deposit_paid_at && price > 0 && current.status !== 'completed') {
+      try {
+        const { data: paid, error: payErr } = await supabase.rpc('admin_record_booking_payment', {
+          p_kind: 'place',
+          p_id: id,
+          p_amount_rupees: price,
+          p_method: 'bank_transfer',
+          p_note: 'Recorded when confirmed from the desk',
+        });
+        if (payErr) {
+          console.error('place confirm: could not record the transfer in the ledger', { id, price, payErr });
+        } else {
+          const r = (paid ?? {}) as { paid?: number; balance?: number };
+          await audit(supabase, {
+            action: 'place_booking.payment',
+            entityType: 'place_booking',
+            entityId: id,
+            diff: {
+              amountRupees: price,
+              method: 'bank_transfer',
+              via: 'status_confirmed',
+              paidAfterRupees: r.paid ?? null,
+              balanceAfterRupees: r.balance ?? null,
+            },
+          });
+        }
+      } catch (err) {
+        console.error('place confirm: recording the transfer threw', { id, err });
+      }
+    }
     await sendPaymentReceipt(supabase, 'place', id, 'Bank transfer');
   }
 

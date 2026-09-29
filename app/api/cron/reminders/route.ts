@@ -19,6 +19,11 @@ import type { Booking, PlaceBooking } from "@/lib/supabase/types";
 import { holdCutoffMs } from "@/lib/holds";
 import { sendOwnerWhatsApp } from "@/lib/whatsapp";
 import { notifyOrderCustomer } from "@/lib/notifications/order-events";
+import { cashToCollect, rupees, type MoneyRow } from "@/lib/bookings/in-person";
+
+// M220 columns, read off the select("*") rows below. lib/supabase/types.ts
+// predates them, so they are named here rather than cast at every use.
+type PaidInPerson = MoneyRow & { no_show_at?: string | null };
 
 // Runs once a day (Vercel Cron). Drives the booking "bots":
 //  • Customer: pickup reminder (day before), return reminder (day before),
@@ -120,6 +125,10 @@ export async function GET(req: NextRequest) {
     .eq("feedback_reminded", false);
 
   for (const b of (feedbacks ?? []) as Booking[]) {
+    // M220: never ask somebody who did not come how their ride was. A no-show
+    // is 'cancelled' and the status filter already excludes it; this holds if
+    // the owner ever moves one back to 'completed'.
+    if ((b as Booking & PaidInPerson).no_show_at) continue;
     const sent = b.email ? await sendFeedbackRequest(b) : false;
     if (sent) feedbackSent++;
     if (sent || !b.email) {
@@ -369,6 +378,7 @@ export async function GET(req: NextRequest) {
     .in("status", ["confirmed", "completed"])
     .eq("feedback_reminded", false);
   for (const b of (placeDone ?? []) as PlaceBooking[]) {
+    if ((b as PlaceBooking & PaidInPerson).no_show_at) continue; // M220, as above
     const sent = b.email ? await sendPlaceFeedbackRequest(b) : false;
     if (sent) placeFeedbackSent++;
     if (sent || !b.email) {
@@ -389,23 +399,78 @@ export async function GET(req: NextRequest) {
     holdsReleased++;
   }
 
+  // ── M220: cash that should have changed hands YESTERDAY ────────────────
+  //
+  // A booking confirmed as paid in person whose pickup or arrival was
+  // yesterday and still shows money owed: either the cash came and nobody
+  // pressed "Cash received", or the customer never came. Both are the owner's
+  // to settle — record it, or mark a no-show — and until he does every screen
+  // counts money that is not in the till.
+  //
+  // Keyed on the date, so each booking is raised exactly once (the morning
+  // after), with no column to stamp and no daily nagging about old rows. It
+  // rides in the digest below: a 4th cron entry breaks every deploy.
+  const cashUnrecorded: string[] = [];
+  try {
+    const [{ data: owedV }, { data: owedP }] = await Promise.all([
+      supabase
+        .from("bookings")
+        .select("name, scooter, start_date, status, pay_in_person, total_amount, amount_paid")
+        .eq("pay_in_person", true)
+        .in("status", ["confirmed", "completed"])
+        .eq("start_date", yesterday),
+      supabase
+        .from("place_bookings")
+        .select("name, place_name, start_date, status, pay_in_person, deposit_amount, amount_paid")
+        .eq("pay_in_person", true)
+        .in("status", ["confirmed", "completed"])
+        .eq("start_date", yesterday),
+    ]);
+    for (const b of (owedV ?? []) as (PaidInPerson & { name: string; scooter: string })[]) {
+      const due = cashToCollect("vehicle", b);
+      if (due) cashUnrecorded.push(`• ${b.name} — ${await vehicleName(b.scooter)} — ${rupees(due)}`);
+    }
+    for (const b of (owedP ?? []) as (PaidInPerson & { name: string; place_name: string })[]) {
+      const due = cashToCollect("place", b);
+      if (due) cashUnrecorded.push(`• ${b.name} — ${b.place_name} — ${rupees(due)}`);
+    }
+  } catch (err) {
+    console.error("cash-unrecorded check failed", err);
+  }
+
   // ── One daily WhatsApp digest to the owner (CallMeBot — owner only) ──
   try {
     const lines: string[] = [];
-    const pk = (pickups ?? []) as Booking[];
-    const rt = (returns ?? []) as Booking[];
-    const ci = (placeSoon ?? []) as PlaceBooking[];
+    const pk = (pickups ?? []) as (Booking & PaidInPerson)[];
+    const rt = (returns ?? []) as (Booking & PaidInPerson)[];
+    const ci = (placeSoon ?? []) as (PlaceBooking & PaidInPerson)[];
+    // M220: the cash to take at the door, on the line he reads at the door.
+    // cashToCollect() is null unless the booking is confirmed as paid in
+    // person, so an online booking's line is unchanged.
+    const collect = (kind: "vehicle" | "place", b: MoneyRow) => {
+      const due = cashToCollect(kind, b);
+      return due ? ` — 💵 collect ${rupees(due)}` : "";
+    };
     if (pk.length) {
       lines.push(`🛵 Deliver tomorrow (${pk.length}):`);
-      for (const b of pk) lines.push(`• ${b.name} — ${await vehicleName(b.scooter)}${b.asset_label ? ` (${b.asset_label})` : ""}${b.pickup_time ? ` at ${b.pickup_time}` : ""}${b.phone ? ` — ${b.phone}` : ""}`);
+      for (const b of pk) lines.push(`• ${b.name} — ${await vehicleName(b.scooter)}${b.asset_label ? ` (${b.asset_label})` : ""}${b.pickup_time ? ` at ${b.pickup_time}` : ""}${b.phone ? ` — ${b.phone}` : ""}${collect("vehicle", b)}`);
     }
     if (rt.length) {
       lines.push(`↩️ Collect tomorrow (${rt.length}):`);
-      for (const b of rt) lines.push(`• ${b.name} — ${await vehicleName(b.scooter)}${b.return_time ? ` at ${b.return_time}` : ""}${b.phone ? ` — ${b.phone}` : ""}`);
+      // Owed at the RETURN means it was never recorded at pickup — say so.
+      for (const b of rt) {
+        const owed = collect("vehicle", b);
+        lines.push(`• ${b.name} — ${await vehicleName(b.scooter)}${b.return_time ? ` at ${b.return_time}` : ""}${b.phone ? ` — ${b.phone}` : ""}${owed ? `${owed} (not recorded yet)` : ""}`);
+      }
     }
     if (ci.length) {
       lines.push(`🌴 Stay·Eat·Do tomorrow (${ci.length}):`);
-      for (const b of ci) lines.push(`• ${b.name} — ${b.place_name}${b.time_slot ? ` at ${b.time_slot}` : ""}${b.phone ? ` — ${b.phone}` : ""}`);
+      for (const b of ci) lines.push(`• ${b.name} — ${b.place_name}${b.time_slot ? ` at ${b.time_slot}` : ""}${b.phone ? ` — ${b.phone}` : ""}${collect("place", b)}`);
+    }
+    if (cashUnrecorded.length) {
+      lines.push(`💵 Cash not recorded yet — pickup/arrival was yesterday (${cashUnrecorded.length}):`);
+      lines.push(...cashUnrecorded);
+      lines.push("Record the cash in /admin → Bookings, or mark a no-show.");
     }
     if (lines.length) await sendOwnerWhatsApp(`Roule Rodrigues — tomorrow\n${lines.join("\n")}`);
   } catch {
@@ -668,6 +733,8 @@ export async function GET(req: NextRequest) {
       placeFeedbackSent,
       holdsReleased,
       expiredNotified,
+      // M220: in-person bookings whose cash was due yesterday and is not recorded.
+      cashUnrecorded: cashUnrecorded.length,
       ordersExpired,
       paymentRemindersSent,
       missesEmailed,

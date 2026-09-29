@@ -35,6 +35,7 @@
 // their own appointment was.
 import { rupeesToCents } from "@/lib/money";
 import { parseSlotRange } from "@/lib/orders/slot";
+import { amountPaidRupees, cashToCollect, isPayInPerson } from "@/lib/bookings/in-person";
 // The ONLY import here, and it keeps this module pure: lib/money.ts has no
 // database and no React either. It carries the rule this file broke.
 
@@ -47,6 +48,9 @@ export type ActivityKind = (typeof ACTIVITY_KINDS)[number];
  */
 export const ACTIVITY_STAGES = ["pending", "confirmed", "active", "done", "cancelled"] as const;
 export type ActivityStage = (typeof ACTIVITY_STAGES)[number];
+
+/** See Activity.amountNote. */
+export type ActivityAmountNote = "to_pay_in_person" | "paid";
 
 export type Activity = {
   kind: ActivityKind;
@@ -74,6 +78,13 @@ export type Activity = {
    * time the platform has shipped the same confusion.
    */
   amountCents: number | null;
+  /**
+   * What `amountCents` IS, when a bare "Rs X" would mislead (M220). A booking
+   * the owner confirmed as paid in person shows what is still to hand over,
+   * labelled "to pay in person", or — once the cash is recorded — what was
+   * paid. Absent everywhere else, so every other card reads exactly as before.
+   */
+  amountNote?: ActivityAmountNote | null;
   currency: string;
   stage: ActivityStage;
   /** The kind-specific word shown on the badge, in English. */
@@ -130,7 +141,11 @@ export function vehicleStage(
   today: string,
 ): ActivityStage {
   if (status === "cancelled") return "cancelled";
-  if (status === "pending") return "pending";
+  // 'approved' (M91) is "free, now pay to confirm" — still waiting on the
+  // customer, and not held once payment_due_by passes. It fell through to
+  // "Confirmed" here, which told a customer with an unpaid deposit that the
+  // vehicle was theirs.
+  if (status === "pending" || status === "approved") return "pending";
   // Confirmed and in the past is finished; confirmed and spanning today is a
   // scooter currently in the customer's hands, which is a different thing to
   // say to them than "confirmed".
@@ -376,6 +391,46 @@ export function classifyReference(raw: string): ActivityKind | "unknown" {
 // tracking list that throws because one old booking has a null date is worse
 // than one that shows it with no date.
 
+// ── THE AMOUNT ON A BOOKING CARD (M220) ─────────────────────────────────────
+//
+// The card printed `amount_paid ?? deposit_amount` as a bare "Rs X". For a
+// booking the owner confirmed as paid in person, amount_paid is null until the
+// cash arrives, so the card showed the deposit figure — the online part of a
+// payment that is never going to be made online — looking exactly like money
+// already handed over.
+//
+// A pay-in-person booking now shows what is left to bring, labelled as such,
+// and once the cash is recorded in full, what was paid. The money comes from
+// lib/bookings/in-person.ts, the same helper the owner's desk reads, so the
+// customer's card and the owner's "cash to collect" cannot disagree. Every
+// other booking is untouched: same figure, no note.
+export type BookingMoneyRow = {
+  status?: string | null;
+  pay_in_person?: boolean | null;
+  /** Vehicles only: the whole rental, rupees. */
+  total_amount?: number | null;
+  amount_paid?: number | null;
+  deposit_amount?: number | null;
+};
+
+export function bookingAmount(
+  kind: "vehicle" | "place",
+  row: BookingMoneyRow,
+): { amountCents: number | null; amountNote: ActivityAmountNote | null } {
+  if (isPayInPerson(row)) {
+    const due = cashToCollect(kind, row);
+    if (due !== null && due > 0) return { amountCents: rupeesToCents(due), amountNote: "to_pay_in_person" };
+    const paid = amountPaidRupees(row);
+    if (paid > 0) return { amountCents: rupeesToCents(paid), amountNote: "paid" };
+    // Cancelled or a no-show with nothing taken, or a row with no price: no
+    // figure is truer than one the customer would read as paid.
+    return { amountCents: null, amountNote: null };
+  }
+  // What the customer has actually paid, not what they will owe.
+  // bookings / place_bookings store WHOLE RUPEES. Converted here, once.
+  return { amountCents: rupeesToCents(row.amount_paid ?? row.deposit_amount ?? null), amountNote: null };
+}
+
 export type VehicleRow = {
   id: string;
   scooter?: string | null;
@@ -386,11 +441,15 @@ export type VehicleRow = {
   status?: string | null;
   amount_paid?: number | null;
   deposit_amount?: number | null;
+  /** M220. Needed only to price what is left on a pay-in-person rental. */
+  total_amount?: number | null;
+  pay_in_person?: boolean | null;
 };
 
 export function vehicleToActivity(row: VehicleRow, today: string): Activity {
   const stage = vehicleStage(row.status, row.start_date, row.end_date, today);
   const reference = bookingReference(row.id);
+  const { amountCents, amountNote } = bookingAmount("vehicle", row);
   return {
     kind: "vehicle",
     id: row.id,
@@ -398,9 +457,9 @@ export function vehicleToActivity(row: VehicleRow, today: string): Activity {
     title: row.vehicleLabel || row.scooter || "Rental",
     provider: null,
     date: row.start_date ?? null,
-    // What the customer has actually paid, not what they will owe.
-    // bookings / place_bookings store WHOLE RUPEES. Converted here, once.
-    amountCents: rupeesToCents(row.amount_paid ?? row.deposit_amount ?? null),
+    // WHOLE RUPEES on the row, converted inside bookingAmount(), once.
+    amountCents,
+    amountNote,
     currency: "MUR",
     stage,
     statusLabel: activityLabel("vehicle", stage),
@@ -417,12 +476,16 @@ export type PlaceRow = {
   status?: string | null;
   deposit_paid_at?: string | null;
   amount_paid?: number | null;
+  /** The WHOLE price of a place booking (M210). */
   deposit_amount?: number | null;
+  /** M220. */
+  pay_in_person?: boolean | null;
 };
 
 export function placeToActivity(row: PlaceRow, today: string): Activity {
   const stage = placeStage(row.status, row.start_date, row.end_date, today, row.deposit_paid_at);
   const reference = bookingReference(row.id);
+  const { amountCents, amountNote } = bookingAmount("place", row);
   return {
     kind: "place",
     id: row.id,
@@ -430,8 +493,9 @@ export function placeToActivity(row: PlaceRow, today: string): Activity {
     title: row.place_name || "Booking",
     provider: row.place_name ?? null,
     date: row.start_date ?? null,
-    // bookings / place_bookings store WHOLE RUPEES. Converted here, once.
-    amountCents: rupeesToCents(row.amount_paid ?? row.deposit_amount ?? null),
+    // WHOLE RUPEES on the row, converted inside bookingAmount(), once.
+    amountCents,
+    amountNote,
     currency: "MUR",
     stage,
     statusLabel: activityLabel("place", stage),

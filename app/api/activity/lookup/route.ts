@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { rupeesToCents } from "@/lib/money";
 import { getPrivileged } from "@/lib/supabase/admin";
 import { guard } from "@/lib/rate-limit";
 import {
   bookingReference, classifyReference, vehicleStage, placeStage, orderStage,
-  activityLabel, type Activity,
+  activityLabel, bookingAmount, type Activity,
 } from "@/lib/activity";
 import { STATUS_LABEL, type OrderStatus } from "@/lib/orders/status";
 import { vehicleName } from "@/lib/vehicle-name";
@@ -83,6 +82,16 @@ export async function POST(req: NextRequest) {
           ? vehicleStage(b.status as string, start, end, today)
           : placeStage(b.status as string, start, end, today, b.depositPaid ? "paid" : null);
 
+      // M220: the same figure /orders shows — for a booking paid in person,
+      // what is still to bring (labelled), never an unpaid deposit read as paid.
+      const money = bookingAmount(kind, {
+        status: String(b.status ?? ""),
+        pay_in_person: b.payInPerson === true,
+        total_amount: kind === "vehicle" ? ((b.total as number | null) ?? null) : null,
+        deposit_amount: (b.deposit as number | null) ?? null,
+        amount_paid: (b.amountPaid as number | null) ?? null,
+      });
+
       const activity: Activity = {
         kind,
         id: String(b.id),
@@ -97,13 +106,9 @@ export async function POST(req: NextRequest) {
             : String(b.item ?? "Booking"),
         provider: kind === "place" ? String(b.item ?? "") : null,
         date: start,
-        // amount_paid is the truthful figure: what the customer has actually
-        // handed over, not what the total says they will owe.
-        // WHOLE RUPEES on a booking. Converted at the edge, once — the rule
-        // lib/money.ts states and this route broke.
-        amountCents: rupeesToCents(
-          (b.amountPaid as number | null) ?? (b.deposit as number | null) ?? null,
-        ),
+        // WHOLE RUPEES on a booking, converted once inside bookingAmount().
+        amountCents: money.amountCents,
+        amountNote: money.amountNote,
         currency: "MUR",
         stage,
         statusLabel: activityLabel(kind, stage),

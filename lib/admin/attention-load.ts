@@ -1,6 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { attentionItems, type AttentionCounts, type AttentionItem, type OrderQueues } from "./ops";
+import { countUnrecordedCash, islandToday, type DeskRow } from "./booking-money";
 
 // ── WHAT NEEDS A PERSON, GATHERED ONCE ──────────────────────────────────────
 //
@@ -64,6 +65,7 @@ const num = (v: unknown) => (typeof v === "number" ? v : undefined);
 export async function loadAttentionCounts(
   admin: SupabaseClient,
 ): Promise<AttentionCounts> {
+  const today = islandToday();
   const [
     openOrders,
     awaiting,
@@ -78,6 +80,8 @@ export async function loadAttentionCounts(
     variants,
     kitchenStores,
     eventStores,
+    cashRentals,
+    cashPlaces,
   ] = await Promise.all([
     // WITH store_id, not a bare count: a shop order and a ticket order must not
     // be counted into an alert whose destination could never show them.
@@ -110,6 +114,25 @@ export async function loadAttentionCounts(
     admin.from("product_variants").select("stock_quantity, low_stock_threshold, is_active").limit(1000),
     admin.from("food_kitchens").select("store_id"),
     admin.from("events").select("store_id"),
+    // M220 · paid-in-person bookings whose day has come. "Still owed" is
+    // amount_paid < total — column against column, which PostgREST cannot
+    // filter — so the narrowed rows (in person, on, day reached) come back
+    // and lib/bookings/in-person.ts decides, as it does for the desk cards.
+    // A handful of rows, never a table scan's worth.
+    admin
+      .from("bookings")
+      .select("status, pay_in_person, total_amount, amount_paid, start_date")
+      .eq("pay_in_person", true)
+      .in("status", ["confirmed", "completed"])
+      .lte("start_date", today)
+      .limit(500),
+    admin
+      .from("place_bookings")
+      .select("status, pay_in_person, deposit_amount, amount_paid, start_date")
+      .eq("pay_in_person", true)
+      .in("status", ["confirmed", "completed"])
+      .lte("start_date", today)
+      .limit(500),
   ]);
 
   const kitchenIds = new Set(
@@ -187,6 +210,9 @@ export async function loadAttentionCounts(
     taxiNoShows: num(taxiNoShows),
     refundsIgnored: num(refundsIgnored),
     ridesAwaitingCallback: num(ridesAwaitingCallback),
+    // A failed read contributes nothing (see the note on this function).
+    cashUnrecordedRentals: countUnrecordedCash("vehicle", (cashRentals.data ?? []) as DeskRow[], today),
+    cashUnrecordedPlaces: countUnrecordedCash("place", (cashPlaces.data ?? []) as DeskRow[], today),
   };
 }
 

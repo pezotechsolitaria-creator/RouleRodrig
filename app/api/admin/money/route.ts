@@ -4,6 +4,15 @@ import { getPrivileged } from "@/lib/supabase/admin";
 import { ESCALATE_AFTER_HOURS, hoursWaited } from "@/lib/notifications/escalation";
 import { slotReceives } from "@/lib/notifications/slot-match";
 import { rupeesToCents } from "@/lib/money";
+import { vehicleName } from "@/lib/vehicle-name";
+import {
+  amountPaidRupees,
+  bookingTotalRupees,
+  cashOverdue,
+  cashToCollect,
+  type MoneyRow as BookingMoney,
+} from "@/lib/bookings/in-person";
+import { islandDayStartUtc, islandToday, sortCashRows, type CashRow } from "@/lib/admin/booking-money";
 
 // ── One list of everything waiting on the owner's decision about money ──────
 //
@@ -53,8 +62,9 @@ export async function GET(req: NextRequest) {
   // skipped rather than emptying the whole page — a broken shop query must not
   // hide a rental someone has paid for.
   const rows: MoneyRow[] = [];
+  const today = islandToday();
 
-  const [vehicles, activities, orders] = await Promise.allSettled([
+  const [vehicles, activities, orders, cashVehicles, cashPlaces, paidToday] = await Promise.allSettled([
     supabase
       .from("bookings")
       .select("id, name, scooter, deposit_amount, payment_reported_at, payment_receipt_path, deposit_paid_at, status")
@@ -71,7 +81,10 @@ export async function GET(req: NextRequest) {
       .select("id, name, place_name, deposit_amount, payment_reported_at, payment_receipt_path, deposit_paid_at, status")
       .not("payment_reported_at", "is", null)
       .is("deposit_paid_at", null)
-      .in("status", ["pending"])
+      // "approved" too, for the reason given on the vehicle query: since M127
+      // a place booking is approved with a pay-by deadline BEFORE the
+      // customer sends the transfer, so that is where declarations land.
+      .in("status", ["pending", "approved"])
       .order("payment_reported_at", { ascending: true })
       .limit(100),
     // Orders have no payment_reported_at column; an uploaded receipt on an
@@ -83,6 +96,33 @@ export async function GET(req: NextRequest) {
       .eq("status", "pending_payment")
       .order("created_at", { ascending: true })
       .limit(100),
+    // ── M220 · cash the owner agreed to take by hand ─────────────────────
+    // The other half of "has anyone paid?": bookings confirmed as paid in
+    // person with money still owed. "Still owed" is a column-to-column
+    // comparison PostgREST cannot express, so the in-person rows come back
+    // and lib/bookings/in-person.ts decides — the same rule the desk cards
+    // and the reminders use.
+    supabase
+      .from("bookings")
+      .select("id, name, scooter, start_date, status, pay_in_person, total_amount, amount_paid")
+      .eq("pay_in_person", true)
+      .in("status", ["confirmed", "completed"])
+      .order("start_date", { ascending: true })
+      .limit(1000),
+    supabase
+      .from("place_bookings")
+      .select("id, name, place_name, start_date, status, pay_in_person, deposit_amount, amount_paid")
+      .eq("pay_in_person", true)
+      .in("status", ["confirmed", "completed"])
+      .order("start_date", { ascending: true })
+      .limit(1000),
+    // What was recorded as received today, island time (the ledger is
+    // admin-only; this route is behind the admin session).
+    supabase
+      .from("booking_payments")
+      .select("amount_rupees")
+      .gte("received_at", islandDayStartUtc(today))
+      .limit(1000),
   ]);
 
   if (vehicles.status === "fulfilled" && vehicles.value.data) {
@@ -145,6 +185,65 @@ export async function GET(req: NextRequest) {
   // Oldest first: the person who has been waiting longest is the one to answer.
   rows.sort((a, b) => (a.reportedAt ?? "").localeCompare(b.reportedAt ?? ""));
 
+  // ── Cash to collect (M220) ────────────────────────────────────────────────
+  // WHOLE RUPEES, never converted: this list never shares a field with the
+  // cents above, which is exactly how the 100x bug happened last time.
+  const cash: CashRow[] = [];
+  if (cashVehicles.status === "fulfilled" && cashVehicles.value.data) {
+    for (const b of cashVehicles.value.data as (BookingMoney & Record<string, unknown>)[]) {
+      const due = cashToCollect("vehicle", b);
+      if (!due) continue;
+      cash.push({
+        kind: "vehicle",
+        id: b.id as string,
+        reference: refOf(b.id as string),
+        customer: (b.name as string) ?? "—",
+        // The NAME, not the fleet id ("veh-1788973628068").
+        item: (await vehicleName((b.scooter as string) ?? "")) || null,
+        startDate: (b.start_date as string) ?? null,
+        totalRupees: bookingTotalRupees("vehicle", b),
+        paidRupees: amountPaidRupees(b),
+        toCollectRupees: due,
+        overdue: cashOverdue("vehicle", b, today),
+        desk: "Bookings",
+      });
+    }
+  } else if (cashVehicles.status === "rejected") {
+    console.error("money: cash rentals failed", cashVehicles.reason);
+  }
+
+  if (cashPlaces.status === "fulfilled" && cashPlaces.value.data) {
+    for (const b of cashPlaces.value.data as (BookingMoney & Record<string, unknown>)[]) {
+      const due = cashToCollect("place", b);
+      if (!due) continue;
+      cash.push({
+        kind: "place",
+        id: b.id as string,
+        reference: refOf(b.id as string),
+        customer: (b.name as string) ?? "—",
+        item: (b.place_name as string) ?? null,
+        startDate: (b.start_date as string) ?? null,
+        totalRupees: bookingTotalRupees("place", b),
+        paidRupees: amountPaidRupees(b),
+        toCollectRupees: due,
+        overdue: cashOverdue("place", b, today),
+        desk: "Stay & Activity Bookings",
+      });
+    }
+  } else if (cashPlaces.status === "rejected") {
+    console.error("money: cash place bookings failed", cashPlaces.reason);
+  }
+
+  // null, not zero, when the ledger could not be read: "Rs 0 today" is an
+  // answer, and the server did not give it.
+  let paymentsToday: { rupees: number; count: number } | null = null;
+  if (paidToday.status === "fulfilled" && !paidToday.value.error) {
+    const list = (paidToday.value.data ?? []) as { amount_rupees: number }[];
+    paymentsToday = { rupees: list.reduce((s, p) => s + (p.amount_rupees ?? 0), 0), count: list.length };
+  } else {
+    console.error("money: today's payments failed", paidToday.status === "rejected" ? paidToday.reason : paidToday.value.error);
+  }
+
   // ── Is the phone escalation actually armed? (M93) ─────────────────────────
   //
   // The WhatsApp escalation only reaches a number that has an ACTIVE slot
@@ -182,5 +281,5 @@ export async function GET(req: NextRequest) {
   // timestamps himself.
   const oldestHours = rows.length ? hoursWaited(rows[0].reportedAt ?? new Date().toISOString()) : 0;
 
-  return NextResponse.json({ rows, escalation, oldestHours });
+  return NextResponse.json({ rows, escalation, oldestHours, cash: sortCashRows(cash), paymentsToday });
 }

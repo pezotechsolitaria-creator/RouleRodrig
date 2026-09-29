@@ -254,6 +254,13 @@ function ActivityCard({ activity }: { activity: Activity }) {
                 Rs 180,000. Activity carries amountCents now; nothing to
                 branch on. */}
             Rs {centsToDisplay(activity.amountCents)}
+            {/* M220 — for a booking paid in person, say what the figure IS:
+                still to bring, or already paid. A bare amount read as paid. */}
+            {activity.amountNote && (
+              <span className="ml-1.5 font-dm text-xs font-normal text-muted">
+                {c.card.amountNote[activity.amountNote]}
+              </span>
+            )}
           </span>
         )}
       </div>

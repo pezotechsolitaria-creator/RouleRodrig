@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Loader2, Check, X, Mail, Ticket, RefreshCw } from "lucide-react";
+import { Loader2, Check, X, Mail, Ticket, RefreshCw, DoorOpen } from "lucide-react";
 import { centsToDecimalString } from "@/lib/money";
 import { paymentWords } from "@/lib/payments/words";
 import { STATUS_LABEL, type OrderStatus } from "@/lib/orders/status";
@@ -28,7 +28,14 @@ type Order = {
   items: { name: string; variant: string | null; quantity: number; lineTotal: number }[];
   ticketsIssued: number;
   ticketsScanned: number;
+  /** M220 — held for the door: set, the reservation no longer lapses. */
+  acceptedAt?: string | null;
+  /** When an unheld reservation is released (cash: 168h after ordering). */
+  autoReleaseAt?: string | null;
 };
+
+const when = (iso: string) =>
+  new Date(iso).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 
 type Totals = { orders: number; paid: number; waiting: number; revenue: number };
 
@@ -78,6 +85,12 @@ export default function EventOrdersPanel({
         );
       } else if (action === "resend_tickets") {
         toast.success(`Tickets emailed again (${b.resent}).`);
+      } else if (action === "hold") {
+        toast.success(
+          b.alreadyHeld
+            ? "Already held for the door."
+            : "Held — this reservation no longer lapses. Take the money at the door, then press Money received.",
+        );
       } else {
         toast.success("Payment rejected — the buyer can try again.");
       }
@@ -174,6 +187,15 @@ export default function EventOrdersPanel({
                   {o.receiptPath && (
                     <span className="text-muted">receipt attached</span>
                   )}
+                  {/* M220 — whether the reservation survives to the door. */}
+                  {waiting && o.acceptedAt && (
+                    <span className="inline-flex items-center gap-1 text-green-400">
+                      <DoorOpen size={11} /> Held — pays at the door
+                    </span>
+                  )}
+                  {waiting && !o.acceptedAt && o.autoReleaseAt && (
+                    <span className="text-muted">released {when(o.autoReleaseAt)} unless held</span>
+                  )}
                 </div>
 
                 <div className="mt-3 flex flex-wrap gap-2">
@@ -187,6 +209,20 @@ export default function EventOrdersPanel({
                         {busy === o.id + "confirm" ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
                         Money received — issue tickets
                       </button>
+                      {/* M220 — a separate act from the one above: keeps the
+                          reservation alive for a buyer paying cash at the
+                          door, records no money and issues no ticket. */}
+                      {!o.acceptedAt && (
+                        <button
+                          disabled={!!busy}
+                          onClick={() => void act(o.id, "hold")}
+                          title="Stops this reservation lapsing. No money is recorded and no ticket is issued until you press Money received."
+                          className="inline-flex items-center gap-1.5 rounded-full border border-yellow/40 px-3 py-1.5 font-dm text-xs text-yellow hover:bg-yellow/10 disabled:opacity-50"
+                        >
+                          {busy === o.id + "hold" ? <Loader2 size={12} className="animate-spin" /> : <DoorOpen size={12} />}
+                          Hold — pays at the door
+                        </button>
+                      )}
                       {o.status === "awaiting_payment_confirmation" && (
                         <button
                           disabled={!!busy}

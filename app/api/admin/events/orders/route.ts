@@ -24,7 +24,8 @@ function isAuthed(req: NextRequest) {
 
 const postSchema = z.object({
   orderId: z.string().uuid(),
-  action: z.enum(["confirm", "reject", "resend_tickets"]),
+  // "hold" (M220): the buyer pays at the door; keep the reservation alive.
+  action: z.enum(["confirm", "reject", "resend_tickets", "hold"]),
   reason: z.string().trim().max(300).optional(),
 });
 
@@ -40,13 +41,36 @@ export async function GET(req: NextRequest) {
   }
 
   const admin = await getPrivileged();
-  const { data, error } = await admin.rpc("admin_event_orders", { p_store_id: storeId });
+  const [{ data, error }, holds] = await Promise.all([
+    admin.rpc("admin_event_orders", { p_store_id: storeId }),
+    // M220 · whether each order is held, and until when. admin_event_orders
+    // (M70) predates the hold and does not return it; reading two columns
+    // here beats a migration to add them. Scoped to the same store the RPC
+    // already proved is an event.
+    admin.from("orders").select("id, accepted_at, auto_release_at").eq("store_id", storeId).limit(5000),
+  ]);
   if (error) {
     if (error.code === "RR003") return NextResponse.json({ error: error.message }, { status: 404 });
     console.error("admin_event_orders failed", error);
     return NextResponse.json({ error: "Could not load orders for that event." }, { status: 500 });
   }
-  return NextResponse.json(data ?? { orders: [], totals: {} });
+
+  const payload = (data ?? { orders: [], totals: {} }) as { orders?: Record<string, unknown>[] };
+  if (holds.error) {
+    // The box office still opens; it just cannot say which orders are held.
+    console.error("event order holds failed", holds.error);
+  } else if (Array.isArray(payload.orders)) {
+    const byId = new Map(
+      ((holds.data ?? []) as { id: string; accepted_at: string | null; auto_release_at: string | null }[]).map(
+        (h) => [h.id, h],
+      ),
+    );
+    payload.orders = payload.orders.map((o) => {
+      const h = byId.get(o.id as string);
+      return { ...o, acceptedAt: h?.accepted_at ?? null, autoReleaseAt: h?.auto_release_at ?? null };
+    });
+  }
+  return NextResponse.json(payload);
 }
 
 export async function POST(req: NextRequest) {
@@ -117,6 +141,59 @@ export async function POST(req: NextRequest) {
       );
     }
     return NextResponse.json({ ok: true, resent: count });
+  }
+
+  // ── Hold — pays at the door (M220) ────────────────────────────────────────
+  // A cash "pay at the door" order is released after 168h unless somebody
+  // accepts it (expire_order skips an order with accepted_at). For a concert
+  // three weeks out, the buyer's reservation lapsed long before the door
+  // opened, and the only button that saved it was "Money received — issue
+  // tickets", which records money nobody had handed over.
+  //
+  // admin_accept_order() (M217, body M219) is the honest answer: it sets
+  // accepted_at and clears the hold, and touches NO payment — the migration
+  // asserts it never mentions the payments table. Service role only, so it
+  // runs through the privileged client after this route's session check.
+  // Tickets are still issued only by "Money received", at the door.
+  if (action === "hold") {
+    const { data: order } = await admin
+      .from("orders")
+      .select("order_number, status, store_id, accepted_at")
+      .eq("id", orderId)
+      .maybeSingle();
+    if (!order) return NextResponse.json({ error: "Order not found." }, { status: 404 });
+
+    // Events only: this route must not become a way to accept a shop's order.
+    const { data: isEvent } = await admin
+      .from("events")
+      .select("store_id")
+      .eq("store_id", order.store_id as string)
+      .maybeSingle();
+    if (!isEvent) return NextResponse.json({ error: "Order not found." }, { status: 404 });
+
+    const { data: held, error: holdErr } = await admin
+      .rpc("admin_accept_order", { p_order_id: orderId })
+      .single();
+    if (holdErr) {
+      if (holdErr.code === "RR003") return NextResponse.json({ error: holdErr.message }, { status: 404 });
+      if (holdErr.code === "RR004") return NextResponse.json({ error: holdErr.message }, { status: 409 });
+      console.error("admin_accept_order (event hold) failed", holdErr);
+      return NextResponse.json({ error: "That did not work." }, { status: 500 });
+    }
+
+    // Idempotent like the RPC: a second tap changes nothing and logs nothing.
+    const firstTime = !order.accepted_at;
+    if (firstTime) {
+      await audit(admin, {
+        action: "event.order_held",
+        entityType: "order",
+        entityId: orderId,
+        diff: { orderNumber: order.order_number, status: order.status, payAtDoor: true },
+      });
+    }
+    const acceptedAt =
+      (held as { accepted_at?: string | null } | null)?.accepted_at ?? (order.accepted_at as string | null) ?? null;
+    return NextResponse.json({ ok: true, acceptedAt, alreadyHeld: !firstTime });
   }
 
   // ── Confirm / reject ──────────────────────────────────────────────────────

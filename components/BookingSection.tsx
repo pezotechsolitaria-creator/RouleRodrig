@@ -42,6 +42,7 @@ import { isValidPhone, isValidEmail } from "@/lib/phone";
 // returned 0 for a same-day booking where the server returned 1, so the
 // quote on screen could differ from the amount charged (RR012).
 import { priceBreakdown, rentalDays, todayInRodrigues } from "@/lib/booking-pricing";
+import type { PaymentPreference } from "@/lib/bookings/payment-preference";
 
 type FormState = "idle" | "loading" | "success" | "error";
 
@@ -114,7 +115,7 @@ export default function BookingSection({
   useEffect(() => setMounted(true), []);
   const [showPartnerCode, setShowPartnerCode] = useState(false);
   const [lastBooking, setLastBooking] = useState<
-    { scooter: string; range: string; days: number; name: string; email: string; total: string; bookingId?: string; deposit?: number; totalMur?: number; rate?: number; rental?: number; delivery?: number; balance?: number; pct?: number } | null
+    { scooter: string; range: string; days: number; name: string; email: string; total: string; bookingId?: string; deposit?: number; totalMur?: number; rate?: number; rental?: number; delivery?: number; balance?: number; pct?: number; inPerson?: boolean } | null
   >(null);
   const [agreed, setAgreed] = useState(false);
   const [agreeError, setAgreeError] = useState(false);
@@ -156,7 +157,11 @@ export default function BookingSection({
     return_time: "10:00",
     message: "",
     partner_code: "",
+    // M220: what the customer SAYS about paying. Online by default, so a
+    // customer who never looks at the choice books exactly as before.
+    payment_preference: "online" as PaymentPreference,
   });
+  const payInPersonChosen = form.payment_preference === "in_person";
 
   const selectedScooter = scooters.find((s) => s.id === form.scooter);
 
@@ -346,6 +351,10 @@ export default function BookingSection({
   function downloadReceipt() {
     if (!lastBooking) return;
     const short = (lastBooking.bookingId || "").replace(/-/g, "").slice(0, 6).toUpperCase() || Date.now().toString(36).toUpperCase().slice(-6);
+    // M220: a customer who asked to pay in cash is not "due" a deposit — the
+    // owner decides how it is paid — so their receipt names what they asked
+    // for instead of a deposit and a balance they may never owe.
+    const cashAsked = !!lastBooking.inPerson && !depositPaid;
     saveReceiptPdf({
       ref: `RR-${short}`,
       heading: depositPaid ? "Deposit receipt" : "Booking receipt",
@@ -374,7 +383,8 @@ export default function BookingSection({
             }]
           : []),
         ...(lastBooking.total ? [{ label: "Total", value: lastBooking.total, strong: true }] : []),
-        ...((lastBooking.deposit ?? 0) > 0
+        ...(cashAsked ? [{ label: "Payment", value: "In person, in cash (to be confirmed)" }] : []),
+        ...((lastBooking.deposit ?? 0) > 0 && !cashAsked
           ? [{
               label: depositPaid
                 ? "Deposit paid"
@@ -382,13 +392,17 @@ export default function BookingSection({
               value: `Rs ${(lastBooking.deposit ?? 0).toLocaleString()}`,
             }]
           : []),
-        ...(lastBooking.balance != null && lastBooking.balance > 0
+        ...(lastBooking.balance != null && lastBooking.balance > 0 && !cashAsked
           ? [{ label: "Balance at pickup", value: `Rs ${lastBooking.balance.toLocaleString()}` }]
           : []),
       ],
       note: depositPaid
         ? "Your deposit is received and your booking is confirmed. The balance is settled at pickup. Keep this receipt for your records."
-        : "This confirms your booking request. Pay the deposit to lock it in — the balance is settled at pickup.",
+        : cashAsked
+          ? // A request, like the i18n lines it mirrors: the owner may still
+            // ask for the deposit online (M220), so this cannot promise cash.
+            "This confirms your booking request. You asked to pay in person — we will tell you whether you can, or whether you need to pay online. Nothing is charged until then."
+          : "This confirms your booking request. Pay the deposit to lock it in — the balance is settled at pickup.",
     });
   }
 
@@ -501,6 +515,7 @@ export default function BookingSection({
           delivery_fee: breakdown ? breakdown.delivery : null,
           message: form.message || null,
           partner_code: form.partner_code.trim().toUpperCase() || null,
+          payment_preference: form.payment_preference,
         }),
       });
       // The server sends genuinely actionable refusals — "Those dates were just
@@ -523,6 +538,7 @@ export default function BookingSection({
         rental_days: days,
         has_partner_referral: Boolean(form.partner_code.trim()),
         has_deposit: Boolean((breakdown?.deposit ?? resData.depositAmount ?? 0) > 0),
+        payment_preference: form.payment_preference,
       });
       setLastBooking({
         scooter: selectedScooter?.name ?? form.scooter,
@@ -543,9 +559,10 @@ export default function BookingSection({
         delivery: breakdown?.delivery,
         balance: breakdown?.balance,
         pct: breakdown?.pct,
+        inPerson: form.payment_preference === "in_person",
       });
       setFormState("success");
-      setForm({ name: "", email: "", phone: "", scooter: "", start_date: "", end_date: "", pickup_time: "10:00", return_time: "10:00", message: "", partner_code: "" });
+      setForm({ name: "", email: "", phone: "", scooter: "", start_date: "", end_date: "", pickup_time: "10:00", return_time: "10:00", message: "", partner_code: "", payment_preference: "online" });
       setShowPartnerCode(false);
       setAgreed(false);
       // Note: no auto-reset here — the success card holds the deposit-payment
@@ -621,12 +638,20 @@ export default function BookingSection({
                   <p className="mt-1 font-dm text-muted text-sm">
                     {depositPaid
                       ? language === "fr" ? "À très bientôt — nous vous contactons avec les détails." : language === "cr" ? "Nou trouv ou byento — nou pou kontakte ou." : "See you soon — we'll be in touch with the details."
-                      : t.booking.successDesc}
+                      : lastBooking?.inPerson
+                        ? t.booking.successDescInPerson
+                        : t.booking.successDesc}
                   </p>
                 </div>
 
                 <div className="mt-5">
-                  <BookingTimeline completed={depositPaid ? 3 : 1} />
+                  {/* M220: a cash request has no Deposit step to show. Its
+                      steps are the ones /manage-booking will tick if the owner
+                      confirms it as paid in person. */}
+                  <BookingTimeline
+                    completed={depositPaid ? 3 : 1}
+                    labels={lastBooking?.inPerson && !depositPaid ? t.manageBooking.timelineInPersonVehicle : undefined}
+                  />
                 </div>
 
                 {/* ── M91: what happens next, instead of a payment button ──
@@ -643,7 +668,11 @@ export default function BookingSection({
                       {t.booking.checkingTitle}
                     </p>
                     <ol className="mt-2.5 space-y-2">
-                      {[t.booking.checkingStep1, t.booking.checkingStep2, t.booking.checkingStep3].map((step, i) => (
+                      {[
+                        t.booking.checkingStep1,
+                        t.booking.checkingStep2,
+                        lastBooking?.inPerson ? t.booking.checkingStep3InPerson : t.booking.checkingStep3,
+                      ].map((step, i) => (
                         <li key={i} className="flex gap-2.5 font-dm text-xs leading-relaxed text-offwhite/80">
                           <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-yellow/15 font-syne text-[10px] font-bold text-yellow">
                             {i + 1}
@@ -676,8 +705,12 @@ export default function BookingSection({
                     and pay nothing, or pay now and hold it. The refund promise
                     is stated in the same breath as the button, because it is
                     the thing that makes the second path fair — and it is the
-                    owner's exposure, not the customer's. */}
-                {!depositPaid && lastBooking?.bookingId && (lastBooking.deposit ?? 0) > 0 && (
+                    owner's exposure, not the customer's.
+
+                    Not for a customer who asked to pay in cash (M220): a pay
+                    button straight after "how would you like to pay? — in
+                    person" contradicts the answer they just gave. */}
+                {!depositPaid && lastBooking?.bookingId && (lastBooking.deposit ?? 0) > 0 && !lastBooking.inPerson && (
                   <>
                   <div className="mt-4 rounded-xl border border-yellow/25 bg-yellow/[0.04] p-4 text-left">
                     <p className="font-bebas text-[10px] tracking-[0.25em] text-yellow">
@@ -1025,6 +1058,51 @@ export default function BookingSection({
                 )}
               </div>
 
+              {/* ── HOW WOULD YOU LIKE TO PAY? (M220) ─────────────────────
+                  The owner: "people tend to pay on cash by hand". The form only
+                  ever described paying a deposit online, so a cash customer
+                  either went to WhatsApp or sent a request that promised a
+                  payment they never meant to make. This records what they say;
+                  the owner still decides (confirm as paid in person, or ask
+                  for the deposit). Online stays the default and its flow is
+                  unchanged. Radios, not buttons, so it is one named group. */}
+              <fieldset disabled={formState === "loading"}>
+                <legend className="font-bebas text-muted text-[10px] tracking-[0.25em] block mb-2">
+                  {t.booking.payChoiceLabel}
+                </legend>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  {([
+                    ["online", t.booking.payChoiceOnline],
+                    ["in_person", t.booking.payChoiceInPerson],
+                  ] as const).map(([value, label]) => {
+                    const active = form.payment_preference === value;
+                    return (
+                      <label
+                        key={value}
+                        className={`flex min-h-[44px] cursor-pointer items-center gap-2.5 rounded-xl border px-4 py-3 font-dm text-sm transition-colors ${
+                          active
+                            ? "border-yellow bg-yellow/10 text-offwhite"
+                            : "border-dark-border bg-dark-card text-muted hover:border-yellow/40"
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name="bk-payment-preference"
+                          value={value}
+                          checked={active}
+                          onChange={() => setForm((f) => ({ ...f, payment_preference: value }))}
+                          className="h-4 w-4 shrink-0 accent-yellow"
+                        />
+                        {label}
+                      </label>
+                    );
+                  })}
+                </div>
+                {payInPersonChosen && (
+                  <p className="text-muted/60 font-dm text-[11px] mt-1.5">{t.booking.payChoiceInPersonHint}</p>
+                )}
+              </fieldset>
+
               {/* Terms acceptance — required before booking */}
               <label className="flex items-start gap-2.5 cursor-pointer select-none">
                 <input
@@ -1150,7 +1228,18 @@ export default function BookingSection({
                         <dt className="text-muted font-dm text-xs">{t.booking.summaryTotal}</dt>
                         <dd className="text-yellow font-syne font-bold text-base">{convert(estimatedTotal)}</dd>
                       </div>
-                      {/* Deposit model: pay a % to confirm, balance at pickup */}
+                      {/* Deposit model: pay a % to confirm, balance at pickup.
+                          M220: not once the customer has said they will pay in
+                          cash — "Deposit to confirm" would then be a promise
+                          nobody made. The choice is shown instead, beside the
+                          whole figure, because that is what they are offering. */}
+                      {payInPersonChosen ? (
+                        <div className="flex justify-between items-start gap-3">
+                          <dt className="text-muted font-dm text-xs">{t.booking.payChoiceInPerson}</dt>
+                          <dd className="text-offwhite font-syne font-bold text-xs">{convert(estimatedTotal)}</dd>
+                        </div>
+                      ) : (
+                      <>
                       <div className="flex justify-between items-start">
                         <dt className="text-muted font-dm text-xs">
                           {t.booking.depositToConfirm(breakdown.pct)}
@@ -1165,6 +1254,8 @@ export default function BookingSection({
                           {convert(`Rs ${breakdown.balance.toLocaleString()}`)}
                         </dd>
                       </div>
+                      </>
+                      )}
                       {/* The cancellation terms, at the moment money is asked
                           for — they used to appear NOWHERE in the booking flow.
 
@@ -1297,6 +1388,8 @@ export default function BookingSection({
                 <p className="font-bebas text-[9px] tracking-[0.25em] text-muted">{t.booking.summaryTotal}</p>
                 <p className="font-syne text-base font-extrabold text-offwhite">{convert(estimatedTotal)}</p>
               </div>
+              {/* M220: no deposit figure once the customer chose cash. */}
+              {!payInPersonChosen && (
               <div className="text-right">
                 <p className="font-bebas text-[9px] tracking-[0.25em] text-muted">
                   {t.booking.depositToConfirm(breakdown.pct)}
@@ -1305,6 +1398,7 @@ export default function BookingSection({
                   {convert(`Rs ${breakdown.deposit.toLocaleString()}`)}
                 </p>
               </div>
+              )}
             </div>
             <button
               type="submit"

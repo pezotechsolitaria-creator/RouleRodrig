@@ -128,6 +128,18 @@ export type AttentionCounts = {
    * silently ignored, which is worse than the no-show it guards against.
    */
   ridesAwaitingCallback?: number;
+  /**
+   * Rentals confirmed as PAID IN PERSON whose pickup day has come, with money
+   * still owed and none recorded (M220).
+   *
+   * ACTION: the owner has either taken the cash and not pressed "Cash
+   * received" — so every total and receipt is wrong — or the customer never
+   * came and the vehicle is still held for them. Either way it is one tap on
+   * the rentals desk, and nobody else will ever notice.
+   */
+  cashUnrecordedRentals?: number;
+  /** The same for stays, activities and tours paid in person (M220). */
+  cashUnrecordedPlaces?: number;
 };
 
 /**
@@ -242,6 +254,17 @@ export function attentionItems(c: AttentionCounts): AttentionItem[] {
     {
       key: "place-bookings", label: "Experience bookings to confirm",
       count: c.pendingPlaceBookings ?? 0, severity: "action", href: "/admin/content#place_bookings",
+    },
+    // M220 · money agreed in person, day come, nothing recorded. Action, not
+    // critical: no customer is waiting on it — but left alone, the cash
+    // book is wrong or a no-show keeps the vehicle held.
+    {
+      key: "cash-unrecorded-rentals", label: "Pickups with no payment recorded",
+      count: c.cashUnrecordedRentals ?? 0, severity: "action", href: "/admin/content#bookings",
+    },
+    {
+      key: "cash-unrecorded-places", label: "Stays & activities with no payment recorded",
+      count: c.cashUnrecordedPlaces ?? 0, severity: "action", href: "/admin/content#place_bookings",
     },
     {
       key: "merchants", label: "Merchant applications to review",

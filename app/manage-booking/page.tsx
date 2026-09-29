@@ -12,6 +12,13 @@ import PaymentHelp from "@/components/payments/PaymentHelp";
 import { Field } from "@/components/ui/field";
 import { useLanguage } from "@/context/LanguageContext";
 import { loc } from "@/lib/localize";
+import { rupees } from "@/lib/bookings/in-person";
+import {
+  askedToPayInPerson,
+  inPersonMoney,
+  inPersonTimelineCompleted,
+  isNoShow,
+} from "@/lib/bookings/customer-view";
 
 type Booking = {
   kind: "vehicle" | "place";
@@ -31,6 +38,12 @@ type Booking = {
   paymentDueBy?: string | null;
   /** M91 — why a request could not be met, in the owner's own words. */
   unavailableNote?: string | null;
+  /** M220 — the owner confirmed it as paid in person. A promise, not money. */
+  payInPerson?: boolean | null;
+  /** M220 — what the customer asked for when they booked. */
+  paymentPreference?: "online" | "in_person" | null;
+  /** M220 — cancelled because nobody came: never a refund owed. */
+  noShow?: boolean | null;
 };
 
 // dd/mm/yyyy — the format guests expect (not the ISO the API returns).
@@ -159,7 +172,23 @@ export default function ManageBookingPage() {
     };
   }, [lookup]);
 
-  const completed = booking ? (booking.depositPaid || booking.status === "confirmed" ? 3 : 1) : 1;
+  // ── PAID IN PERSON (M220) ─────────────────────────────────────────────
+  // A booking the owner confirmed as paid in cash read "Confirmed" beside
+  // "Deposit to confirm Rs X", and its timeline ticked a Deposit step that
+  // never happened. `inPerson` is set only for such a booking while it is
+  // still on; it replaces the deposit row, the balance row and the timeline
+  // labels, and the figures come from lib/bookings/in-person.ts — the same
+  // helper the owner's "cash to collect" reads.
+  const inPerson = booking ? inPersonMoney(booking) : null;
+  const noShow = booking ? isNoShow(booking) : false;
+  // Asked for cash, not yet answered. Words only: an approved booking still
+  // shows the pay buttons the owner chose to offer.
+  const askedInPerson = booking ? askedToPayInPerson(booking) : false;
+  const completed = booking
+    ? inPerson
+      ? inPersonTimelineCompleted(inPerson, booking.status)
+      : booking.depositPaid || booking.status === "confirmed" ? 3 : 1
+    : 1;
   const confirmed = booking?.status === "confirmed" || booking?.depositPaid;
   // Anything not confirmed used to fall through to a hopeful yellow "Awaiting
   // deposit" badge — including CANCELLED, which is exactly what the guests most
@@ -322,17 +351,28 @@ export default function ManageBookingPage() {
                         : "bg-yellow/15 text-yellow"
                 }`}
               >
-                {isCancelled ? M.statusCancelled : isCompleted ? M.statusCompleted : confirmed ? M.statusConfirmed : M.statusAwaiting}
+                {isCancelled
+                  ? M.statusCancelled
+                  : isCompleted
+                    ? M.statusCompleted
+                    : confirmed
+                      ? M.statusConfirmed
+                      : askedInPerson
+                        ? M.statusAwaitingConfirmation
+                        : M.statusAwaiting}
               </span>
             </div>
             {isCancelled ? (
               <div className="rounded-xl border border-red-500/25 bg-red-500/[0.05] p-4">
-                <p className="font-dm text-sm text-offwhite">{M.cancelledBody}</p>
+                <p className="font-dm text-sm text-offwhite">{noShow ? M.noShowBody : M.cancelledBody}</p>
                 {/* "You have not been charged" was shown on EVERY cancelled
                     booking — including one whose deposit was taken (the "lock
                     it in now" path takes it before the availability check).
-                    That customer gets the refund card instead. */}
-                {booking.depositPaid ? (
+                    That customer gets the refund card instead.
+                    A no-show (M220) gets neither: nothing is refunded for a
+                    booking nobody came to, and whether they were "charged"
+                    is between them and the owner. */}
+                {noShow ? null : booking.depositPaid ? (
                   <PaymentHelp
                     section="refund"
                     reference={booking.ref}
@@ -352,15 +392,39 @@ export default function ManageBookingPage() {
                 </Link>
               </div>
             ) : (
-              <BookingTimeline completed={completed} />
+              <BookingTimeline
+                completed={completed}
+                // M220: Request sent → Confirmed → Pay in person → Pick-up. The
+                // default labels have a "Deposit" step, which a cash booking
+                // never takes — so it must never be ticked for one. A request
+                // that asked for cash reads the same way until the owner
+                // answers; if he approves it for online payment instead, it
+                // is no longer "asked" and the Deposit step comes back.
+                labels={
+                  inPerson || askedInPerson
+                    ? booking.kind === "vehicle"
+                      ? M.timelineInPersonVehicle
+                      : M.timelineInPersonPlace
+                    : undefined
+                }
+              />
             )}
             <dl className="mt-5 space-y-2 border-t border-white/[0.08] pt-4 text-sm">
               <Row k={booking.kind === "vehicle" ? M.rowVehicle : M.rowReservation} v={booking.item} />
               <Row k={M.rowWhen} v={`${fmtD(booking.start)}${booking.end && booking.end !== booking.start ? " → " + fmtD(booking.end) : ""}`} />
               {booking.total != null && <Row k={M.rowTotal} v={`Rs ${Number(booking.total).toLocaleString()}`} />}
+              {/* A place carries its whole price as `deposit` (M210), which the
+                  row below prints as "Deposit to confirm". With that row hidden
+                  for a cash request (M220), the price still has to be said. */}
+              {askedInPerson && booking.kind === "place" && booking.deposit != null && booking.deposit > 0 && (
+                <Row k={M.rowTotal} v={rupees(booking.deposit)} />
+              )}
               {/* Never show a deposit as still owed on a booking that can no
                   longer be paid — that was the core of the same lie. */}
-              {booking.deposit != null && booking.deposit > 0 && !isCancelled && (
+              {/* M220: nor for cash — confirmed as paid in person, or asked for
+                  and not yet answered, when "Deposit to confirm" is a demand
+                  nobody has made. */}
+              {booking.deposit != null && booking.deposit > 0 && !isCancelled && !inPerson && !askedInPerson && (
                 <Row
                   k={booking.depositPaid ? (paidInFull ? M.rowPaidInFull : M.rowDepositPaid) : M.rowDepositToConfirm}
                   // paidAmount is 0 (not null) for an unpaid booking, so the old
@@ -373,13 +437,48 @@ export default function ManageBookingPage() {
                   customer who chose "pay in full" used to be shown a deposit
                   and an implied balance, and was asked for it again at pickup —
                   the booking row simply had nowhere to record what they paid. */}
-              {booking.depositPaid && !isCancelled && booking.total != null && (
+              {booking.depositPaid && !isCancelled && booking.total != null && !inPerson && (
                 <Row
                   k={balanceDue > 0 ? M.rowBalanceAtPickup : M.rowBalance}
                   v={balanceDue > 0 ? `Rs ${balanceDue.toLocaleString()}` : M.rowNothingToPay}
                 />
               )}
+              {/* M220: what the customer brings, total less anything already
+                  recorded — never total less a deposit nobody paid, which is
+                  what the reminders printed before M220. */}
+              {inPerson &&
+                (inPerson.paidInFull ? (
+                  <Row k={M.rowPaidInFull} v={rupees(inPerson.paid)} strong />
+                ) : (
+                  <>
+                    {inPerson.paid > 0 && <Row k={M.rowPaidSoFar} v={rupees(inPerson.paid)} />}
+                    {inPerson.toPay != null && (
+                      <Row
+                        k={booking.kind === "vehicle" ? M.rowPayAtPickupCash : M.rowPayOnArrivalCash}
+                        v={rupees(inPerson.toPay)}
+                        strong
+                      />
+                    )}
+                  </>
+                ))}
             </dl>
+
+            {/* M220: in place of every pay-online block. The owner confirmed it
+                as paid in person, so there is nothing to do here but turn up. */}
+            {inPerson && (
+              <div className="mt-5 rounded-xl border border-green-500/30 bg-green-500/[0.07] p-3.5">
+                <p className="font-syne text-sm font-bold text-green-300">
+                  {inPerson.paidInFull ? M.rowPaidInFull : M.inPersonTitle}
+                </p>
+                <p className="mt-1 font-dm text-xs leading-relaxed text-green-200/80">
+                  {inPerson.paidInFull
+                    ? M.inPersonPaidBody
+                    : booking.kind === "vehicle"
+                      ? M.inPersonBodyVehicle
+                      : M.inPersonBodyPlace}
+                </p>
+              </div>
+            )}
 
             {/* ── M91: waiting on the availability check ──────────────────
                 A vehicle request is no longer payable on arrival. The owner
@@ -388,7 +487,21 @@ export default function ManageBookingPage() {
             {booking.kind === "vehicle" && booking.status === "pending" && !booking.depositPaid && (
               <div className="mt-5 rounded-xl border border-white/10 bg-white/[0.03] p-4">
                 <p className="font-syne text-sm font-bold text-offwhite">{M.checkingTitle}</p>
-                <p className="mt-1 font-dm text-xs leading-relaxed text-muted">{M.checkingBody}</p>
+                <p className="mt-1 font-dm text-xs leading-relaxed text-muted">
+                  {askedInPerson ? M.askedInPersonBody : M.checkingBody}
+                </p>
+              </div>
+            )}
+
+            {/* M220: a place request is otherwise payable while pending (below).
+                A customer who asked to pay in cash is told what happens next
+                instead of being shown a pay button for the thing they said they
+                would not do online. If the owner wants the money online after
+                all, he approves it and the approved block offers the buttons. */}
+            {booking.kind === "place" && askedInPerson && !booking.depositPaid && (
+              <div className="mt-5 rounded-xl border border-white/10 bg-white/[0.03] p-4">
+                <p className="font-syne text-sm font-bold text-offwhite">{M.checkingTitle}</p>
+                <p className="mt-1 font-dm text-xs leading-relaxed text-muted">{M.askedInPersonBody}</p>
               </div>
             )}
 
@@ -457,7 +570,7 @@ export default function ManageBookingPage() {
             {/* Place bookings are unchanged — they were never gated on an
                 availability check, and quietly changing that here would break a
                 flow this milestone is not about. */}
-            {booking.kind === "place" && booking.status === "pending" && !booking.depositPaid && booking.deposit != null && booking.deposit > 0 && (
+            {booking.kind === "place" && booking.status === "pending" && !booking.depositPaid && !askedInPerson && booking.deposit != null && booking.deposit > 0 && (
               <div className="mt-5 border-t border-white/[0.08] pt-5">
                 <PayPalDeposit
                   bookingId={booking.id}

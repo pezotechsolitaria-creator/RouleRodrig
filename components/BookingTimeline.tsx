@@ -6,6 +6,8 @@ import { useLanguage } from "@/context/LanguageContext";
 // Compact booking-lifecycle timeline shown on the confirmation. `completed` = how
 // many steps are done; the next step pulses as "current". Kept honest: only the
 // stages we actually track (request → deposit → confirmed → pick-up/enjoy).
+// A booking paid in person (M220) has no deposit step, so its page passes its
+// own `labels` rather than ticking one that never happened.
 const LABELS: Record<string, string[]> = {
   en: ["Request sent", "Deposit", "Confirmed", "Pick-up"],
   fr: ["Demande envoyée", "Acompte", "Confirmé", "Retrait"],
@@ -17,7 +19,8 @@ export default function BookingTimeline({
   labels,
 }: {
   completed?: number;
-  labels?: string[];
+  /** Readonly: the dictionary's arrays are `as const` (lib/i18n.ts). */
+  labels?: readonly string[];
 }) {
   const { language } = useLanguage();
   const steps = labels ?? LABELS[language] ?? LABELS.en;
