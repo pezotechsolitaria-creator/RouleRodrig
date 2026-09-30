@@ -194,3 +194,101 @@ export async function captureOrder(orderId: string): Promise<{
     referenceId: unit?.reference_id ?? null,
   };
 }
+
+// ── Fixed-price EUR orders (the eSIM store) ──────────────────────────────────
+//
+// Everything above prices in rupees and converts at capture time, with a 10%
+// band for FX drift. The eSIM store prices in EUR to begin with, so there is
+// no conversion and no band: the capture must equal the price to the cent.
+
+export async function createEurOrder(opts: {
+  referenceId: string; // our order id — echoed back at capture and checked
+  customId: string; // our human ref, shown in the PayPal dashboard
+  description: string;
+  eurValue: string; // "9.90"
+}): Promise<{ id: string }> {
+  const token = await accessToken();
+  const res = await fetch(`${BASE}/v2/checkout/orders`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+      // PayPal's own idempotency: a retried create returns the same order.
+      "PayPal-Request-Id": `create-${opts.referenceId}`,
+    },
+    body: JSON.stringify({
+      intent: "CAPTURE",
+      purchase_units: [
+        {
+          reference_id: opts.referenceId,
+          custom_id: opts.customId,
+          description: opts.description.slice(0, 127),
+          amount: { currency_code: PAYPAL_CURRENCY, value: opts.eurValue },
+        },
+      ],
+      // A digital good: never ask a buyer for a shipping address.
+      // application_context rather than payment_source.paypal.experience_context:
+      // the latter pins the order to the PayPal wallet, and the JS SDK's
+      // "Debit or credit card" button then refuses it — the guest card path
+      // is how most tourists without a PayPal account pay.
+      application_context: { shipping_preference: "NO_SHIPPING", brand_name: "Roulé Rodrigues" },
+    }),
+  });
+  if (!res.ok) throw new Error(`PayPal create-order failed: ${res.status} ${await res.text()}`);
+  const j = (await res.json()) as { id: string };
+  return { id: j.id };
+}
+
+/**
+ * Reads an order's current state WITHOUT capturing it. Used when a capture
+ * call fails ambiguously — a timeout, or "ORDER_ALREADY_CAPTURED" after a
+ * double tap — to learn whether the money actually moved.
+ */
+export async function fetchOrder(orderId: string): Promise<{
+  status: string;
+  captureId: string | null;
+  captureStatus: string | null;
+  amount: string | null;
+  currency: string | null;
+  referenceId: string | null;
+}> {
+  const token = await accessToken();
+  const res = await fetch(`${BASE}/v2/checkout/orders/${encodeURIComponent(orderId)}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) throw new Error(`PayPal get-order failed: ${res.status} ${await res.text()}`);
+  const j = (await res.json()) as {
+    status?: string;
+    purchase_units?: {
+      reference_id?: string;
+      payments?: { captures?: { id: string; status?: string; amount?: { value: string; currency_code: string } }[] };
+    }[];
+  };
+  const unit = j.purchase_units?.[0];
+  const cap = unit?.payments?.captures?.[0];
+  return {
+    status: j.status ?? "UNKNOWN",
+    captureId: cap?.id ?? null,
+    captureStatus: cap?.status ?? null,
+    amount: cap?.amount?.value ?? null,
+    currency: cap?.amount?.currency_code ?? null,
+    referenceId: unit?.reference_id ?? null,
+  };
+}
+
+/** Refunds a capture in full. Idempotent per capture via PayPal-Request-Id. */
+export async function refundCapture(captureId: string, note: string): Promise<{ id: string; status: string }> {
+  const token = await accessToken();
+  const res = await fetch(`${BASE}/v2/payments/captures/${encodeURIComponent(captureId)}/refund`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+      "PayPal-Request-Id": `refund-${captureId}`,
+    },
+    body: JSON.stringify({ note_to_payer: note.slice(0, 255) }),
+  });
+  if (!res.ok) throw new Error(`PayPal refund failed: ${res.status} ${await res.text()}`);
+  const j = (await res.json()) as { id: string; status: string };
+  return { id: j.id, status: j.status };
+}

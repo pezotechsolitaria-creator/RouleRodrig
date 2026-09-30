@@ -618,6 +618,20 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: "weekly",
       priority: 0.7,
     },
+    // The eSIM store (M223) and its French twin. "Rodrigues eSIM", "eSIM
+    // Maurice", "carte SIM Rodrigues": a pre-arrival need every visitor has,
+    // answered by nobody else with the one fact that matters here — which
+    // network actually reaches the island. Prices change with the catalogue.
+    {
+      url: `${SITE_URL}/esim`,
+      changeFrequency: "weekly",
+      priority: 0.8,
+    },
+    {
+      url: `${SITE_URL}/fr/esim-maurice-rodrigues`,
+      changeFrequency: "weekly",
+      priority: 0.85,
+    },
     // The hub whose five children were already listed without it.
     {
       url: `${SITE_URL}/experiences`,

@@ -55,6 +55,9 @@ export type LlmsData = {
   food: LlmsFood | null;
   /** True only while at least one event has tickets on sale. */
   eventsOnSale: boolean;
+  /** Cheapest eSIM plan on sale, euro cents; null/absent when none could be
+   *  read — the line then states no price rather than a stale one. */
+  esimFromEurCents?: number | null;
 };
 
 // ── WHEN THE CONTENT ROW COULD NOT BE READ ──────────────────────────────────
@@ -287,6 +290,8 @@ export function buildLlmsTxt(d: LlmsData): string {
     line(u, "/browse/getting-around", "Getting around Rodrigues", "taxis, transfers, scooter and car hire compared"),
     line(u, "/map", "Rodrigues map", "beaches, viewpoints, fuel stations and landmarks on one interactive map, with directions"),
     line(u, "/deliver", "Get anything delivered in Rodrigues", "post what you need collected or bought; local drivers send you their price and you choose"),
+    // The network is the whole point: only my.t and Emtel reach Rodrigues.
+    line(u, "/esim", "Rodrigues and Mauritius eSIM", `${d.esimFromEurCents ? `from EUR ${(d.esimFromEurCents / 100).toFixed(2)}, ` : ""}instant data eSIM on my.t 4G, the network that covers Rodrigues (Chili has no signal there); QR code in seconds, paid by card or PayPal`),
     "",
     "## Stay and do",
     "",

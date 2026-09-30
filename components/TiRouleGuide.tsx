@@ -1030,6 +1030,10 @@ export default function TiRouleGuide({
       rent: { label: c.rentCta, href: "/#explore" },
       taxi: { label: c.taxiCta, href: "/taxi" },
       eat: { label: c.eatCta, href: "/food" },
+      esim: {
+        label: language === "en" ? "Get an eSIM" : language === "fr" ? "Obtenir une eSIM" : "Pran enn eSIM",
+        href: language === "en" ? "/esim" : "/fr/esim-maurice-rodrigues",
+      },
     };
     const cta = k.place
       ? {

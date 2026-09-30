@@ -8,7 +8,7 @@ import {
   PenSquare, MapPinned, Wallet, MessageCircle, ScrollText, Search, Menu, X,
   ExternalLink, LogOut, Waves, Bike, Activity, Receipt, ChefHat, ShoppingBag, Car, ClipboardList,
   Sparkles, UserCheck, Radar, CalendarDays,
-  FileText,
+  FileText, CardSim,
 } from "lucide-react";
 import CommandPalette from "./CommandPalette";
 import AdminBell from "@/components/admin/AdminBell";
@@ -101,6 +101,8 @@ const NAV: NavGroup[] = [
       // dropdown, which is why the owner reported it as impossible.
       { href: "/admin/content#services", label: "Massage · Fishing · Boats", icon: Waves },
       { href: "/admin/content#fleet", label: "Scooters & cars", icon: Bike },
+      // The eSIM store (M223): orders, supplier balance, plans and margins.
+      { href: "/admin/esim", label: "eSIM store", icon: CardSim },
       { href: "/admin/stores", label: "Shops & hours", icon: Clock },
       { href: "/admin/events", label: "Events & tickets", icon: Ticket },
       { href: "/admin/managed-ticketing", label: "Ticketing fees", icon: Wallet },

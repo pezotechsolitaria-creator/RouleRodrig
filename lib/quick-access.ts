@@ -43,6 +43,22 @@ const MOVED: { id: string; from: string; to: string }[] = [
  * it alone.
  */
 const REPLACED: { id: string; whenHref: string; with: QuickAccessItem }[] = [
+  // The eSIM store takes Fishing's slot (owner, 30 Sep 2026). Fishing trips
+  // keep their page and their place under Experiences; what the grid gains is
+  // the one errand every single visitor has before they have any other.
+  {
+    id: "qa-fishing",
+    whenHref: "/experiences/fishing",
+    with: {
+      id: "qa-esim",
+      label: "eSIM Data",
+      labelFr: "eSIM Internet",
+      labelCr: "eSIM Internet",
+      href: "/esim",
+      icon: "esim",
+      enabled: true,
+    },
+  },
   {
     id: "qa-viewpoints",
     whenHref: "/guide/viewpoints",

@@ -41,6 +41,8 @@ const ALLOWED_WITHOUT_LINKS: Record<string, string> = {
   "/authentic":
     "Authentic IS the homepage (lib/worlds.ts -> WORLD_PAGE). This URL shipped for an hour as a second main page, and is kept alive as a redirect to / for anything already shared. Same reasoning as /v2.",
   "/auth/reset-password": "Opened from a password-reset EMAIL. There is nowhere in the app it could be linked from.",
+  "/esim/order/[ref]":
+    "A customer's eSIM install page. The ?k= key in its URL IS the credential (lib/esim/ids.ts), so it is reached only from the checkout redirect, the delivery email, or the /esim \"Already bought one?\" lookup — never from a plain link.",
   "/merchant/pickup": "Where a SCANNED pickup QR lands. The same job is reachable by clicking via the code box on /merchant/orders.",
   "/r/[token]":
     "The taxi driver's screen, opened from a WhatsApp link sent to that driver. Taxi drivers have no accounts by decision, so the token IS the credential and there is nowhere in the app it could be linked from.",

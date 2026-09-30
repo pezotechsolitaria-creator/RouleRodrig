@@ -20,6 +20,7 @@ const TITLES: Record<string, string> = {
   getThere: "How to get to Rodrigues",
   bestTime: "Best time to visit Rodrigues",
   money: "Money & currency",
+  phoneData: "Phone, SIM cards & mobile data",
   budget: "How much does a trip to Rodrigues cost?",
   gettingAround: "Getting around the island",
   tortoises: "Giant tortoises — François Leguat Reserve",
@@ -190,6 +191,15 @@ export default async function RodriguesGuidePage() {
               Go deeper
             </p>
             <ul className="mt-4 space-y-3">
+              <li>
+                <Link
+                  href="/esim"
+                  className="inline-flex items-center gap-2 font-dm text-sm text-yellow/80 hover:text-yellow transition-colors"
+                >
+                  An eSIM that works on Rodrigues (my.t 4G){" "}
+                  <ArrowRight size={14} />
+                </Link>
+              </li>
               <li>
                 <Link
                   href="/guide/beaches"

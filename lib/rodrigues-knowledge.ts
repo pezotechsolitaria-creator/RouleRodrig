@@ -5,7 +5,7 @@
 // Matched AFTER the core intents in TiRouleGuide, so it only handles the
 // "island question" topics the core topics don't cover.
 
-export type KnowledgeCta = "plan" | "map" | "rent" | "taxi" | "eat";
+export type KnowledgeCta = "plan" | "map" | "rent" | "taxi" | "eat" | "esim";
 
 export type KnowledgeEntry = {
   id: string;
@@ -61,6 +61,17 @@ export const RODRIGUES_KNOWLEDGE: KnowledgeEntry[] = [
     en: "The currency is the Mauritian rupee (Rs). Bring some cash — many small shops, markets and stalls don't take cards.",
     fr: "La monnaie est la roupie mauricienne (Rs). Prévoyez du liquide — beaucoup de petits commerces, marchés et stands n'acceptent pas la carte.",
     cr: "Larzan se roupi morisien (Rs). Amenn kas — boukou ti laboutik, bazar ek stand pa pran kart.",
+  },
+  {
+    // M223. The question every visitor has before landing, and the one fact
+    // no global eSIM site states: which Mauritian networks reach Rodrigues.
+    id: "phoneData",
+    kw: ["sim", "sim card", "esim", "e-sim", "mobile data", "internet", "4g", "phone network", "signal", "roaming", "data plan", "coverage", "wifi", "wi-fi"],
+    pose: "thinking",
+    cta: "esim",
+    en: "Only two mobile networks reach Rodrigues: my.t and Emtel — Chili has no signal on the island. The easiest option is a data eSIM on my.t that you install before you fly and that starts when you land. Wi-Fi is common in guesthouses but patchy elsewhere.",
+    fr: "Seuls deux réseaux mobiles couvrent Rodrigues : my.t et Emtel — Chili n'a aucun signal sur l'île. Le plus simple est une eSIM data sur my.t, installée avant le départ, qui démarre à l'arrivée. Le Wi-Fi est courant dans les gîtes, mais inégal ailleurs.",
+    cr: "Zis de rezo mobil kouver Rodrigues : my.t ek Emtel — Chili napa sinyal lor lil. Pli fasil se enn eSIM data lor my.t, ki ou instal avan ou pran avion ek ki koumans kan ou ariv. Wi-Fi ena dan boukou lakaz dot, me pa partou.",
   },
   {
     id: "budget",

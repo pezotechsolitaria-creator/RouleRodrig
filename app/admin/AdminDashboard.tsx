@@ -6598,7 +6598,7 @@ function GettingAroundEditor({
 // ── Events editor ────────────────────────────────────────────────────────────────
 
 // ── Home "What are you looking for?" tiles editor ────────────────────────────
-const QA_ICONS = ["restaurant", "beach", "hiking", "fishing", "boat", "plane", "taxi", "viewpoint", "store", "event", "map", "planner", "guide", "scooter", "car", "stay", "compass", "massage", "delivery"];
+const QA_ICONS = ["restaurant", "beach", "hiking", "fishing", "boat", "plane", "taxi", "viewpoint", "store", "event", "map", "planner", "guide", "scooter", "car", "stay", "compass", "massage", "delivery", "esim"];
 
 function QuickAccessEditor({
   content,

@@ -3568,3 +3568,173 @@ export async function sendOrderNotificationEmail(o: {
     attachments: o.attachments,
   });
 }
+
+// ── eSIM store (M223) ────────────────────────────────────────────────────────
+//
+// ONE language per email, not the bilingual EN · FR card the rentals use: the
+// customer chose a language on the page they bought from, and the install
+// steps are long enough that doubling them buries the QR code. French for
+// Creole too — the install screens on their phone are in French or English,
+// never Kreol, so French is the language the steps have to match.
+
+export type EsimEmailOrder = {
+  id: string;
+  ref: string;
+  email: string;
+  language: "en" | "fr" | "cr";
+  planLabel: string; // "3 GB · 30 days"
+  priceLabel: string; // "€15.90"
+  lpa: string;
+  smdpAddress: string;
+  activationCode: string;
+  qrCodeUrl: string | null;
+  /** The success page, with its access key — the one link that shows the QR. */
+  orderUrl: string;
+  appleInstallUrl: string;
+  /** PNG of the QR, base64 — attached so it survives an email client that
+   *  blocks remote images (which is most of them, by default). */
+  qrPngBase64: string | null;
+};
+
+export async function sendEsimDelivered(o: EsimEmailOrder): Promise<boolean> {
+  const { logo } = await getBrand();
+  const fr = o.language !== "en";
+  const t = fr
+    ? {
+        subject: `Votre eSIM Maurice & Rodrigues est prête — ${o.ref}`,
+        pre: "Scannez le QR code ou installez en un geste sur iPhone.",
+        eyebrow: "eSIM prête",
+        title: "Votre eSIM est prête à installer",
+        intro: `Merci ! Votre eSIM <b>${escapeHtml(o.planLabel)}</b> est prête. Installez-la <b>avant de partir</b>, en Wi-Fi — elle ne commence à compter ses jours qu'à sa première connexion à Maurice ou Rodrigues.`,
+        open: "Ouvrir ma page d'installation",
+        iphone: "Installer sur iPhone (un geste)",
+        manual: "Installation manuelle",
+        smdp: "Adresse SM-DP+",
+        code: "Code d'activation",
+        order: "Commande",
+        plan: "Forfait",
+        paid: "Payé",
+        stepsTitle: "À l'arrivée",
+        steps: [
+          "Réglages → Données cellulaires : choisissez l'eSIM Roulé Rodrigues pour les données.",
+          "Activez l'<b>itinérance des données</b> sur cette eSIM (c'est normal et sans frais).",
+          "Gardez votre SIM habituelle pour les appels et SMS si vous voulez — elle ne consommera pas de données.",
+        ],
+        qrNote: "Le QR code est aussi en pièce jointe. Il ne s'installe qu'une seule fois : ne supprimez pas l'eSIM de votre téléphone après l'installation.",
+        help: `Un souci ? Répondez à cet email ou écrivez à <a href="mailto:${CONTACT_EMAIL}" style="color:${C.ink};font-weight:600">${CONTACT_EMAIL}</a> avec votre numéro <b>${o.ref}</b>.`,
+      }
+    : {
+        subject: `Your Mauritius & Rodrigues eSIM is ready — ${o.ref}`,
+        pre: "Scan the QR code, or install in one tap on iPhone.",
+        eyebrow: "eSIM ready",
+        title: "Your eSIM is ready to install",
+        intro: `Thank you! Your <b>${escapeHtml(o.planLabel)}</b> eSIM is ready. Install it <b>before you fly</b>, on Wi-Fi — its days only start counting when it first connects in Mauritius or Rodrigues.`,
+        open: "Open my install page",
+        iphone: "Install on iPhone (one tap)",
+        manual: "Manual installation",
+        smdp: "SM-DP+ address",
+        code: "Activation code",
+        order: "Order",
+        plan: "Plan",
+        paid: "Paid",
+        stepsTitle: "When you land",
+        steps: [
+          "Settings → Mobile data: choose the Roulé Rodrigues eSIM for data.",
+          "Turn on <b>data roaming</b> for this eSIM (that is expected, and free).",
+          "Keep your usual SIM on for calls and texts if you like — it won't use data.",
+        ],
+        qrNote: "The QR code is also attached. It installs only once: do not delete the eSIM from your phone after installing it.",
+        help: `A problem? Reply to this email or write to <a href="mailto:${CONTACT_EMAIL}" style="color:${C.ink};font-weight:600">${CONTACT_EMAIL}</a> with your order number <b>${o.ref}</b>.`,
+      };
+
+  const qrImg = o.qrCodeUrl
+    ? `<div style="text-align:center;margin:0 0 18px"><img src="${escapeHtml(o.qrCodeUrl)}" width="220" height="220" alt="eSIM QR code" style="width:220px;height:220px;border:0;display:inline-block;background:#fff;padding:10px;border-radius:12px"></div>`
+    : "";
+  const body = `
+    ${paragraph(t.intro)}
+    <div style="text-align:center">${primaryButton(o.orderUrl, t.open)}</div>
+    <div style="text-align:center;margin:10px 0 22px"><a href="${escapeHtml(o.appleInstallUrl)}" style="font-family:${FONT};font-size:14px;font-weight:600;color:${C.ink}">${t.iphone} →</a></div>
+    ${qrImg}
+    ${sectionLabel(t.manual)}
+    ${detailCard(rows([
+      [t.smdp, `<span style="font-family:monospace">${escapeHtml(o.smdpAddress)}</span>`],
+      [t.code, `<span style="font-family:monospace;word-break:break-all">${escapeHtml(o.activationCode)}</span>`],
+    ]))}
+    ${sectionLabel(t.stepsTitle)}
+    ${checkList(t.steps)}
+    ${detailCard(rows([
+      [t.order, `<b>${o.ref}</b>`],
+      [t.plan, escapeHtml(o.planLabel)],
+      [t.paid, o.priceLabel],
+    ]))}
+    ${paragraph(`<span style="font-size:13px;color:${C.muted}">${t.qrNote}</span>`)}
+    ${paragraph(t.help)}`;
+
+  return send({
+    to: o.email,
+    subject: t.subject,
+    html: shell({ preheader: t.pre, eyebrow: t.eyebrow, title: t.title, body, logo }),
+    type: "esim_delivered",
+    key: `esim_delivered:${o.id}`,
+    relatedType: "esim_order",
+    relatedId: o.id,
+    attachments: o.qrPngBase64 ? [{ name: `esim-${o.ref}.png`, content: o.qrPngBase64 }] : undefined,
+  });
+}
+
+/** Payment taken, eSIM not yet issued. Honest, specific, and it names a time. */
+export async function sendEsimOrderProblem(o: {
+  id: string;
+  ref: string;
+  email: string;
+  language: "en" | "fr" | "cr";
+  orderUrl: string;
+}): Promise<boolean> {
+  const { logo } = await getBrand();
+  const fr = o.language !== "en";
+  const subject = fr
+    ? `Votre eSIM ${o.ref} : nous nous en occupons`
+    : `Your eSIM ${o.ref}: we're on it`;
+  const body = fr
+    ? `${paragraph("Votre paiement est bien reçu, mais notre fournisseur n'a pas encore émis votre eSIM. Une personne de notre équipe a été prévenue et s'en occupe maintenant.")}
+       ${paragraph("<b>Vous recevrez votre eSIM, ou un remboursement intégral, dans les 24 heures.</b> Vous n'avez rien à faire.")}
+       <div style="text-align:center">${primaryButton(o.orderUrl, "Suivre ma commande")}</div>
+       ${paragraph(`Une question : <a href="mailto:${CONTACT_EMAIL}" style="color:${C.ink};font-weight:600">${CONTACT_EMAIL}</a> — numéro <b>${o.ref}</b>.`)}`
+    : `${paragraph("Your payment has arrived, but our supplier hasn't issued your eSIM yet. A person on our team has been alerted and is dealing with it now.")}
+       ${paragraph("<b>You will receive your eSIM, or a full refund, within 24 hours.</b> There is nothing you need to do.")}
+       <div style="text-align:center">${primaryButton(o.orderUrl, "Track my order")}</div>
+       ${paragraph(`Any question: <a href="mailto:${CONTACT_EMAIL}" style="color:${C.ink};font-weight:600">${CONTACT_EMAIL}</a> — order <b>${o.ref}</b>.`)}`;
+  return send({
+    to: o.email,
+    subject,
+    html: shell({ eyebrow: "eSIM", title: fr ? "Nous finalisons votre eSIM" : "We're finishing your eSIM", body, logo }),
+    type: "esim_order_problem",
+    key: `esim_order_problem:${o.id}`,
+    relatedType: "esim_order",
+    relatedId: o.id,
+  });
+}
+
+/** To the owner: a sale, or something that needs a human. */
+export async function sendOwnerEsimAlert(a: {
+  subject: string;
+  heading: string;
+  message: string;
+  details: [string, string][];
+  key: string;
+}): Promise<boolean> {
+  const { logo } = await getBrand();
+  const body = `
+    ${paragraph(escapeHtml(a.message))}
+    ${detailCard(rows(a.details.map(([k, v]) => [escapeHtml(k), escapeHtml(v)] as [string, string])))}
+    <div style="text-align:center">${primaryButton(`${SITE_URL}/admin/esim`, "Open the eSIM desk")}</div>`;
+  return send({
+    to: await ownerInbox(),
+    subject: a.subject,
+    html: shell({ eyebrow: "eSIM store", title: a.heading, body, logo }),
+    type: "owner_esim_alert",
+    key: a.key,
+    relatedType: "esim_order",
+    relatedId: null,
+  });
+}

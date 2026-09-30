@@ -151,6 +151,13 @@ export const FR_PAGES: HubLink[] = [
     // a ride is paid to the driver, and the site takes nothing for it.
     blurb: "Transfert aéroport à tarif fixe par zone ; pour le reste, prix confirmé avant tout engagement.",
   },
+  {
+    href: "/fr/esim-maurice-rodrigues",
+    title: "eSIM Maurice et Rodrigues",
+    // The network, not the price: it is the one thing that decides whether an
+    // eSIM works here at all, and the one thing no global eSIM site says.
+    blurb: "Internet mobile dès l'atterrissage, sur my.t 4G — le réseau qui couvre Rodrigues.",
+  },
 ];
 
 /** A compact footer link. */

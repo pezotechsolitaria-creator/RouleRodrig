@@ -35,6 +35,10 @@ export type EmailCategory =
   // transaction itself, and the only category that can follow any of the
   // others.
   | "billing"
+  // The eSIM store (M223). Its own domain: nothing is rented or booked, the
+  // product IS the email — an activation code the customer cannot install
+  // without — and a dashboard asking what eats the quota should say "eSIM".
+  | "esim"
   | "account"
   | "operational"
   | "marketing";
@@ -252,6 +256,17 @@ export const EMAIL_TYPES = {
   // approving an application flipped a column and told them nothing. `high`
   // for that reason: it is the answer to a question a real person asked.
   partner_application_decision:     { category: "operational", priority: "high" },
+
+  // ── eSIM store (M223) ────────────────────────────────────────────────────
+  // The QR code and activation code. Critical for the same reason a ticket QR
+  // is: it IS the thing that was bought, and a reserve that throttled it would
+  // strand a traveller at the airport with no data and no way to get it.
+  esim_delivered:                   { category: "esim", priority: "critical" },
+  // Payment taken, eSIM not issued (wholesaler out of balance, plan withdrawn).
+  // Tells the customer, in the same hour, that a person is on it.
+  esim_order_problem:               { category: "esim", priority: "high" },
+  // To the owner: a sale, or a failure that needs a top-up, retry or refund.
+  owner_esim_alert:                 { category: "operational", priority: "high" },
 
   // ── Marketing ────────────────────────────────────────────────────────────
   // Kept a separate category so it can be throttled first and so it is never

@@ -26,6 +26,7 @@ const TITRES: Record<string, string> = {
   getThere: "Comment se rendre à Rodrigues",
   bestTime: "Quand visiter Rodrigues",
   money: "Argent & devises",
+  phoneData: "Téléphone, carte SIM et internet mobile",
   budget: "Quel budget prévoir pour un voyage à Rodrigues ?",
   gettingAround: "Se déplacer sur l'île",
   tortoises: "Tortues géantes — Réserve François Leguat",
@@ -223,6 +224,10 @@ export default async function GuideFrPage() {
                   // page; this is the page it always meant.
                   href: "/fr/location-voiture-rodrigues",
                   label: "Location de voiture à Rodrigues",
+                },
+                {
+                  href: "/fr/esim-maurice-rodrigues",
+                  label: "Une eSIM qui marche à Rodrigues (my.t 4G)",
                 },
               ].map((l) => (
                 <li key={l.href}>

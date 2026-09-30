@@ -76,14 +76,27 @@ async function readContent(): Promise<SiteContent> {
   }
 }
 
+/** The cheapest eSIM on sale, from the same public catalogue /esim renders. */
+async function readEsimFrom(): Promise<number | null> {
+  try {
+    const { createAnonClient } = await import("@/lib/supabase/anon");
+    const { data, error } = await createAnonClient().rpc("public_esim_plans", { p_region: "mauritius" });
+    if (error || !data?.length) return null;
+    return Math.min(...(data as { retail_eur_cents: number }[]).map((p) => p.retail_eur_cents));
+  } catch {
+    return null;
+  }
+}
+
 export async function readLlmsData(siteUrl: string): Promise<LlmsData> {
-  const [content, fares, food, eventsOnSale] = await Promise.all([
+  const [content, fares, food, eventsOnSale, esimFromEurCents] = await Promise.all([
     readContent(),
     readTransferFares(),
     readFood(),
     readEventsOnSale(),
+    readEsimFrom(),
   ]);
-  return { siteUrl, content, fares, food, eventsOnSale };
+  return { siteUrl, content, fares, food, eventsOnSale, esimFromEurCents };
 }
 
 /**

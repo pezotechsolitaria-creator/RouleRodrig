@@ -37,6 +37,7 @@ import {
   Siren,
   Compass,
   Truck,
+  CardSim,
 } from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
 import { useFavorites } from "@/context/FavoritesContext";
@@ -79,6 +80,9 @@ const LOOKING_ICON: Record<string, React.ElementType> = {
   // being run, not the parcel — and a box would read as "track my order",
   // which is a different tab.
   delivery: Truck,
+  // The eSIM store. A SIM card, not a signal-bars glyph: bars read as "check
+  // my connection", the card reads as "get a SIM" — which is the errand.
+  esim: CardSim,
 };
 // Icon keys for the six home cards.
 const HOME_ICON: Record<string, React.ElementType> = {
