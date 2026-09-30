@@ -1,10 +1,16 @@
 import { describe, it, expect } from "vitest";
 import {
   rideUnassignedAlert,
+  rideUnreachedAlert,
   dedupeKeyFor,
+  unreachedKeyFor,
   RIDE_NO_DRIVER_TYPE,
+  RIDE_NO_DRIVER_REMINDER_TYPE,
+  RIDE_UNREACHED_TYPE,
   type RideUnassignedFacts,
+  type RideUnreachedFacts,
 } from "./no-driver-copy";
+import { formatWhatsAppMessage } from "@/lib/notifications/queue";
 
 // The message this replaces was "No driver accepted a ride." followed by
 // "<pickup> → <dropoff>". Ride RR-26A506 (26a506b6-63a6-4a30-9521-6f22796dd075)
@@ -41,7 +47,7 @@ describe("the message leads with the call the platform already promised", () => 
 
   it("gives the number to dial, above the details", () => {
     const a = rideUnassignedAlert(facts());
-    expect(a.lines[1]).toBe("Call them now: +230 5836 3401");
+    expect(a.lines[1]).toBe("Dofof's number: +230 5836 3401");
     expect(a.lines.indexOf("Pickup: Mont Lubin")).toBeGreaterThan(1);
   });
 
@@ -63,7 +69,8 @@ describe("the message leads with the call the platform already promised", () => 
   });
 
   it("points at the page, not at nothing, when the number is missing", () => {
-    expect(text(facts({ customerPhone: null }))).toContain("their number is on the rides page");
+    expect(text(facts({ customerPhone: null }))).toContain("Dofof's number is on the rides page.");
+    expect(text(facts({ customerPhone: null, customerName: null }))).toContain("The customer's number is on the rides page.");
   });
 
   it("carries the reference the owner can find the ride by", () => {
@@ -209,5 +216,211 @@ describe("dedupe keys, because a collision is a message nobody receives", () => 
   it("cannot be confused with a delivery alert", () => {
     expect(dedupeKeyFor(RIDE, "2026-08-14T12:17:10Z")).not.toContain("delivery");
     expect(RIDE_NO_DRIVER_TYPE).toBe("ride_no_driver");
+  });
+});
+
+// ── RR-0E90AD, 29 Sep 2026 ──────────────────────────────────────────────────
+// An airport pickup booked four days ahead. The only driver who takes airport
+// runs had no WhatsApp and no phone alerts, was "offered" it in four rounds,
+// and the owner was told he "was asked and did not accept" — while the
+// message also said the customer had "been waiting 89 hours 42 minutes".
+
+describe("asked is not the same as told", () => {
+  const sam = { driversAsked: 1, unreachable: ["Mr Sam"], unreachableNoAlerts: ["Mr Sam"] };
+
+  it("says the only driver was never alerted, instead of blaming him for not accepting", () => {
+    const t = text(facts(sam));
+    expect(t).toContain("Mr Sam was offered it but was never alerted to it.");
+    expect(t).toContain("Mr Sam has no WhatsApp or phone alerts set up.");
+    expect(t).not.toContain("did not accept");
+    expect(t).toContain("Drivers → Send link");
+  });
+
+  it("claims only what is known: alerted or not, never 'saw'", () => {
+    // A driver with no alerts can still open his own page and see a live offer.
+    expect(text(facts(sam))).not.toMatch(/saw it|never seen/);
+  });
+
+  it("says none of several was alerted when none was", () => {
+    const t = text(facts({ driversAsked: 2, unreachable: ["Mr Sam", "Ravi"], unreachableNoAlerts: ["Mr Sam", "Ravi"] }));
+    expect(t).toContain("2 drivers were offered it, and none of them was alerted to it.");
+    expect(t).toContain("Mr Sam and Ravi have no WhatsApp or phone alerts set up.");
+    expect(t).not.toContain("None accepted");
+  });
+
+  it("keeps the refusal and names only the ones who were never alerted", () => {
+    const t = text(facts({ driversAsked: 3, unreachable: ["Mr Sam"], unreachableNoAlerts: ["Mr Sam"] }));
+    expect(t).toContain("3 drivers were asked. None accepted, and Mr Sam was never alerted to it.");
+    expect(text(facts({ driversAsked: 3, unreachable: ["Mr Sam", "Ravi"] })))
+      .toContain("and Mr Sam and Ravi were never alerted to it.");
+  });
+
+  it("tells a code that does not work from alerts that were never set up", () => {
+    // A typo'd WhatsApp code reads as "set up" and fails every send.
+    const t = text(facts({ driversAsked: 1, unreachable: ["Ravi"], unreachableFailed: ["Ravi"] }));
+    expect(t).toContain("The alert to Ravi did not go through: check the WhatsApp code saved on the rides page, under Drivers.");
+    expect(t).not.toContain("no WhatsApp or phone alerts set up");
+    expect(t).not.toContain("Send link");
+  });
+
+  it("counts a driver asked in four rounds once", () => {
+    const t = text(facts({ driversAsked: 1, unreachable: ["Mr Sam", "Mr Sam", " "] }));
+    expect(t).toContain("Mr Sam was offered it but was never alerted to it.");
+  });
+
+  it("is unchanged when everyone asked was alerted, or when we could not tell", () => {
+    expect(text(facts({ driversAsked: 1, unreachable: [] }))).toContain("One driver was asked and did not accept.");
+    expect(text(facts({ driversAsked: 4, unreachable: null }))).toContain("4 drivers were asked. None accepted.");
+    expect(text(facts({ driversAsked: 4, unreachable: null }))).not.toContain("Send link");
+  });
+});
+
+describe("a booked ride says when it is, not how long ago it was booked", () => {
+  const booked = facts({
+    minutesWaiting: 89 * 60 + 42,
+    pickupAt: "2026-09-30T07:00:00.000Z", // 11:00 in Rodrigues
+    minutesToPickup: 1396,
+  });
+
+  it("leads with the pickup time in island time and how far away it is", () => {
+    const a = rideUnassignedAlert(booked);
+    expect(a.lines[0]).toMatch(/^Dofof's pickup is Wed 30 Sept?, 11:00 \(in 23 hours 16 minutes\) and there is still no driver\.$/);
+    expect(a.lines.join("\n")).not.toContain("89 hours");
+  });
+
+  it("falls back to the wait for a ride booked for now", () => {
+    expect(text(facts({ minutesWaiting: 12, pickupAt: null, minutesToPickup: null })))
+      .toContain("has been waiting 12 minutes");
+  });
+
+  it("does not say a pickup that has already passed is still to come", () => {
+    const t = text(facts({ minutesWaiting: 30, pickupAt: "2026-09-30T07:00:00.000Z", minutesToPickup: null }));
+    expect(t).not.toContain("pickup is");
+    expect(t).toContain("has been waiting 30 minutes");
+  });
+
+  it("never writes The customer's's", () => {
+    const t = text(facts({ customerName: null, pickupAt: "2026-09-30T07:00:00.000Z", minutesToPickup: 90 }));
+    expect(t).toContain("The customer's pickup is");
+    expect(t).not.toContain("'s's");
+  });
+});
+
+describe("the reminder before pickup", () => {
+  const f = facts({ pickupAt: "2026-09-30T07:00:00.000Z", minutesToPickup: 300, reminder: true });
+
+  it("is its own message, so the first alert's key cannot swallow it", () => {
+    const first = rideUnassignedAlert({ ...f, reminder: false });
+    const again = rideUnassignedAlert(f);
+    expect(again.type).toBe(RIDE_NO_DRIVER_REMINDER_TYPE);
+    expect(again.dedupeKey).not.toBe(first.dedupeKey);
+    expect(again.dedupeKey).toMatch(/^ride:no-driver-reminder:[^:]+:\d+$/);
+  });
+
+  it("says it is still unassigned and when the pickup is", () => {
+    const a = rideUnassignedAlert(f);
+    expect(a.title).toBe("Still no driver for Dofof");
+    expect(a.lines[0]).toContain("(in 5 hours)");
+  });
+});
+
+describe("the round that reached nobody", () => {
+  const u = (over: Partial<RideUnreachedFacts> = {}): RideUnreachedFacts => ({
+    rideId: RIDE,
+    ladderStartedAt: "2026-09-29T07:00:47.632686+00:00",
+    customerName: "Dofof",
+    customerPhone: "+230 5836 3401",
+    pickup: "Plaine Corail Airport",
+    dropoff: "Le tekoma",
+    pickupAt: "2026-09-30T07:00:00.000Z",
+    minutesToPickup: 1439,
+    noAlerts: ["Mr Sam"],
+    noNumber: [],
+    failed: [],
+    ...over,
+  });
+  const all = (f: RideUnreachedFacts) => {
+    const a = rideUnreachedAlert(f);
+    return [a.title, ...a.lines].join("\n");
+  };
+
+  it("says who was never alerted, and why, while the ladder is still running", () => {
+    const a = rideUnreachedAlert(u());
+    expect(a.type).toBe(RIDE_UNREACHED_TYPE);
+    expect(a.title).toBe("No driver was told about Dofof's ride");
+    const t = all(u());
+    expect(t).toContain("The offer went to Mr Sam, but no WhatsApp or phone alerts are set up, so no alert went out.");
+    expect(t).toContain("Ring a driver yourself and give them the ride on the rides page.");
+    expect(t).toContain("Drivers → Send link");
+  });
+
+  it("says whose number it is, so a customer's number never reads as a driver's", () => {
+    // It sits under "Ring a driver yourself…", where every nearby "them" is a driver.
+    expect(all(u())).toContain("Dofof's number: +230 5836 3401");
+    expect(all(u())).not.toMatch(/^Their number/m);
+  });
+
+  it("tells a now-ride from a booking", () => {
+    expect(all(u({ pickupAt: null, minutesToPickup: null }))).toContain("Dofof wants a ride now.");
+    expect(all(u())).toContain("Dofof's pickup is");
+  });
+
+  it("names a missing number and a failed send for what they are", () => {
+    const t = all(u({ noAlerts: [], noNumber: ["Anil"], failed: ["Ravi"] }));
+    expect(t).toContain("Anil has no phone number saved");
+    expect(t).toContain("The alert to Ravi did not go through: check the WhatsApp code saved on the rides page");
+    expect(t).not.toContain("Send link");
+  });
+
+  it("agrees has/have with the number of names", () => {
+    expect(all(u({ noAlerts: [], noNumber: ["Anil", "Ravi"] }))).toContain("Anil and Ravi have no phone number saved");
+  });
+
+  it("is one message per run of the ladder, and a new run alerts again", () => {
+    const k1 = unreachedKeyFor(RIDE, "2026-09-29T07:00:47.632686+00:00");
+    const k2 = unreachedKeyFor(RIDE, "2026-09-30T02:10:00.000+00:00");
+    expect(rideUnreachedAlert(u()).dedupeKey).toBe(k1);
+    expect(k1).not.toBe(k2);
+    expect(k1).toMatch(/^ride:unreached:[^:]+:\d+$/);
+    expect(unreachedKeyFor(RIDE, null)).toBeNull();
+  });
+
+  it("uses none of our internal vocabulary", () => {
+    const t = all(u({ noNumber: ["Anil"], failed: ["Ravi"] })).toLowerCase();
+    for (const word of ["no_driver", "dispatch", "ride_offers", "queue", "cron", "status", "payload", "slot", "undefined", "null"]) {
+      expect(t, word).not.toContain(word);
+    }
+  });
+});
+
+// ── WHAT CALLMEBOT WILL NOT CARRY ──────────────────────────────────────────
+// Twelve of twelve of these alerts queued for WhatsApp died with "CallMeBot
+// 403: Forbidden" — the provider's firewall refusing the text. Reproduced on
+// 29 Sep 2026 with a dummy key: the smallest refused text was a line break
+// followed by "Call them". This pins the WhatsApp body, as actually formatted,
+// against the one shape that is known to be refused.
+describe("the WhatsApp body never carries the shape CallMeBot refuses", () => {
+  const BLOCKED = /\n\s*call (them|him|her)\b/i;
+  const bodies = [
+    ...[
+      {},
+      { customerPhone: null },
+      { driversAsked: 1, unreachable: ["Mr Sam"] },
+      { driversAsked: 3, unreachable: ["Mr Sam"] },
+      { pickupAt: "2026-09-30T07:00:00.000Z", minutesToPickup: 300, reminder: true },
+      { customerName: null, customerPhone: null, minutesWaiting: null },
+    ].map((over) => rideUnassignedAlert(facts(over as Partial<RideUnassignedFacts>))),
+    rideUnreachedAlert({
+      rideId: RIDE, ladderStartedAt: null, customerPhone: "+230 5836 3401",
+      noAlerts: ["Mr Sam"], noNumber: ["Anil"], failed: ["Ravi"],
+    }),
+  ].map((a) => formatWhatsAppMessage({ title: a.title, lines: a.lines }));
+
+  it("has no line opening with 'Call them' or 'Call him'", () => {
+    for (const body of bodies) expect(body).not.toMatch(BLOCKED);
+  });
+
+  it("still carries the customer's number", () => {
+    expect(bodies[0]).toContain("+230 5836 3401");
   });
 });

@@ -14,6 +14,7 @@ import {
 } from "@/lib/rides/model";
 import { TRIP_TYPES } from "@/lib/rides/transfer";
 import { quoteAirportTransfer } from "@/lib/rides/transfer-server";
+import { bookingReachLine, type RosterDriver } from "@/lib/rides/reachability";
 
 // ── THE CUSTOMER'S OWN BOOKING ──────────────────────────────────────────────
 //
@@ -336,6 +337,28 @@ export async function POST(req: NextRequest) {
           })
         : "As soon as possible";
 
+    // Will anybody hear about it? See lib/rides/reachability.ts. Any failed
+    // read drops the line, never the alert.
+    let reachLine: string | null = null;
+    try {
+      const [roster, wa, push] = await Promise.all([
+        admin.from("taxi_drivers").select("id, name, active, handles_taxi, handles_airport, handles_transfer"),
+        admin.rpc("taxi_whatsapp_readiness"),
+        admin.rpc("taxi_push_readiness"),
+      ]);
+      if (!roster.error && !wa.error && !push.error) {
+        const reachable = new Set<string>([
+          ...((wa.data ?? []) as { driver_id: string; whatsapp_ready: boolean }[])
+            .filter((r) => r.whatsapp_ready).map((r) => r.driver_id),
+          ...((push.data ?? []) as { driver_id: string; push_ready: boolean }[])
+            .filter((r) => r.push_ready).map((r) => r.driver_id),
+        ]);
+        reachLine = bookingReachLine((roster.data ?? []) as RosterDriver[], reachable, v.service);
+      }
+    } catch (err) {
+      console.error("booking reach check threw", err);
+    }
+
     await enqueueNotification({
       type: "ride.requested",
       category: "rides",
@@ -369,6 +392,7 @@ export async function POST(req: NextRequest) {
           v.flightRef ? `Flight: ${v.flightRef}` : null,
           v.meetGreet ? "Meet & greet requested" : null,
           v.notes ? `Note: ${v.notes}` : null,
+          reachLine,
         ],
         action: `${SITE_URL}/admin/rides`,
       }),

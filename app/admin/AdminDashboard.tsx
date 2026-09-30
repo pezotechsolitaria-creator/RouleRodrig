@@ -3,6 +3,7 @@
 import { toast } from "sonner";
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { CALLMEBOT_NUMBER, CALLMEBOT_OPT_IN } from "@/lib/notifications/callmebot-number";
 import Link from "next/link";
 import Image from "next/image";
 import { downloadBlob, downloadCsv, toCsv } from "@/lib/download";
@@ -8735,11 +8736,11 @@ function NotificationsEditor() {
         <p className="font-bebas text-yellow text-xs tracking-[0.3em] mb-3">SWITCHING TO A NEW NUMBER — 2 MINUTES</p>
         <ol className="space-y-2.5 text-sm font-dm text-offwhite/85 list-decimal list-inside">
           <li>
-            On the <strong>new phone</strong>, save this contact: <strong className="text-yellow">+34 644 84 71 89</strong> (CallMeBot).
+            On the <strong>new phone</strong>, save this contact: <strong className="text-yellow">{CALLMEBOT_NUMBER}</strong> (CallMeBot).
           </li>
           <li>
             From that phone, send it this WhatsApp message:{" "}
-            <em className="text-offwhite">&ldquo;I allow callmebot to send me messages&rdquo;</em>
+            <em className="text-offwhite">&ldquo;{CALLMEBOT_OPT_IN}&rdquo;</em>
           </li>
           <li>CallMeBot replies in a minute with your personal <strong>API key</strong> (a number).</li>
           <li>Enter the new number and that API key below, save, then send a test.</li>

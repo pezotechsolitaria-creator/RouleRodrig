@@ -54,3 +54,30 @@ export function classifyOfferTarget(t: OfferTargetLike): OfferTargetOutcome {
   if (!key) return "no_key";
   return "send";
 }
+
+/** The counters of one round's send, as notifyRideOffers returns them. */
+export type RoundDelivery = {
+  sent: number;
+  pushed: number;
+  unreachable: unknown[];
+  noContact: unknown[];
+  failed: unknown[];
+};
+
+/**
+ * Did this round of offers reach nobody at all — and was there somebody it
+ * should have reached?
+ *
+ * Both halves matter. Nothing sent and nothing pushed, AND at least one driver
+ * in their hours who could not be told. A round whose drivers are all outside
+ * their quiet hours returns no targets at all: that is the design (they hold
+ * the offer and are not woken), not a fault, and it stays silent here. So does
+ * a round whose read failed — notifyRideOffers returns all zeros then, and an
+ * alarm about a read we could not make would be a guess.
+ *
+ * Ride RR-0E90AD, 29 Sep 2026: four rounds, each {sent 0, pushed 0,
+ * unreachable [Mr Sam]}, and the cron threw every one of those results away.
+ */
+export function reachedNobody(d: RoundDelivery): boolean {
+  return d.sent + d.pushed === 0 && d.unreachable.length + d.noContact.length + d.failed.length > 0;
+}

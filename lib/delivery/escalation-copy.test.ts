@@ -278,3 +278,23 @@ describe("the board says the same thing as the message that links to it", () => 
       .toBe("No driver has taken it for 9 minutes (3 offers out).");
   });
 });
+
+// Both "package with driver" alerts ever queued for WhatsApp died with
+// "CallMeBot 403: Forbidden" — the provider's firewall refusing a line that
+// opens with "Call him" after a line break (see lib/rides/no-driver-copy.ts).
+describe("the WhatsApp body never carries the shape CallMeBot refuses", () => {
+  const body = (f: DeliveryStallFacts) => {
+    const a = deliveryStallAlert(f);
+    return [a.title, a.lines.join("\n")].join("\n\n");
+  };
+
+  it.each(ALL)("%s has no line opening with 'Call him' or 'Call them'", (kind) => {
+    for (const over of [{}, { driverPhone: null }, { driverName: null }]) {
+      expect(body(facts({ kind, ...over }))).not.toMatch(/\n\s*call (him|her|them)\b/i);
+    }
+  });
+
+  it("still gives the owner the driver's number when the package is with him", () => {
+    expect(body(facts({ kind: "package_with_driver" }))).toContain("Driver's number: +230 5999 1234");
+  });
+});

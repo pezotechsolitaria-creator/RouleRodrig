@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { CALLMEBOT_NUMBER, CALLMEBOT_OPT_IN } from "@/lib/notifications/callmebot-number";
 import {
   ArrowLeft, Plus, Loader2, Send, Trash2, Pencil, Check, X,
   MessageCircle, AlertTriangle, CircleCheck, CircleSlash,
@@ -705,8 +706,8 @@ export default function AdminNotifications() {
         <div className="mt-10 rounded-2xl border border-white/10 bg-dark-card p-5">
           <p className="font-syne text-sm font-bold text-offwhite">Getting an API key</p>
           <ol className="mt-2 list-decimal space-y-1 pl-5 font-dm text-xs leading-relaxed text-muted">
-            <li>Save <span className="text-offwhite">+34 644 51 95 23</span> in that phone&apos;s contacts.</li>
-            <li>From that phone, send it: <span className="text-offwhite">I allow callmebot to send me messages</span></li>
+            <li>Save <span className="text-offwhite">{CALLMEBOT_NUMBER}</span> in that phone&apos;s contacts.</li>
+            <li>From that phone, send it: <span className="text-offwhite">{CALLMEBOT_OPT_IN}</span></li>
             <li>It replies with an API key — paste it above.</li>
           </ol>
           <p className="mt-2 font-dm text-[11px] text-muted/70">

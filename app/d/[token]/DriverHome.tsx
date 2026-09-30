@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { usePolling } from "@/lib/use-polling";
 import RideLog from "./RideLog";
+import { CALLMEBOT_NUMBER, CALLMEBOT_OPT_IN } from "@/lib/notifications/callmebot-number";
 import {
   Loader2, Power, BellRing, BellOff, Car,
   MessageCircle, CheckCircle2, AlertCircle, ArrowRight, Download,
@@ -609,8 +610,8 @@ export default function DriverHome({ token }: { token: string }) {
               To get rides by WhatsApp, do this once:
             </p>
             <ol className="mt-1.5 list-decimal space-y-1 pl-4 font-dm text-xs text-orange-100/90">
-              <li>Save <strong>+34 644 51 95 23</strong> in your contacts</li>
-              <li>Send it: <em>I allow callmebot to send me messages</em></li>
+              <li>Save <strong>{CALLMEBOT_NUMBER}</strong> in your contacts</li>
+              <li>Send it: <em>{CALLMEBOT_OPT_IN}</em></li>
               <li>Send the code you get back to Roulé Rodrigues</li>
             </ol>
           </div>

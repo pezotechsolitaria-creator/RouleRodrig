@@ -181,8 +181,11 @@ export async function POST(req: NextRequest) {
             title: "Alerts are on 🎉",
             body: "You'll hear about a ride even when this page is closed.",
             // Their own console, not the homepage — the tap that proves alerts
-            // work should land where every future ride alert will.
-            url: `/r/${p.token}`,
+            // work should land on the page they just pressed Turn on from.
+            // /d/, not /r/: p.token is the DRIVER's permanent token, and /r/
+            // takes a one-offer token, so this tap used to open "This link is
+            // not valid" — on the one notification meant to prove it works.
+            url: `/d/${p.token}`,
             tag: "rr-alerts-on",
           },
         );

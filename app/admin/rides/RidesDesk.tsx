@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { PlaceLink, RouteLink } from "@/components/admin/PlaceLink";
 import { toast } from "sonner";
+import { extractCallMeBotKey } from "@/lib/notifications/callmebot-number";
 import { buildPickupQr } from "@/lib/orders/pickup-qr";
 import { islandIsoFromLocal } from "@/lib/island-time";
 import {
@@ -672,7 +673,7 @@ function NewRideForm({ onDone }: { onDone: () => void }) {
 function DriverRoster({ drivers, onSaved }: { drivers: Driver[]; onSaved: () => void }) {
   const [busy, setBusy] = useState<string | null>(null);
 
-  async function save(id: string, patch: Record<string, unknown>) {
+  async function save(id: string, patch: Record<string, unknown>): Promise<boolean> {
     setBusy(id);
     try {
       const r = await fetch("/api/admin/taxi", {
@@ -686,8 +687,10 @@ function DriverRoster({ drivers, onSaved }: { drivers: Driver[]; onSaved: () => 
       }
       toast.success("Saved.");
       onSaved();
+      return true;
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not save.");
+      return false;
     } finally {
       setBusy(null);
     }
@@ -735,7 +738,7 @@ function DriverRow({
   d: Driver;
   busy: boolean;
   cell: string;
-  onSave: (id: string, patch: Record<string, unknown>) => void;
+  onSave: (id: string, patch: Record<string, unknown>) => Promise<boolean>;
 }) {
   const [f, setF] = useState({
     availability: d.availability,
@@ -746,6 +749,7 @@ function DriverRow({
     handles_taxi: d.handles_taxi ?? true,
     handles_airport: d.handles_airport ?? true,
     handles_transfer: d.handles_transfer ?? true,
+    whatsapp_key: "",
   });
   const rate = d.rides_offered > 0 ? Math.round((d.rides_accepted / d.rides_offered) * 100) : null;
 
@@ -953,6 +957,40 @@ ${url}
         >
           {d.whatsapp_ready ? "WhatsApp ready" : "WhatsApp not set up"}
         </span>
+        {/* The code a driver gets back from CallMeBot had nowhere to go: the
+            API accepted it, no screen sent it. Write-only — the saved key is
+            never read back, so the box starts empty. Always shown: a code
+            that turns out wrong has to be replaceable, and "WhatsApp ready"
+            only means a code is saved, not that CallMeBot accepts it. */}
+        <input
+          value={f.whatsapp_key}
+          onChange={(e) => setF({ ...f, whatsapp_key: e.target.value })}
+          aria-label={`WhatsApp code for ${d.name}`}
+          placeholder={d.whatsapp_ready ? "Replace WhatsApp code" : "Paste their WhatsApp code"}
+          autoComplete="off"
+          spellCheck={false}
+          className={`${cell} mt-1.5 w-40`}
+        />
+        {/* Its own button, so a code can be saved without also re-saving the
+            base and seats the owner may be half-way through typing. */}
+        {f.whatsapp_key.trim() && (
+          <button
+            onClick={() => {
+              const key = extractCallMeBotKey(f.whatsapp_key);
+              if (!key) {
+                toast.error("That doesn't look like a WhatsApp code. It's the number in CallMeBot's reply, after \"APIKEY is\".");
+                return;
+              }
+              void onSave(d.id, { whatsapp_api_key: key }).then((ok) => {
+                if (ok) setF((prev) => ({ ...prev, whatsapp_key: "" }));
+              });
+            }}
+            disabled={busy}
+            className="mt-1 block rounded-full border border-white/15 px-2.5 py-1 font-dm text-[11px] text-yellow hover:border-yellow/50 disabled:opacity-50"
+          >
+            Save code
+          </button>
+        )}
       </td>
 
       <td className="px-3 py-2">
@@ -1023,6 +1061,10 @@ ${url}
               handles_taxi: f.handles_taxi,
               handles_airport: f.handles_airport,
               handles_transfer: f.handles_transfer,
+              // The WhatsApp code is NOT sent from here: it has its own Save
+              // code button, and the box starts empty because the key is never
+              // read back — sending it with every row save would risk wiping a
+              // key that works.
             })
           }
           disabled={busy}

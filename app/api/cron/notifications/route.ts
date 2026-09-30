@@ -9,7 +9,15 @@ import {
   notifyDriversOfNewRequest,
   notifyCustomerOfExpiry,
 } from "@/lib/delivery/notify-requests";
-import { notifyRideOffers, notifyOwnerRideUnassigned, notifyOwnerRosterBlocked } from "@/lib/rides/notify";
+import {
+  notifyRideOffers,
+  notifyOwnerRideUnassigned,
+  notifyOwnerRideUnreached,
+  notifyOwnerRosterBlocked,
+  recordOfferReach,
+} from "@/lib/rides/notify";
+import { reachedNobody } from "@/lib/rides/offer-outcome";
+import { reminderKeyFor, RIDE_NO_DRIVER_REMINDER_TYPE } from "@/lib/rides/no-driver-copy";
 import { enqueueNotification, formatWhatsAppMessage } from "@/lib/notifications/queue";
 import {
   ownerAlert,
@@ -73,6 +81,13 @@ export const maxDuration = 60;
 //
 // 5/minute = 300/hour, which is far beyond this island's real volume.
 const BATCH = 5;
+
+/**
+ * How close a stranded booking's pickup must be before the owner is reminded.
+ * Six hours: long enough to ring round on a small island, short enough that
+ * the reminder is about today and not about the booking he already read.
+ */
+const REMIND_WITHIN_MS = 6 * 60 * 60_000;
 
 /** Stop claiming new work past this; well inside a 30s client timeout. */
 const TIME_BUDGET_MS = 20_000;
@@ -471,6 +486,11 @@ async function run(req: NextRequest) {
     rides: 0, queued: 0,
     askedNobody: 0, rosterRaised: 0, rosterQueued: 0,
     rosterQuiet: {} as Record<string, number>,
+    // Rounds that offered somebody and reached nobody, and the owner alerts
+    // that queued for them (0 once the run's first round has already told him).
+    reachedNobody: 0, unreachedQueued: 0,
+    // Booked rides still without a driver as pickup nears.
+    reminders: 0, remindersQueued: 0,
   };
   try {
     const { data, error } = await admin.rpc("auto_dispatch_rides", { p_limit: 20 });
@@ -484,9 +504,27 @@ async function run(req: NextRequest) {
       // Send each round's WhatsApp immediately rather than through the queue: an
       // offer expires in ten minutes, and a job that waits for the next worker
       // tick has already burnt a tenth of the driver's window.
-      await Promise.allSettled(
-        rides.filter((r) => (r.offered ?? 0) > 0).map((r) => notifyRideOffers(r.rideId)),
-      );
+      const offeredRides = rides.filter((r) => (r.offered ?? 0) > 0);
+      const sends = await Promise.allSettled(offeredRides.map((r) => notifyRideOffers(r.rideId)));
+
+      // -- THE ROUND THAT REACHED NOBODY --------------------------------
+      // The result above used to be thrown away, and it is the only place that
+      // knows a round "offered 1" to a driver with no WhatsApp and no phone
+      // alerts. That round is not "asked nobody" (so the roster alarm below
+      // stays quiet) and not exhausted (so the give-up message is forty minutes
+      // away). RR-0E90AD, 29 Sep 2026: four such rounds, then a message
+      // blaming a driver who had never seen it. Now the first one says so.
+      for (let i = 0; i < offeredRides.length; i++) {
+        const s = sends[i];
+        if (s.status !== "fulfilled") continue;
+        // Every round is written down, reached or not: it is what lets a later
+        // message say who was never alerted from what happened, not from how
+        // the driver's phone is set up by then.
+        await recordOfferReach(offeredRides[i].rideId, offeredRides[i].stage, s.value);
+        if (!reachedNobody(s.value)) continue;
+        rideAlerts.reachedNobody += 1;
+        rideAlerts.unreachedQueued += await notifyOwnerRideUnreached(offeredRides[i].rideId, s.value);
+      }
       // -- THE ROUND THAT ASKED NOBODY ----------------------------------
       // These entries reached nothing at all until now. The offer fan-out above
       // skips them (there is nobody to message) and the give-up branch below
@@ -526,6 +564,54 @@ async function run(req: NextRequest) {
   } catch (err) {
     // Dispatch must never take the notification worker down with it.
     console.error("auto dispatch threw", err);
+  }
+
+  // -- A BOOKED RIDE STILL WITHOUT A DRIVER AS PICKUP NEARS -------------
+  // An airport ride gives up about a day early, on purpose, so the owner can
+  // ring round (M199). That leaves ONE message, 23 hours before a customer
+  // lands, and nothing after it — RR-0E90AD's arrived at 11:45 and was still
+  // unassigned seven hours later. So a ride that is still stranded when its
+  // pickup is under REMIND_WITHIN away gets one reminder. Once per stranding:
+  // the key carries the same stamp the give-up message used, so a reopened
+  // ride that strands again is reminded again, and nothing is reminded twice.
+  // The hour's grace keeps a late booking from getting the give-up message
+  // and the reminder a minute apart.
+  try {
+    const now = Date.now();
+    const { data: stranded, error } = await admin
+      .from("ride_requests")
+      .select("id, updated_at")
+      .eq("status", "no_driver")
+      .eq("when_kind", "scheduled")
+      .gt("scheduled_at", new Date(now).toISOString())
+      .lte("scheduled_at", new Date(now + REMIND_WITHIN_MS).toISOString())
+      .lt("updated_at", new Date(now - 60 * 60_000).toISOString())
+      .limit(10);
+    if (error) {
+      console.error("stranded ride read failed", error);
+    } else if ((stranded ?? []).length > 0) {
+      // This runs every minute for up to six hours per ride, and the message
+      // itself costs seven reads to build. So first ask the queue, once, which
+      // of these already had theirs — dedupe would swallow a second anyway,
+      // but only after all seven reads. enqueue_notification stores the key
+      // with ':' || slot_id appended, hence the prefix match.
+      const rows = (stranded ?? []) as { id: string; updated_at: string | null }[];
+      const keys = rows.map((r) => ({ id: r.id, key: reminderKeyFor(r.id, r.updated_at) }));
+      const { data: sentJobs, error: jobsError } = await admin
+        .from("notification_jobs")
+        .select("dedupe_key")
+        .eq("type", RIDE_NO_DRIVER_REMINDER_TYPE)
+        .gte("created_at", new Date(now - REMIND_WITHIN_MS - 24 * 60 * 60_000).toISOString());
+      if (jobsError) console.error("reminder dedupe read failed", jobsError);
+      const already = ((sentJobs ?? []) as { dedupe_key: string | null }[]).map((j) => j.dedupe_key ?? "");
+      const due = keys.filter((k) => !k.key || !already.some((d) => d.startsWith(`${k.key}:`)));
+      rideAlerts.reminders = due.length;
+      for (const r of due) {
+        rideAlerts.remindersQueued += await notifyOwnerRideUnassigned(r.id, { reminder: true });
+      }
+    }
+  } catch (err) {
+    console.error("stranded ride reminder threw", err);
   }
 
   return NextResponse.json({

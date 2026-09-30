@@ -103,7 +103,7 @@ export async function GET(req: NextRequest) {
     .limit(200);
   if (scope === "open") q = q.in("status", OPEN_RIDE_STATUSES);
 
-  const [rides, drivers] = await Promise.all([
+  const [rides, drivers, waReady, pushReady] = await Promise.all([
     q,
     // The roster, with the operational fields dispatch actually needs. Surfaced
     // here so the desk can warn about drivers who cannot be ranked yet.
@@ -112,13 +112,40 @@ export async function GET(req: NextRequest) {
               "active, availability, handles_taxi, handles_airport, handles_transfer, " +
               "rides_offered, rides_accepted, rides_completed, rides_declined, last_offered_at")
       .order("name"),
+    // ── "CAN WE REACH THEM?" WAS ALWAYS ORANGE ─────────────────────────────
+    // The Drivers tab reads push_ready and whatsapp_ready from THIS response,
+    // and this response never carried them — only /api/admin/taxi merged the
+    // two checks, and no screen showing the badge reads that route. So every
+    // driver read "No phone yet / WhatsApp not set up" whatever was true, and
+    // the owner could not see a fix work. Same two checks, same meaning, and
+    // neither returns the key itself.
+    admin.rpc("taxi_whatsapp_readiness"),
+    admin.rpc("taxi_push_readiness"),
   ]);
   if (rides.error) {
     console.error("admin rides list failed", rides.error);
     return NextResponse.json({ error: "Failed to load rides." }, { status: 500 });
   }
+  if (waReady.error || pushReady.error) {
+    console.error("driver readiness read failed", { whatsapp: waReady.error, push: pushReady.error });
+  }
+  const waMap = new Map(
+    ((waReady.data ?? []) as { driver_id: string; whatsapp_ready: boolean }[]).map((r) => [r.driver_id, r.whatsapp_ready]),
+  );
+  const pushMap = new Map(
+    ((pushReady.data ?? []) as { driver_id: string; push_ready: boolean }[]).map((r) => [r.driver_id, r.push_ready]),
+  );
 
-  return NextResponse.json({ rides: rides.data ?? [], drivers: drivers.data ?? [] });
+  return NextResponse.json({
+    rides: rides.data ?? [],
+    drivers: ((drivers.data ?? []) as unknown as Record<string, unknown>[]).map((d) => ({
+      ...d,
+      // Unknown when the read failed — the desk shows "not set up" for
+      // undefined, which is the cautious reading, so say it only when known.
+      whatsapp_ready: waReady.error ? undefined : waMap.get(String(d.id)) ?? false,
+      push_ready: pushReady.error ? undefined : pushMap.get(String(d.id)) ?? false,
+    })),
+  });
 }
 
 export async function POST(req: NextRequest) {

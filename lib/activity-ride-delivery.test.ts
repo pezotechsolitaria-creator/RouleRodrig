@@ -53,12 +53,28 @@ describe("rideStage", () => {
     expect(rideStage("on_trip")).toBe("active");
   });
 
-  it("ends no_driver and no_show as cancelled, not as still happening", () => {
-    // Neither is "cancelled by you", but from the customer's side the ride is
-    // off and nothing more will occur — which is what the stage column means.
-    expect(rideStage("no_driver")).toBe("cancelled");
+  it("ends no_show as cancelled — the ride happened without them", () => {
     expect(rideStage("no_show")).toBe("cancelled");
     expect(rideStage("completed")).toBe("done");
+  });
+
+  it("keeps no_driver as still being arranged while its pickup is still to come", () => {
+    // The automatic search stopped and a person took over: /taxi/track says
+    // "We're arranging this for you by hand… We'll call you", and the desk can
+    // still assign the ride. "Cancelled" here told a customer with a booked
+    // airport pickup to go and find somebody else.
+    const now = Date.parse("2026-09-29T15:00:00Z");
+    expect(rideStage("no_driver", "2026-09-30T07:00:00Z", now)).toBe("pending");
+    // A "now" ride stranded an hour ago is still being arranged.
+    expect(rideStage("no_driver", "2026-09-29T14:00:00Z", now)).toBe("pending");
+  });
+
+  it("lets a stranded ride from last month end, rather than read as live for ever", () => {
+    const now = Date.parse("2026-09-29T15:00:00Z");
+    expect(rideStage("no_driver", "2026-08-14T12:17:10Z", now)).toBe("cancelled");
+    expect(rideStage("no_driver", "2026-09-29T11:00:00Z", now)).toBe("cancelled");
+    // No date at all keeps the old, final reading.
+    expect(rideStage("no_driver")).toBe("cancelled");
   });
 
   it("falls back to pending for a status added later", () => {

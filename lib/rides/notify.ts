@@ -6,7 +6,7 @@ import { enqueueNotification, formatWhatsAppMessage } from "@/lib/notifications/
 import { SITE_URL } from "@/lib/site";
 import { offerMessage, rideReference, type RideService } from "./model";
 import { classifyOfferTarget } from "./offer-outcome";
-import { rideUnassignedAlert } from "./no-driver-copy";
+import { rideUnassignedAlert, rideUnreachedAlert } from "./no-driver-copy";
 import { hourBucket } from "@/lib/notifications/escalation";
 import {
   assessRoster,
@@ -59,7 +59,18 @@ export type OfferSendResult = {
   noContact: { name: string }[];
   /** Had a key and the send still failed. */
   failed: { name: string; error: string }[];
+  /** Drivers this round actually reached, by WhatsApp or push. */
+  reachedIds: string[];
+  /**
+   * Drivers in their hours whom this round did NOT reach, and why. This is
+   * what recordOfferReach writes down, so a later message can say who was
+   * never alerted from what HAPPENED rather than from today's setup.
+   */
+  missed: { driverId: string; name: string; why: MissedWhy }[];
 };
+
+/** Why an offer did not reach a driver who was in their hours. */
+export type MissedWhy = "no_alerts" | "no_number" | "failed";
 
 type Target = {
   driver_id: string;
@@ -85,7 +96,9 @@ type Target = {
  * caller is the dispatch path (once per round) rather than a poller.
  */
 export async function notifyRideOffers(rideId: string): Promise<OfferSendResult> {
-  const empty: OfferSendResult = { sent: 0, pushed: 0, unreachable: [], noContact: [], failed: [] };
+  const empty: OfferSendResult = {
+    sent: 0, pushed: 0, unreachable: [], noContact: [], failed: [], reachedIds: [], missed: [],
+  };
   if (!hasServiceRole()) {
     // Local dev has no service key — say so once rather than failing a caller.
     console.warn("notifyRideOffers skipped: SUPABASE_SERVICE_ROLE_KEY is unset");
@@ -108,7 +121,15 @@ export async function notifyRideOffers(rideId: string): Promise<OfferSendResult>
     return empty;
   }
 
-  const result: OfferSendResult = { sent: 0, pushed: 0, unreachable: [], noContact: [], failed: [] };
+  const result: OfferSendResult = {
+    sent: 0, pushed: 0, unreachable: [], noContact: [], failed: [], reachedIds: [], missed: [],
+  };
+  // Per driver, what each channel did — so the round can be written down as
+  // who it reached and who it missed, not only as totals.
+  const whatsapp = new Map<string, "sent" | "no_contact" | "no_key" | "failed">();
+  const pushedTo = new Set<string>();
+  const pushTried = new Set<string>();
+  const byToken = new Map(targets.map((t) => [t.token, t.driver_id]));
 
   await Promise.allSettled(
     targets.map(async (t) => {
@@ -120,12 +141,14 @@ export async function notifyRideOffers(rideId: string): Promise<OfferSendResult>
         // send, no counter, no console line and no Sentry event — a result
         // object identical to a healthy dispatch with nobody to ask.
         result.noContact.push({ name });
+        whatsapp.set(t.driver_id, "no_contact");
         return;
       }
       if (outcome === "no_key") {
         // Not a failure to retry — this driver has never opted in, and trying
         // again in a minute fails identically. Surfaced so the desk can say who.
         result.unreachable.push({ name, phone: (t.phone ?? "").trim() });
+        whatsapp.set(t.driver_id, "no_key");
         return;
       }
 
@@ -151,8 +174,13 @@ export async function notifyRideOffers(rideId: string): Promise<OfferSendResult>
         apiKey: (t.api_key as string).trim(),
         message,
       });
-      if (sent.ok) result.sent += 1;
-      else result.failed.push({ name, error: sent.error });
+      if (sent.ok) {
+        result.sent += 1;
+        whatsapp.set(t.driver_id, "sent");
+      } else {
+        result.failed.push({ name, error: sent.error });
+        whatsapp.set(t.driver_id, "failed");
+      }
     }),
   );
 
@@ -176,9 +204,13 @@ export async function notifyRideOffers(rideId: string): Promise<OfferSendResult>
       // the accept button already on screen. A notification that lands on the
       // homepage is one they still have to go and find the job from, and the
       // offer expires in ten minutes.
-      const targets = (data ?? []) as (PushTarget & { token: string })[];
+      const pushTargets = (data ?? []) as (PushTarget & { token: string })[];
+      for (const t of pushTargets) {
+        const id = byToken.get(t.token);
+        if (id) pushTried.add(id);
+      }
       const results = await Promise.allSettled(
-        targets.map((t) =>
+        pushTargets.map((t) =>
           pushToDriverEndpoints([t], {
             title: "New ride available",
             body: "Tap to see it — first to accept gets it.",
@@ -195,11 +227,32 @@ export async function notifyRideOffers(rideId: string): Promise<OfferSendResult>
       result.pushed = results.reduce(
         (n, r) => n + (r.status === "fulfilled" ? r.value : 0), 0,
       );
+      results.forEach((r, i) => {
+        const id = byToken.get(pushTargets[i].token);
+        if (id && r.status === "fulfilled" && r.value > 0) pushedTo.add(id);
+      });
     }
   } catch (err) {
     // Push failing must never stop the WhatsApp that already went, nor unwind a
     // dispatch that has already committed.
     console.error("taxi push threw", err);
+  }
+
+  // Who this round reached, and why the rest were missed. A driver with a push
+  // subscription that did not answer was TRIED, so that is a failure, not a
+  // missing setup — the difference decides what the owner is told to fix.
+  for (const t of targets) {
+    const wa = whatsapp.get(t.driver_id);
+    if (wa === "sent" || pushedTo.has(t.driver_id)) {
+      if (!result.reachedIds.includes(t.driver_id)) result.reachedIds.push(t.driver_id);
+      continue;
+    }
+    if (result.missed.some((m) => m.driverId === t.driver_id)) continue;
+    const why: MissedWhy =
+      wa === "failed" || pushTried.has(t.driver_id) ? "failed"
+        : wa === "no_contact" ? "no_number"
+          : "no_alerts";
+    result.missed.push({ driverId: t.driver_id, name: t.driver_name ?? "A driver", why });
   }
 
   if (result.failed.length || result.unreachable.length) {
@@ -229,7 +282,211 @@ type UnassignedRow = {
   customer_phone: string | null;
   created_at: string | null;
   updated_at: string | null;
+  when_kind: string | null;
+  scheduled_at: string | null;
 };
+
+const UNASSIGNED_COLUMNS =
+  "pickup_label, dropoff_label, customer_name, customer_phone, created_at, updated_at, when_kind, scheduled_at";
+
+/** Whole minutes until a future timestamp; null when it is past or unusable. */
+function minutesUntil(iso: string | null | undefined): number | null {
+  if (!iso) return null;
+  const t = Date.parse(iso);
+  if (Number.isNaN(t)) return null;
+  const mins = Math.floor((t - Date.now()) / 60_000);
+  return mins > 0 ? mins : null;
+}
+
+/** The pickup facts both owner messages share, for a booked time only. */
+function pickupFacts(ride: UnassignedRow): { pickupAt: string | null; minutesToPickup: number | null } {
+  if (ride.when_kind !== "scheduled" || !ride.scheduled_at) return { pickupAt: null, minutesToPickup: null };
+  return { pickupAt: ride.scheduled_at, minutesToPickup: minutesUntil(ride.scheduled_at) };
+}
+
+type Admin = Awaited<ReturnType<typeof getPrivileged>>;
+
+/** The ride_events action recording one round's reach. */
+export const OFFER_REACH_EVENT = "ride.offer_reach";
+
+/**
+ * Write down who one round of offers reached, and why it missed the rest.
+ *
+ * ── WHY THIS EXISTS ─────────────────────────────────────────────────────────
+ * Nothing recorded whether an offer arrived. The first version of the "never
+ * saw it" line therefore asked the driver's setup as it stands NOW — and a
+ * review found the hole at once: the give-up message tells the owner to set
+ * the driver up, the owner does, and the reminder six hours before pickup
+ * reads the new setup and says the driver "did not accept" a ride he was
+ * never alerted to. A typo'd WhatsApp code reads as "set up" too, while every
+ * send fails. What happened at the time is the only honest source.
+ *
+ * One ride_events row per round that had anybody to reach — the table the
+ * ladder already logs to, so no migration. M132 reads only 'ride.offered', and
+ * the desk does not render events, so a new action disturbs nothing.
+ *
+ * NEVER throws: this rides inside the notification worker.
+ */
+export async function recordOfferReach(
+  rideId: string,
+  stage: number | null | undefined,
+  sent: OfferSendResult,
+): Promise<void> {
+  if (!hasServiceRole() || sent.reachedIds.length + sent.missed.length === 0) return;
+  try {
+    const admin = await getPrivileged();
+    const { error } = await admin.rpc("log_ride_event", {
+      p_request_id: rideId,
+      p_actor_type: "system",
+      p_actor_ref: null,
+      p_action: OFFER_REACH_EVENT,
+      p_detail: {
+        stage: stage ?? null,
+        reached: sent.reachedIds,
+        missed: sent.missed.map((m) => ({ id: m.driverId, why: m.why })),
+      },
+    });
+    if (error) console.error("recordOfferReach failed", { rideId, error });
+  } catch (err) {
+    console.error("recordOfferReach threw", err);
+  }
+}
+
+/** When the current run of the ladder began: its latest stage-1 offer. */
+async function readLadderStart(admin: Admin, rideId: string): Promise<string | null> {
+  const { data, error } = await admin.from("ride_events")
+    .select("created_at")
+    .eq("request_id", rideId)
+    .eq("action", "ride.offered")
+    .eq("detail->>stage", "1")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) console.error("readLadderStart failed", { rideId, error });
+  return (data as { created_at?: string } | null)?.created_at ?? null;
+}
+
+type ReachRow = { reached?: string[] | null; missed?: { id: string; why: MissedWhy }[] | null };
+
+/** The reach rows of the current run of the ladder, oldest first. */
+async function readReach(admin: Admin, rideId: string, since: string | null): Promise<ReachRow[] | null> {
+  let q = admin.from("ride_events")
+    .select("detail")
+    .eq("request_id", rideId)
+    .eq("action", OFFER_REACH_EVENT)
+    .order("created_at", { ascending: true });
+  if (since) q = q.gte("created_at", since);
+  const { data, error } = await q;
+  if (error) {
+    console.error("readReach failed", { rideId, error });
+    return null;
+  }
+  return ((data ?? []) as { detail: ReachRow | null }[]).map((r) => r.detail ?? {});
+}
+
+export type NeverAlerted = {
+  /** Offered, never reached in any round of this run, and never answered. */
+  names: string[];
+  /** …of whom these had no WhatsApp and no phone alerts set up. */
+  noAlerts: string[];
+  /** …and these were tried and the alert did not go through. */
+  failed: string[];
+};
+
+/**
+ * Which drivers offered this ride were never alerted to it.
+ *
+ * From what each round RECORDED (recordOfferReach), not from today's setup. A
+ * driver who answered — declined or accepted, from a WhatsApp or from his own
+ * /d/ page, which shows a live offer whatever alerts he has — saw it, whatever
+ * any record says, so he is never on this list.
+ *
+ * Rides dispatched before rounds were recorded have no reach rows. For those,
+ * and only when the caller allows it, today's setup stands in — fine for the
+ * give-up message, which follows the ladder by a minute. The reminder, hours
+ * later, passes false and says nothing rather than guess.
+ *
+ * Returns null when we cannot tell; the copy then says nothing either way.
+ */
+async function readNeverAlerted(
+  admin: Admin,
+  rideId: string,
+  opts: { fallBackToSetup: boolean },
+): Promise<NeverAlerted | null> {
+  const [offers, since] = await Promise.all([
+    admin.from("ride_offers").select("driver_id, status, taxi_drivers(name)").eq("request_id", rideId),
+    readLadderStart(admin, rideId),
+  ]);
+  if (offers.error) {
+    console.error("readNeverAlerted: offers", { rideId, error: offers.error });
+    return null;
+  }
+  const rows = (offers.data ?? []) as unknown as {
+    driver_id: string; status: string | null; taxi_drivers: { name: string | null } | null;
+  }[];
+  const nameOf = (o: (typeof rows)[number]) => o.taxi_drivers?.name?.trim() || "A driver";
+  const unanswered = rows.filter((o) => o.status !== "declined" && o.status !== "accepted");
+
+  const reach = await readReach(admin, rideId, since);
+  if (reach === null) return null;
+
+  if (reach.length > 0) {
+    const reached = new Set(reach.flatMap((r) => r.reached ?? []));
+    const why = new Map<string, MissedWhy>();
+    for (const r of reach) for (const m of r.missed ?? []) why.set(m.id, m.why);
+    const never = unanswered.filter((o) => !reached.has(o.driver_id) && why.has(o.driver_id));
+    return {
+      names: never.map(nameOf),
+      noAlerts: never.filter((o) => why.get(o.driver_id) === "no_alerts").map(nameOf),
+      failed: never.filter((o) => why.get(o.driver_id) === "failed").map(nameOf),
+    };
+  }
+
+  if (!opts.fallBackToSetup) return null;
+
+  const [wa, push] = await Promise.all([
+    admin.rpc("taxi_whatsapp_readiness"),
+    admin.rpc("taxi_push_readiness"),
+  ]);
+  if (wa.error || push.error) {
+    console.error("readNeverAlerted: readiness", { rideId, whatsapp: wa.error, push: push.error });
+    return null;
+  }
+  const ready = new Set<string>();
+  for (const r of (wa.data ?? []) as { driver_id: string; whatsapp_ready: boolean }[]) {
+    if (r.whatsapp_ready) ready.add(r.driver_id);
+  }
+  for (const r of (push.data ?? []) as { driver_id: string; push_ready: boolean }[]) {
+    if (r.push_ready) ready.add(r.driver_id);
+  }
+  const names = unanswered.filter((o) => !ready.has(o.driver_id)).map(nameOf);
+  return { names, noAlerts: names, failed: [] };
+}
+
+/**
+ * Is there a driver the search has not tried yet who WOULD be alerted?
+ *
+ * The first round only looks 3 km out. If a set-up driver exists further away,
+ * a later round reaches him automatically, and an alarm now would send the
+ * owner ringing round for nothing — the same reasoning the roster alarm uses
+ * (readWhyNobodyWasAsked). Widest width, eligible, not yet offered, and ready.
+ */
+async function widerRoundWillReachSomeone(admin: Admin, rideId: string): Promise<boolean> {
+  const [cands, offers, wa, push] = await Promise.all([
+    admin.rpc("ride_candidates", { p_request_id: rideId, p_stage: 99, p_limit: 40 }),
+    admin.from("ride_offers").select("driver_id").eq("request_id", rideId),
+    admin.rpc("taxi_whatsapp_readiness"),
+    admin.rpc("taxi_push_readiness"),
+  ]);
+  if (cands.error || offers.error || wa.error || push.error) return false;
+  const offered = new Set(((offers.data ?? []) as { driver_id: string }[]).map((o) => o.driver_id));
+  const ready = new Set<string>([
+    ...((wa.data ?? []) as { driver_id: string; whatsapp_ready: boolean }[]).filter((r) => r.whatsapp_ready).map((r) => r.driver_id),
+    ...((push.data ?? []) as { driver_id: string; push_ready: boolean }[]).filter((r) => r.push_ready).map((r) => r.driver_id),
+  ]);
+  return ((cands.data ?? []) as RosterCandidate[])
+    .some((c) => c.reason_skipped == null && !offered.has(c.driver_id) && ready.has(c.driver_id));
+}
 
 /**
  * Ask the engine why it passed over every driver.
@@ -385,7 +642,10 @@ export async function notifyOwnerRosterBlocked(
  * Returns the number of recipients queued — 0 when the queue is unavailable OR
  * when the message was correctly deduped. NEVER throws.
  */
-export async function notifyOwnerRideUnassigned(rideId: string): Promise<number> {
+export async function notifyOwnerRideUnassigned(
+  rideId: string,
+  opts: { reminder?: boolean } = {},
+): Promise<number> {
   if (!hasServiceRole()) return 0;
   try {
     const admin = await getPrivileged();
@@ -397,7 +657,7 @@ export async function notifyOwnerRideUnassigned(rideId: string): Promise<number>
     // untyped. A day hire has no destination, and that reached the template.
     const { data, error } = await admin
       .from("ride_requests")
-      .select("pickup_label, dropoff_label, customer_name, customer_phone, created_at, updated_at")
+      .select(UNASSIGNED_COLUMNS)
       .eq("id", rideId)
       .maybeSingle();
     if (error) {
@@ -429,7 +689,20 @@ export async function notifyOwnerRideUnassigned(rideId: string): Promise<number>
     // costs one line of the message, never the message.
     const why = await readWhyNobodyWasAsked(admin, rideId, null);
 
+    // Asked is not the same as told. Only worth a read when somebody WAS
+    // asked; a failure costs one line of the message, never the message. The
+    // reminder comes hours later, when today's setup no longer describes the
+    // offers — so it uses the recorded rounds or says nothing.
+    const never = !countError && (count ?? 0) > 0
+      ? await readNeverAlerted(admin, rideId, { fallBackToSetup: opts.reminder !== true })
+      : null;
+
     const alert = rideUnassignedAlert({
+      reminder: opts.reminder === true,
+      unreachable: never?.names ?? null,
+      unreachableNoAlerts: never?.noAlerts ?? null,
+      unreachableFailed: never?.failed ?? null,
+      ...pickupFacts(ride),
       rideId,
       whyNobodyWasAsked: why?.alarm ? rosterCauseSentence(why.cause, why.blockedName) : null,
       // The discriminator. Stamped by the same UPDATE that sets 'no_driver',
@@ -457,6 +730,86 @@ export async function notifyOwnerRideUnassigned(rideId: string): Promise<number>
     });
   } catch (err) {
     console.error("notifyOwnerRideUnassigned threw", err);
+    return 0;
+  }
+}
+
+/**
+ * Tell the owner a round of offers reached NOBODY — while the ladder is still
+ * running, instead of forty minutes later.
+ *
+ * The caller passes notifyRideOffers' own result, which it used to throw away:
+ * the one place that knows a driver had no WhatsApp and no phone alerts. See
+ * reachedNobody() in ./offer-outcome for the exact test.
+ *
+ * Queued, like the give-up message, so it reaches every owner channel and
+ * leaves a row. Keyed on the start of this run of the ladder, so the four
+ * rounds of one run are one message, and a reopened ride alerts again.
+ *
+ * Stays quiet in the two cases a review found where it would mislead:
+ *   - an EARLIER round of this run did reach somebody (who then declined, or
+ *     took another job). "No driver was told" would be false.
+ *   - a WIDER round will reach a set-up driver the 3 km search has not got to
+ *     yet. The ladder is about to fix it by itself.
+ * The give-up message still follows if nobody takes it.
+ *
+ * Returns the number of recipients queued. NEVER throws: this rides inside the
+ * notification worker. Call recordOfferReach for this round FIRST.
+ */
+export async function notifyOwnerRideUnreached(
+  rideId: string,
+  sent: OfferSendResult,
+): Promise<number> {
+  if (!hasServiceRole()) return 0;
+  try {
+    const admin = await getPrivileged();
+    const [rideRead, ladderStartedAt] = await Promise.all([
+      admin.from("ride_requests").select(UNASSIGNED_COLUMNS).eq("id", rideId).maybeSingle(),
+      // The first round of the CURRENT run. offer_ride logs one ride.offered
+      // event per round with its stage, and a reopen starts again at stage 1.
+      // No stamp means no key, which sends without one — a possible duplicate,
+      // never a swallowed alert. Same trade as dedupeKeyFor.
+      readLadderStart(admin, rideId),
+    ]);
+    if (rideRead.error || !rideRead.data) {
+      console.error("notifyOwnerRideUnreached: could not read the ride", { rideId, error: rideRead.error });
+      return 0;
+    }
+    const ride = rideRead.data as unknown as UnassignedRow;
+
+    const reach = await readReach(admin, rideId, ladderStartedAt);
+    if (reach?.some((r) => (r.reached ?? []).length > 0)) return 0;
+    if (await widerRoundWillReachSomeone(admin, rideId)) return 0;
+
+    // This round's own record: who it missed and why, as it happened.
+    const named = (why: MissedWhy) => sent.missed.filter((m) => m.why === why).map((m) => m.name);
+
+    const alert = rideUnreachedAlert({
+      rideId,
+      ladderStartedAt,
+      customerName: ride.customer_name,
+      customerPhone: ride.customer_phone,
+      pickup: ride.pickup_label,
+      dropoff: ride.dropoff_label,
+      ...pickupFacts(ride),
+      noAlerts: named("no_alerts"),
+      noNumber: named("no_number"),
+      failed: named("failed"),
+    });
+
+    return await enqueueNotification({
+      type: alert.type,
+      category: "rides",
+      message: formatWhatsAppMessage({ title: alert.title, lines: alert.lines }),
+      dedupeKey: alert.dedupeKey ?? undefined,
+      payload: {
+        rideId,
+        ref: rideReference(rideId),
+        missed: sent.missed.map((m) => ({ name: m.name, why: m.why })),
+      },
+    });
+  } catch (err) {
+    console.error("notifyOwnerRideUnreached threw", err);
     return 0;
   }
 }

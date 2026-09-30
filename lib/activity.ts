@@ -210,7 +210,19 @@ const RIDE_LABEL: Record<ActivityStage, string> = {
   cancelled: "Cancelled",
 };
 
-export function rideStage(status: string | null | undefined): ActivityStage {
+/**
+ * How long after its pickup a stranded ride still counts as being arranged.
+ * Past this nobody is arranging anything, and "Finding a driver" on a trip from
+ * last month would be the same lie as "Cancelled" on one for tomorrow.
+ */
+const STRANDED_GRACE_MS = 3 * 60 * 60_000;
+
+export function rideStage(
+  status: string | null | undefined,
+  /** scheduled_at, or created_at for a ride asked for "now". */
+  pickupAt?: string | null,
+  now: number = Date.now(),
+): ActivityStage {
   switch (status) {
     case "assigned":
       return "confirmed";
@@ -220,13 +232,24 @@ export function rideStage(status: string | null | undefined): ActivityStage {
       return "active";
     case "completed":
       return "done";
-    // no_driver and no_show are not "cancelled by you", but from the
-    // customer's side the ride is off and nothing more will happen — which is
-    // what this column is for. The precise word stays in statusLabel.
+    // no_show is over: the driver came and nobody was there.
     case "cancelled":
-    case "no_driver":
     case "no_show":
       return "cancelled";
+    // no_driver is NOT over, and saying "Cancelled" is how a customer books
+    // somebody else. The automatic search stopped, a person took it up: the
+    // tracking page says "We're arranging this for you by hand… We'll call
+    // you", the owner is alerted with their number, and the desk can still
+    // assign it (admin_assign_ride accepts no_driver, M129). RR-0E90AD, 29 Sep
+    // 2026, read "Cancelled" on /track while it was being arranged.
+    //
+    // Only until its time has gone by, though: the seven stranded rides from
+    // August and September are over, and must not read as live for ever. No
+    // date at all keeps the old, final reading.
+    case "no_driver": {
+      const t = Date.parse(pickupAt ?? "");
+      return !Number.isNaN(t) && now - t < STRANDED_GRACE_MS ? "pending" : "cancelled";
+    }
     default:
       // new, dispatching, and anything added to the constraint later.
       return "pending";
@@ -561,7 +584,7 @@ export type RideRow = {
 };
 
 export function rideToActivity(row: RideRow): Activity {
-  const stage = rideStage(row.status);
+  const stage = rideStage(row.status, row.scheduled_at ?? row.created_at ?? null);
   const reference = bookingReference(row.id);
   // Where to and from IS the title of a ride. "Taxi" alone would be the same
   // word on every row a regular customer has.

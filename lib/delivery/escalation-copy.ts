@@ -158,9 +158,14 @@ export function deliveryStallAlert(f: DeliveryStallFacts): DeliveryStallAlert {
           : null,
         "The package is with him, not at the shop.",
         ...dropoffLines(f),
+        // Not "Call him now: <number>" on a line of its own. CallMeBot's
+        // firewall refuses a line that opens with "Call him"/"Call them" after
+        // a line break — both of these alerts ever queued for WhatsApp died
+        // with "CallMeBot 403: Forbidden" (see lib/rides/no-driver-copy.ts).
+        // The title already names him; this line carries the number.
         f.driverPhone
-          ? `Call him now: ${f.driverPhone}`
-          : "Call him now — his number is on the deliveries page.",
+          ? `Driver's number: ${f.driverPhone}`
+          : "The driver's number is on the deliveries page.",
         // The one sentence that stops the wrong move. Without it the owner
         // sends a second rider to a counter with nothing on it.
         "Do not send another driver to the shop. There is nothing there to collect.",
@@ -181,9 +186,11 @@ export function deliveryStallAlert(f: DeliveryStallFacts): DeliveryStallAlert {
           : null,
         "Nothing was picked up — it is still on the shop counter.",
         ...dropoffLines(f),
+        // Same CallMeBot trap as the package line above: no line opens with
+        // "Call him".
         f.driverPhone
-          ? `Call him on ${f.driverPhone} to check, then give it to someone else.`
-          : "Call him to check, then give it to someone else.",
+          ? `Check with the driver on ${f.driverPhone}, then give it to someone else.`
+          : "Check with the driver, then give it to someone else.",
         BOARD,
       ].filter((l): l is string => Boolean(l)),
     };

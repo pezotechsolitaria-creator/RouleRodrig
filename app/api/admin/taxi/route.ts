@@ -3,6 +3,31 @@ import { getPrivileged } from "@/lib/supabase/admin";
 import { verifySession, COOKIE_NAME } from "@/lib/auth";
 import { audit } from "@/lib/admin/audit";
 import { toE164National } from "@/lib/phone";
+import { extractCallMeBotKey } from "@/lib/notifications/callmebot-number";
+
+/**
+ * The CallMeBot code, cleaned to the code itself — or a sentence for the owner.
+ *
+ * The key is only ever checked for being non-empty, so a pasted reply
+ * ("API Activated… Your APIKEY is 1234567") or a typo went green on the
+ * Drivers tab while every offer to that driver failed. The same rule as the
+ * box on the desk (lib/notifications/callmebot-number.ts), enforced here too
+ * because this route is what the column actually trusts. Blank clears it.
+ */
+function normaliseKey(row: Record<string, unknown>): string | null {
+  if (!("whatsapp_api_key" in row)) return null;
+  const raw = row.whatsapp_api_key;
+  if (raw == null || (typeof raw === "string" && raw.trim() === "")) {
+    row.whatsapp_api_key = null;
+    return null;
+  }
+  const key = extractCallMeBotKey(typeof raw === "string" ? raw : String(raw));
+  if (!key) {
+    return "That doesn't look like a WhatsApp code. It is the number in CallMeBot's reply, after \"APIKEY is\".";
+  }
+  row.whatsapp_api_key = key;
+  return null;
+}
 
 function auth(req: NextRequest): NextResponse | null {
   const ok = verifySession(req.cookies.get(COOKIE_NAME)?.value);
@@ -266,7 +291,7 @@ export async function POST(req: NextRequest) {
 
   const body = await req.json();
   const row = pick(body);
-  const bad = normaliseContacts(row);
+  const bad = normaliseContacts(row) ?? normaliseKey(row);
   // 400, not 500: the request is wrong, not the server. A 500 tells the owner
   // the platform broke when in fact it read exactly what they typed.
   if (bad) return NextResponse.json({ error: bad }, { status: 400 });
@@ -287,7 +312,7 @@ export async function PATCH(req: NextRequest) {
   const supabase = await getPrivileged();
 
   const row = pick(patch);
-  const bad = normaliseContacts(row);
+  const bad = normaliseContacts(row) ?? normaliseKey(row);
   if (bad) return NextResponse.json({ error: bad }, { status: 400 });
 
   const { data, error } = await supabase.from("taxi_drivers").update(row).eq("id", id).select("id, name").single();
