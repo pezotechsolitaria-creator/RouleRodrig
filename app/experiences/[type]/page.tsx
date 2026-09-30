@@ -129,9 +129,12 @@ export async function generateMetadata({
   const places = experiencesOfType(content.recommended.items, copy.slug);
   const from = fromPriceOf(places);
 
-  const title = from
-    ? `${copy.title} from Rs ${from.toLocaleString("en-US")} | ${SITE_NAME}`
-    : `${copy.title} | ${SITE_NAME}`;
+  // The brand suffix is the first thing to go past 60 characters: measured
+  // live, "Massage & wellness in Rodrigues from Rs 1,999 | Roule Rodrigues" is
+  // 63, and Google cuts the end. The price and the place are what the title is for.
+  const priced = from ? `${copy.title} from Rs ${from.toLocaleString("en-US")}` : copy.title;
+  const branded = `${priced} | ${SITE_NAME}`;
+  const title = branded.length <= 60 ? branded : priced;
 
   // copy.description is written to 120–128 characters so this still fits 155
   // with a five-figure price; lib/experience-meta.test.ts holds it there.

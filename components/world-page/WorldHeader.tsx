@@ -54,7 +54,7 @@ export default function WorldHeader({ logo }: { logo?: string }) {
           // target. Spelled as an arbitrary value because this Tailwind build
           // generates .min-h-11 but not .min-w-11.
           className="flex min-h-11 min-w-[2.75rem] shrink-0 items-center gap-2"
-          aria-label={loc(language, "Roulé Rodrigues home", "Accueil Roulé Rodrigues")}
+          aria-label={loc(language, "Roule Rodrigues home", "Accueil Roule Rodrigues")}
         >
           {logo ? (
             <Image

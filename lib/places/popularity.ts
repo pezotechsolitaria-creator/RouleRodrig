@@ -213,7 +213,7 @@ export function scorePlace({
     return {
       tier: "curated",
       score: 1000 - rank + score / 1000,
-      evidence: ["Chosen by Roulé Rodrigues", ...evidence],
+      evidence: ["Chosen by Roule Rodrigues", ...evidence],
       confident: true,
     };
   }

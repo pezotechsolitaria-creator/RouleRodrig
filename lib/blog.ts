@@ -314,7 +314,7 @@ export const BLOG_POSTS: BlogPost[] = [
     title: "The Best Time to Visit Rodrigues",
     metaTitle: "Best Time to Visit Rodrigues | Roule Rodrigues",
     description:
-      "Rodrigues weather month by month from the official climate record: temperatures, rainfall, cyclone season, and when the island's own festivals actually fall.",
+      "Rodrigues weather month by month from the official climate record: temperatures, rainfall, cyclone season, and when the island's own festivals fall.",
     keyword: "best time to visit Rodrigues",
     published: "2026-08-27",
     updated: "2026-08-27",

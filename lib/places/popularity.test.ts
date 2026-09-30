@@ -62,7 +62,7 @@ describe("the owner's own pick needs no data", () => {
     const p = scorePlace({ signals: NO_SIGNALS, curated: true });
     expect(p.tier).toBe("curated");
     expect(p.confident).toBe(true);
-    expect(p.evidence[0]).toBe("Chosen by Roulé Rodrigues");
+    expect(p.evidence[0]).toBe("Chosen by Roule Rodrigues");
   });
 
   it("is never demoted by a quiet week", () => {

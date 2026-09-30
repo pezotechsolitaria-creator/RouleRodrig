@@ -67,7 +67,14 @@ describe("the experiences page metadata", () => {
     // literal here was six titles disagreeing with the Google Business Profile
     // at once. The assertion's real subject is the priceless BRANCH, which is
     // unchanged; only where the brand comes from moved.
-    expect(src).toMatch(/from\s*\?[\s\S]{0,200}:\s*`\$\{copy\.title\} \| \$\{SITE_NAME\}`/);
+    expect(src).toMatch(/const priced = from\s*\?[\s\S]{0,120}:\s*copy\.title;/);
+    expect(src).toContain("const branded = `${priced} | ${SITE_NAME}`;");
+  });
+
+  it("drops the brand, never the price, when the title would pass 60", () => {
+    // Measured live 30 Sep 2026: "Massage & wellness in Rodrigues from Rs 1,999
+    // | Roule Rodrigues" was 63 characters and Google cut the end.
+    expect(src).toContain("const title = branded.length <= 60 ? branded : priced;");
   });
 
   it("shares the real photograph, not the generic site card", () => {
