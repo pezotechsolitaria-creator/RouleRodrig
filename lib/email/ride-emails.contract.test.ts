@@ -311,3 +311,130 @@ describe("the routes still send", () => {
     );
   });
 });
+
+// ── A BOOKED RIDE IS NOT SEARCHED FOR UNTIL ITS LEAD ────────────────────────
+// RR-C53A01 was booked on 20 Sep for 5 Oct and told "we're offering it to
+// drivers now, and one of them usually accepts within a few minutes". The
+// search starts the day before an airport pickup. Dates here are relative to
+// the real clock, so the tests mean the same thing on any day they run.
+describe("what a booking made ahead is promised", () => {
+  const inDays = (d: number) => new Date(Date.now() + d * 86_400_000).toISOString();
+
+  it("an airport pickup days away is offered to drivers the day before", async () => {
+    const { sendRideEmails } = await import("@/lib/email");
+    await sendRideEmails({ ...RIDE, scheduledAt: inDays(5) });
+    const html = ofType("ride_request_confirmation")!.html;
+    expect(html).toContain("we'll offer it to drivers the day before your pickup");
+    expect(html).not.toContain("we're offering it to drivers now");
+    expect(html).toContain("nous la proposerons aux chauffeurs la veille de votre prise en charge");
+    expect(html).not.toContain("Nous cherchons votre chauffeur");
+  });
+
+  it("any other ride booked ahead is offered a few hours before", async () => {
+    const { sendRideEmails } = await import("@/lib/email");
+    await sendRideEmails({ ...RIDE, service: "taxi", scheduledAt: inDays(2) });
+    const html = ofType("ride_request_confirmation")!.html;
+    expect(html).toContain("we'll offer it to drivers a few hours before your pickup");
+    expect(html).toContain("quelques heures avant votre prise en charge");
+  });
+
+  it("a hand-priced ride booked ahead says when too, not 'now'", async () => {
+    const { sendRideEmails } = await import("@/lib/email");
+    await sendRideEmails({ ...RIDE, price: null, zone: 2, farePending: true, scheduledAt: inDays(5) });
+    const html = ofType("ride_request_confirmation")!.html;
+    expect(html).toContain("and will offer it to drivers the day before your pickup");
+    expect(html).toContain("la proposerons aux chauffeurs la veille");
+    expect(html).not.toContain("are offering it to drivers now");
+  });
+
+  it("a ride asked for now is still offered now", async () => {
+    const { sendRideEmails } = await import("@/lib/email");
+    await sendRideEmails({ ...RIDE, whenKind: "now", scheduledAt: null });
+    const html = ofType("ride_request_confirmation")!.html;
+    expect(html).toContain("we're offering it to drivers now");
+    expect(html).toContain("Nous cherchons votre chauffeur");
+  });
+});
+
+// ── "YOUR DRIVER IS …" ─────────────────────────────────────────────────────
+// The confirmation promised the driver's name "on the tracking page the moment
+// they accept", and that page was the only place it appeared. A ride the owner
+// rescued by hand on the desk told nobody at all.
+describe("the email that says who is coming", () => {
+  const FOUND = {
+    id: "0e90ad20-edf7-4edf-87dd-34c28a885c30",
+    email: "marie@example.com",
+    name: "Marie Perrine",
+    service: "airport",
+    whenKind: "scheduled",
+    scheduledAt: "2026-10-05T15:00:00Z",
+    pickup: "Plaine Corail Airport",
+    driverId: "d1",
+    driverName: "Mr Sam",
+    driverPhone: "+230 5712 3456",
+    vehicle: "Toyota Noah",
+  };
+
+  it("names the driver, their number, the car and the pickup, in both languages", async () => {
+    const { sendRideDriverFound } = await import("@/lib/email");
+    expect(await sendRideDriverFound(FOUND)).toBe(true);
+    const mail = ofType("ride_driver_found")!;
+    expect(mail.to).toBe("marie@example.com");
+    expect(mail.subject).toContain("Mr Sam");
+    expect(mail.html).toContain("+230 5712 3456");
+    expect(mail.html).toContain("Toyota Noah");
+    expect(mail.html).toContain("Plaine Corail Airport");
+    expect(mail.html).toMatch(/19:00/); // 15:00 UTC is 19:00 in Rodrigues
+    expect(mail.html).toContain("RR-0E90AD");
+    expect(mail.html).toContain("FRANÇAIS");
+    expect(mail.html).not.toMatch(/\b(null|undefined|NaN)\b/);
+  });
+
+  it("is sent again only when the driver changes", async () => {
+    const { sendRideDriverFound } = await import("@/lib/email");
+    await sendRideDriverFound(FOUND);
+    await sendRideDriverFound({ ...FOUND, driverId: "d2", driverName: "Ravi" });
+    const keys = sent.filter((s) => s.type === "ride_driver_found").map((s) => s.idempotencyKey);
+    expect(keys[0]).toContain(`${FOUND.id}:d1`);
+    expect(keys[1]).toContain(`${FOUND.id}:d2`);
+    expect(keys[0]).not.toBe(keys[1]);
+  });
+
+  it("degrades cleanly without a phone, a car or a booked time", async () => {
+    const { sendRideDriverFound } = await import("@/lib/email");
+    await sendRideDriverFound({ ...FOUND, driverPhone: null, vehicle: null, whenKind: "now", scheduledAt: null });
+    const mail = ofType("ride_driver_found")!;
+    expect(mail.html).not.toMatch(/\b(null|undefined|NaN)\b/);
+    expect(mail.html).toContain("Mr Sam");
+  });
+
+  it("says which trip of a return package the driver is for", async () => {
+    const { sendRideDriverFound } = await import("@/lib/email");
+    await sendRideDriverFound({ ...FOUND, leg: "return" });
+    const mail = ofType("ride_driver_found")!;
+    expect(mail.html).toContain("will be your driver for your return trip");
+    expect(mail.html).toContain("sera votre chauffeur pour le retour");
+  });
+
+  it("sends nothing without an address", async () => {
+    const { sendRideDriverFound } = await import("@/lib/email");
+    expect(await sendRideDriverFound({ ...FOUND, email: null })).toBe(false);
+    expect(ofType("ride_driver_found")).toBeUndefined();
+  });
+
+  it("is a registered ride email", () => {
+    expect(EMAIL_TYPES).toHaveProperty("ride_driver_found");
+    expect(emailCategory("ride_driver_found")).toBe("ride");
+  });
+
+  it("goes out from both doors a ride gets a driver through", () => {
+    const assign = readFileSync(join(ROOT, "app/api/admin/rides/route.ts"), "utf8");
+    expect(assign).toMatch(/import \{ notifyRideOffers, notifyCustomerDriverFound \} from "@\/lib\/rides\/notify";/);
+    // After the response, so the owner's button and the driver's accept
+    // screen never wait on an email provider.
+    expect(assign).toMatch(/after\(\(\) => notifyCustomerDriverFound\(rideId, driverId\)\);/);
+    const accept = readFileSync(join(ROOT, "app/api/ride-offer/route.ts"), "utf8");
+    expect(accept).toMatch(/after\(async \(\) => \{/);
+    expect(accept).toMatch(/await notifyCustomerDriverFound\(o\.request_id, o\.driver_id\);/);
+  });
+});

@@ -29,6 +29,7 @@ import PaymentHelp from "@/components/payments/PaymentHelp";
 import { useLanguage } from "@/context/LanguageContext";
 import { RIDES_COPY } from "@/lib/rides/copy.i18n";
 import { trackErrorMessage } from "@/lib/rides/track-errors";
+import { searchStartsAt } from "@/lib/rides/dispatch-timing";
 
 // ── "WHERE IS MY TAXI?" ─────────────────────────────────────────────────────
 //
@@ -220,13 +221,18 @@ export default function TrackRide({
   useEffect(() => {
     const s = ride?.status;
     if (!ride?.ok || !s) return;
-    if (s === "completed" || s === "cancelled") return;
+    // no_show is final too; it is outside RideStatus, hence the widening.
+    if (s === "completed" || s === "cancelled" || (s as string) === "no_show") return;
     const id = setInterval(() => void look(ref, phone, true), 15_000);
     return () => clearInterval(id);
   }, [ride?.ok, ride?.status, ref, phone, look]);
 
   const found = ride?.ok === true;
   const status = ride?.status;
+  // 'no_show' comes back from the lookup but is not a RideStatus.
+  const isNoShow = (status as string | undefined) === "no_show";
+  // Booked, and the search for a driver has not started yet.
+  const bookedAhead = status === "new" && !!ride && searchStartsAt(ride) !== null;
   // A ride somebody is actually driving. 'assigned' counts: the driver has the
   // job and may already be moving toward the pickup.
   const isLive =
@@ -288,22 +294,48 @@ export default function TrackRide({
           <div className="rounded-3xl border border-yellow/25 bg-gradient-to-b from-yellow/10 to-transparent px-5 py-6 text-center">
             {status === "completed" ? (
               <CheckCircle2 size={30} className="mx-auto text-green-400" />
-            ) : status === "cancelled" ? (
+            ) : status === "cancelled" || isNoShow ? (
               <AlertCircle size={30} className="mx-auto text-orange-300" />
             ) : status === "assigned" ||
               status === "driver_on_way" ||
               status === "arrived" ||
               status === "on_trip" ? (
               <Car size={30} className="mx-auto text-yellow" />
+            ) : bookedAhead ? (
+              // Nothing is being searched yet, so nothing spins.
+              <Clock size={30} className="mx-auto text-yellow" />
             ) : (
               <Loader2 size={30} className="mx-auto animate-spin text-yellow" />
             )}
             <h2 className="mt-3 font-syne text-2xl font-extrabold text-offwhite">
-              {c.status[status]}
+              {isNoShow ? c.status.noShow.heading : c.status[status]}
             </h2>
+            {isNoShow && (
+              <p className="mt-1.5 font-dm text-sm text-muted">{c.status.noShow.body}</p>
+            )}
             {/* Only while still looking: the reassurance widens with each round,
                 which is how a longer wait reads as patience and not as trouble. */}
-            {(status === "new" || status === "dispatching") && (
+            {/* ── BOOKED, AND THE SEARCH HAS NOT STARTED ─────────────────────
+                A booked ride is not searched for until its lead: the day before
+                for an airport pickup, a few hours before otherwise. This line
+                used to say "Checking drivers near you…" for all of that time —
+                fifteen days of it for an airport pickup booked on 20 Sep for
+                5 Oct. It says when the search will start instead. */}
+            {bookedAhead && ride.scheduledAt && (
+              <p className="mt-1.5 font-dm text-sm text-muted">
+                {c.status.booked(
+                  new Date(ride.scheduledAt).toLocaleString(dateLocale, {
+                    day: "numeric",
+                    month: "short",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                    timeZone: "Indian/Mauritius",
+                  }),
+                  ride.service === "airport",
+                )}
+              </p>
+            )}
+            {(status === "dispatching" || (status === "new" && !bookedAhead)) && (
               <>
                 <p className="mt-1.5 font-dm text-sm text-muted">
                   {searchingRound(c, ride.rounds ?? 1)}

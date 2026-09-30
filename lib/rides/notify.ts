@@ -813,3 +813,58 @@ export async function notifyOwnerRideUnreached(
     return 0;
   }
 }
+
+/**
+ * Tell the customer who their driver is — by email, when they gave one.
+ *
+ * Called from both doors a ride gets a driver through: a driver pressing
+ * Accept on an offer (/api/ride-offer) and the owner pressing Assign on the
+ * desk (/api/admin/rides). Neither told the customer anything; the second is
+ * the only way a stranded ride is ever rescued, and it told nobody at all.
+ *
+ * Email only because it is the only channel a customer has: CallMeBot can
+ * message only a number that opted in, and a customer never did.
+ *
+ * Awaited by the callers (a serverless function is killed when the handler
+ * returns) and NEVER throws: the assignment has already committed.
+ */
+export async function notifyCustomerDriverFound(rideId: string, driverId: string): Promise<boolean> {
+  if (!hasServiceRole()) return false;
+  try {
+    const admin = await getPrivileged();
+    const [rideRead, driverRead] = await Promise.all([
+      admin.from("ride_requests")
+        .select("id, customer_name, customer_email, service, when_kind, scheduled_at, pickup_label, trip_type, leg")
+        .eq("id", rideId).maybeSingle(),
+      admin.from("taxi_drivers").select("name, phone, whatsapp, vehicle").eq("id", driverId).maybeSingle(),
+    ]);
+    const r = rideRead.data as Record<string, string | null> | null;
+    const d = driverRead.data as Record<string, string | null> | null;
+    if (rideRead.error || driverRead.error || !r || !d) {
+      console.error("notifyCustomerDriverFound: read failed", { rideId, driverId, ride: rideRead.error, driver: driverRead.error });
+      return false;
+    }
+    if (!r.customer_email) return false;
+    const { sendRideDriverFound } = await import("@/lib/email");
+    return await sendRideDriverFound({
+      id: rideId,
+      email: r.customer_email,
+      name: r.customer_name || "there",
+      service: r.service ?? "",
+      whenKind: r.when_kind,
+      scheduledAt: r.scheduled_at,
+      pickup: r.pickup_label,
+      driverId,
+      driverName: (d.name ?? "").trim() || "Your driver",
+      // The number the customer can actually reach them on — WhatsApp first,
+      // as the desk and the tracking page already show it.
+      driverPhone: (d.whatsapp ?? "").trim() || (d.phone ?? "").trim() || null,
+      vehicle: d.vehicle,
+      // Only a return package has two legs worth naming (M220).
+      leg: r.trip_type === "return" && (r.leg === "outbound" || r.leg === "return") ? r.leg : null,
+    });
+  } catch (err) {
+    console.error("notifyCustomerDriverFound threw", err);
+    return false;
+  }
+}

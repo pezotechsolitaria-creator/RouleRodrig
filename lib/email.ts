@@ -26,6 +26,7 @@ import {
   pickupTimeLabel,
   type RideService,
 } from "./rides/model";
+import { searchStartsAt } from "./rides/dispatch-timing";
 import { sendTransactionalEmail } from "./email/send";
 import {
   placeEmailType,
@@ -2990,16 +2991,38 @@ export async function sendRideEmails(
     : b.pendingReason === "evening" ? "Les transferts du soir sont tarifés au cas par cas"
     : b.pendingReason === "night" ? "Les transferts de nuit sont tarifés au cas par cas"
     : "Ce transfert est tarifé au cas par cas";
+  // ── "WE'RE OFFERING IT TO DRIVERS NOW" WAS ONLY TRUE FOR "NOW" ──────────
+  // A booked ride is not searched for until its lead (lib/rides/dispatch-
+  // timing.ts): the day before for an airport pickup, a few hours before for
+  // anything else. An airport transfer booked on 20 Sep for 5 Oct was told a
+  // driver "usually accepts within a few minutes", and then heard nothing for
+  // fifteen days. So the promise says when the search starts.
+  const later = searchStartsAt(b) !== null;
+  const whenEn = b.service === "airport" ? "the day before your pickup" : "a few hours before your pickup";
+  const whenFr = b.service === "airport"
+    ? "la veille de votre prise en charge"
+    : "quelques heures avant votre prise en charge";
+  // "we're offering it…" / "…and are offering it…" — the two sentence shapes
+  // the email uses, in each language.
+  const offeredEn = later ? `we'll offer it to drivers ${whenEn}` : "we're offering it to drivers now";
+  const andOfferedEn = later ? `will offer it to drivers ${whenEn}` : "are offering it to drivers now";
+  const offeredFr = later
+    ? `nous la proposerons aux chauffeurs ${whenFr}`
+    : "nous la proposons aux chauffeurs dès maintenant";
+  const andOfferedFr = later
+    ? `la proposerons aux chauffeurs ${whenFr}`
+    : "la proposons aux chauffeurs dès maintenant";
   if (b.email) {
     const body = `
       ${paragraph(
         b.farePending
-          ? // M222 · Offered to drivers now like any unpriced taxi ride; the fare is agreed by hand.
-            `Hi ${escapeHtml(b.name)}, we've received your ${what} request and are offering it to drivers now. ${whyEn}, so <strong>the fare is agreed with you</strong> rather than fixed in advance. Nothing is charged until you agree.`
-          : `Hi ${escapeHtml(b.name)}, we've received your ${what} request. This is a <strong>request</strong>, not a confirmed ride yet — we're offering it to drivers now, and one of them usually accepts within a few minutes.`,
+          ? // M222 · Offered to drivers like any unpriced taxi ride; the fare is agreed by hand.
+            `Hi ${escapeHtml(b.name)}, we've received your ${what} request and ${andOfferedEn}. ${whyEn}, so <strong>the fare is agreed with you</strong> rather than fixed in advance. Nothing is charged until you agree.`
+          : `Hi ${escapeHtml(b.name)}, we've received your ${what} request. This is a <strong>request</strong>, not a confirmed ride yet — ${offeredEn}, and one of them usually accepts within a few minutes.`,
       )}
       ${sectionLabel("Your ride · Votre course")}
       ${detailCard(rideRows(b))}
+      ${b.returnTrip ? paragraph("Your return trip is a separate ride with its own reference: it is offered to drivers the day before it, and it may have a different driver.") : ""}
       ${paragraph(`We'll reach you on <strong>${escapeHtml(b.phone)}</strong> — by call or WhatsApp — as soon as a driver takes it, and your driver will use that same number to find you. Please keep your phone nearby.`)}
       ${checkList([
         "Your driver's name and number appear on the tracking page the moment they accept",
@@ -3010,12 +3033,13 @@ export async function sendRideEmails(
       ${b.reference ? paragraph(`<span style="color:${C.muted};font-size:13px">You'll need your reference <b>${b.reference}</b> and the phone number above to open it.</span>`) : ""}
       ${meta?.needsArrival ? await esimCrossSell("en") : ""}
       ${sepFr()}
-      ${frHeading("Nous cherchons votre chauffeur")}
+      ${frHeading(later ? "Nous avons bien reçu votre demande" : "Nous cherchons votre chauffeur")}
       ${paragraph(
         b.farePending
-          ? `Bonjour ${escapeHtml(b.name)}, nous avons bien reçu votre demande de course et la proposons aux chauffeurs dès maintenant. ${whyFr} : <strong>le prix est convenu avec vous</strong>, il n'est pas fixé à l'avance. Rien n'est débité sans votre accord.`
-          : `Bonjour ${escapeHtml(b.name)}, nous avons bien reçu votre demande de course. Il s'agit d'une <strong>demande</strong>, pas encore d'une course confirmée — nous la proposons aux chauffeurs maintenant, et l'un d'eux l'accepte généralement en quelques minutes.`,
+          ? `Bonjour ${escapeHtml(b.name)}, nous avons bien reçu votre demande de course et ${andOfferedFr}. ${whyFr} : <strong>le prix est convenu avec vous</strong>, il n'est pas fixé à l'avance. Rien n'est débité sans votre accord.`
+          : `Bonjour ${escapeHtml(b.name)}, nous avons bien reçu votre demande de course. Il s'agit d'une <strong>demande</strong>, pas encore d'une course confirmée — ${offeredFr}, et l'un d'eux l'accepte généralement en quelques minutes.`,
       )}
+      ${b.returnTrip ? paragraph("Votre trajet retour est une course à part, avec sa propre référence : il est proposé aux chauffeurs la veille, et le chauffeur peut être différent.") : ""}
       ${paragraph(`Nous vous joindrons au <strong>${escapeHtml(b.phone)}</strong> — par appel ou WhatsApp — dès qu'un chauffeur l'accepte, et il utilisera ce même numéro pour vous retrouver. Gardez votre téléphone à portée de main.`)}
       ${checkList([
         "Le nom et le numéro de votre chauffeur s'affichent sur la page de suivi dès qu'il accepte",
@@ -3028,10 +3052,12 @@ export async function sendRideEmails(
       to: b.email,
       subject: "Your ride request · Votre demande de course 🚕",
       html: shell({
-        preheader:
-          "We're finding your driver · Nous cherchons votre chauffeur.",
+        // "We're finding your driver" is only true once the search has begun.
+        preheader: later
+          ? "We have your request · Nous avons bien reçu votre demande."
+          : "We're finding your driver · Nous cherchons votre chauffeur.",
         eyebrow: "Request received · Demande reçue",
-        title: "We're finding your driver",
+        title: later ? "We have your ride request" : "We're finding your driver",
         body,
         logo,
       }),
@@ -3080,10 +3106,10 @@ export async function sendRideEmails(
                   : b.pendingReason === "night"
                     ? `This ${label.toLowerCase()} falls in the night window (priced by hand)`
                     : `This ${label.toLowerCase()} could not be priced automatically`
-            }. It is being offered to drivers now with no fixed fare, like any unpriced taxi ride — <strong>agree the fare with ${escapeHtml(b.name)}</strong>.`)
+            }. ${later ? `It will be offered to drivers ${whenEn}` : "It is being offered to drivers now"} with no fixed fare, like any unpriced taxi ride — <strong>agree the fare with ${escapeHtml(b.name)}</strong>.`)
           : ""
       }
-      ${paragraph(`New <strong>${label}</strong> request from <strong>${escapeHtml(b.name)}</strong>. Drivers are being offered it automatically — open <strong>Rides</strong> in your admin dashboard to watch it, or to place it by hand if nobody accepts.`)}
+      ${paragraph(`New <strong>${label}</strong> request from <strong>${escapeHtml(b.name)}</strong>. ${later ? `Drivers will be offered it automatically ${whenEn.replace("your pickup", "the pickup")}` : "Drivers are being offered it automatically"} — open <strong>Rides</strong> in your admin dashboard to watch it, or to place it by hand if nobody accepts.`)}
       ${detailCard(
         rideRows(b) +
           rows([
@@ -3170,6 +3196,86 @@ export async function sendRideFeedbackRequest(b: {
     }),
     type: "ride_feedback_request",
     key: keyFor("ride_feedback_request", b.id),
+    relatedType: "ride",
+    relatedId: b.id,
+  });
+}
+
+/**
+ * "Your driver is …" — the email the booking confirmation promised and nothing
+ * sent.
+ *
+ * The confirmation says "Your driver's name and number appear on the tracking
+ * page the moment they accept", and that was the only place they appeared. A
+ * customer who did not happen to open /taxi/track learned they had a driver
+ * when a stranger's number rang — and when the owner rescued a stranded ride
+ * by hand on the desk, nothing at all was sent to anyone.
+ *
+ * Keyed on the ride AND the driver: a ride handed to someone else afterwards
+ * is news and is sent; the same assignment twice is not.
+ */
+export async function sendRideDriverFound(b: {
+  id: string;
+  email: string | null;
+  name: string;
+  service: RideService | string;
+  whenKind: string | null;
+  scheduledAt: string | null;
+  pickup: string | null;
+  driverId: string;
+  driverName: string;
+  driverPhone: string | null;
+  vehicle: string | null;
+  /** A return package is two rides with two drivers — say which one this is. */
+  leg?: "outbound" | "return" | null;
+}): Promise<boolean> {
+  if (!b.email) return false;
+  const legEn = b.leg === "return" ? " for your return trip" : b.leg === "outbound" ? " for your first trip" : "";
+  const legFr = b.leg === "return" ? " pour le retour" : b.leg === "outbound" ? " pour l'aller" : "";
+  const { logo } = await getBrand();
+  const ref = "RR-" + b.id.replace(/-/g, "").slice(0, 6).toUpperCase();
+  const trackUrl = `${SITE_URL}/taxi/track?ref=${encodeURIComponent(ref)}`;
+  const driver = escapeHtml(b.driverName);
+  const when =
+    b.whenKind === "scheduled" && b.scheduledAt && !Number.isNaN(Date.parse(b.scheduledAt))
+      ? (locale: string) =>
+          new Date(b.scheduledAt as string).toLocaleString(locale, {
+            weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit",
+            timeZone: "Indian/Mauritius",
+          })
+      : null;
+
+  const pairs: [string, string][] = [
+    ["Driver · Chauffeur", `<b>${driver}</b>`],
+  ];
+  if (b.driverPhone) pairs.push(["Phone · Téléphone", escapeHtml(b.driverPhone)]);
+  if (b.vehicle) pairs.push(["Vehicle · Véhicule", escapeHtml(b.vehicle)]);
+  if (when) pairs.push(["Pickup · Prise en charge", escapeHtml(when("en-GB"))]);
+  if (b.pickup) pairs.push(["From · Départ", escapeHtml(b.pickup)]);
+  pairs.push(["Reference · Référence", `<b>${ref}</b>`]);
+
+  const body = `
+    ${paragraph(`Hi ${escapeHtml(b.name)}, good news: <strong>${driver}</strong> will be your driver${legEn}${when ? ` on ${escapeHtml(when("en-GB"))}` : ""}. They'll use the number you gave us to find you, so please keep your phone nearby.`)}
+    ${detailCard(rows(pairs))}
+    ${paragraph("You pay the driver directly at the end of the trip — nothing is charged here.")}
+    <div style="text-align:center">${primaryButton(trackUrl, "Follow my ride · Suivre ma course")}</div>
+    ${sepFr()}
+    ${frHeading("Votre chauffeur est trouvé")}
+    ${paragraph(`Bonjour ${escapeHtml(b.name)}, bonne nouvelle : <strong>${driver}</strong> sera votre chauffeur${legFr}${when ? ` le ${escapeHtml(when("fr-FR"))}` : ""}. Votre chauffeur utilisera le numéro que vous nous avez donné pour vous retrouver : gardez votre téléphone à portée de main.`)}
+    ${paragraph("Vous réglez le chauffeur directement à la fin de la course — rien n'est débité ici.")}`;
+
+  return send({
+    to: b.email,
+    subject: `Your driver is ${b.driverName} · Votre chauffeur : ${b.driverName}`,
+    html: shell({
+      preheader: `${b.driverName} will drive you · ${b.driverName} sera votre chauffeur`,
+      eyebrow: "Driver found · Chauffeur trouvé",
+      title: "Your driver is on it",
+      body,
+      logo,
+    }),
+    type: "ride_driver_found",
+    key: keyFor("ride_driver_found", `${b.id}:${b.driverId}`),
     relatedType: "ride",
     relatedId: b.id,
   });

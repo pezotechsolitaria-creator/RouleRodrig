@@ -1,11 +1,11 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { z } from "zod";
 import { verifySession, COOKIE_NAME } from "@/lib/auth";
 import { getPrivileged, hasServiceRole } from "@/lib/supabase/admin";
 import { audit } from "@/lib/admin/audit";
 import { SITE_URL } from "@/lib/site";
 import { offerMessage, RIDE_SERVICES, OPEN_RIDE_STATUSES, type RideService } from "@/lib/rides/model";
-import { notifyRideOffers } from "@/lib/rides/notify";
+import { notifyRideOffers, notifyCustomerDriverFound } from "@/lib/rides/notify";
 
 // ── THE TAXI & TRANSFER DESK'S BACKEND ──────────────────────────────────────
 //
@@ -268,6 +268,13 @@ export async function PATCH(req: NextRequest) {
     if (error) return NextResponse.json({ error: error.message }, { status: error.code === "RR092" ? 400 : 500 });
     await audit(admin, { action: "ride.assign_manual", entityType: "ride_request", entityId: p.rideId,
       diff: { driverId: p.driverId } });
+    // The rescue of a stranded ride used to tell nobody. The customer now gets
+    // their driver's name and number, if they left an email — after the
+    // response, so the owner's Assign button never waits on the email provider.
+    if ((data as { ok?: boolean } | null)?.ok !== false) {
+      const { rideId, driverId } = p;
+      after(() => notifyCustomerDriverFound(rideId, driverId));
+    }
     return NextResponse.json(data);
   }
 

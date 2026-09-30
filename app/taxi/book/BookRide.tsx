@@ -33,6 +33,7 @@ import { RIDES_COPY } from "@/lib/rides/copy.i18n";
 import { toE164National } from "@/lib/phone";
 import { rideQuoteShown, rideRequestSubmitted } from "@/lib/analytics/flows";
 import { ISLAND_TZ, islandIsoFromLocal } from "@/lib/island-time";
+import { searchStartsAt } from "@/lib/rides/dispatch-timing";
 import {
   effectiveEveningLabel,
   isTransferQuote,
@@ -415,6 +416,11 @@ export default function BookRide({
 
   // ── Booked ──────────────────────────────────────────────────────────────
   if (done) {
+    // A ride booked ahead is not searched for until its lead, so "a driver
+    // will accept in the next few minutes" was untrue for it — the day before,
+    // for an airport pickup. lib/rides/dispatch-timing.ts decides.
+    const scheduledIso = whenKind === "scheduled" && when ? islandIsoFromLocal(when) : null;
+    const bookedAhead = searchStartsAt({ service, whenKind, scheduledAt: scheduledIso }) !== null;
     return (
       <div className="space-y-4">
         <div className="rounded-3xl border border-green-500/30 bg-green-500/[0.07] p-6 text-center">
@@ -422,14 +428,24 @@ export default function BookRide({
             <Check size={28} />
           </span>
           <h2 className="mt-4 font-syne text-2xl font-extrabold text-offwhite">
-            {c.done.heading}
+            {bookedAhead ? c.done.bookedHeading : c.done.heading}
           </h2>
           {/* c.done.body — written in all three languages at
               lib/rides/copy.i18n.ts and asserted by its own test, while this
               screen rendered the English literal underneath it. Since M222
-              every airport transfer is offered to drivers straight away, as a
-              normal taxi is, so this is true for a hand-priced one too. */}
-          <p className="mt-2 font-dm text-sm text-muted">{c.done.body}</p>
+              every airport transfer is offered to drivers like a normal taxi,
+              so this is true for a hand-priced one too. */}
+          <p className="mt-2 font-dm text-sm text-muted">
+            {bookedAhead && scheduledIso
+              ? c.done.bookedBody(
+                  new Date(scheduledIso).toLocaleString(dateLocale, {
+                    day: "numeric", month: "short", hour: "2-digit", minute: "2-digit",
+                    timeZone: "Indian/Mauritius",
+                  }),
+                  service === "airport",
+                )
+              : c.done.body}
+          </p>
           <p className="mt-4 font-bebas text-[11px] tracking-[0.28em] text-yellow">
             {c.done.referenceEyebrow}
           </p>

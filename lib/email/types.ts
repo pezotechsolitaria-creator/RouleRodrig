@@ -152,6 +152,10 @@ export const EMAIL_TYPES = {
   // confirmation at the start and silence at the end — the only finished
   // transaction on the platform that asked nobody for anything.
   ride_feedback_request:            { category: "ride", priority: "low" },
+  // Sent when a driver accepts, or the owner assigns one by hand. The
+  // confirmation promised the driver's name "on the tracking page the moment
+  // they accept", and that page was the only place it ever appeared.
+  ride_driver_found:                { category: "ride", priority: "high" },
 
   // ── Account / security ───────────────────────────────────────────────────
   // The day this block anticipated has arrived. email_verification and

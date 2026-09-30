@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { getPrivileged, hasServiceRole } from "@/lib/supabase/admin";
 import { guard } from "@/lib/rate-limit";
 
@@ -66,6 +66,33 @@ export async function POST(req: NextRequest) {
     console.error("ride offer answer failed", error);
     return NextResponse.json({ ok: false, reason: "error" }, { status: 500 });
   }
+
+  // The driver won the ride: tell the customer who is coming. The token is the
+  // only handle in the request, so the ride and driver are read back from the
+  // offer it names — which accept_ride_by_token leaves in place (the token is
+  // UNIQUE, and only expired/withdrawn rows are ever re-tokened).
+  //
+  // after(), not await: this response is how the driver gets the customer's
+  // number, and it must not wait on an email provider with no timeout over a
+  // patchy mobile connection. after() keeps the function alive until it ends.
+  if (answer === "accept" && (data as { ok?: boolean } | null)?.ok === true) {
+    after(async () => {
+      try {
+        const { data: offer, error: offerErr } = await admin
+          .from("ride_offers").select("request_id, driver_id").eq("token", token).maybeSingle();
+        const o = offer as { request_id?: string; driver_id?: string } | null;
+        if (offerErr || !o?.request_id || !o.driver_id) {
+          console.error("driver-found: offer read-back failed", { offerErr });
+          return;
+        }
+        const { notifyCustomerDriverFound } = await import("@/lib/rides/notify");
+        await notifyCustomerDriverFound(o.request_id, o.driver_id);
+      } catch (e) {
+        console.error("driver-found email failed", e);
+      }
+    });
+  }
+
   // 200 even when the answer is "somebody else got it" — that is not an error,
   // it is the outcome of a race the driver was told about, and the body says so.
   return NextResponse.json(data);

@@ -244,7 +244,7 @@ const EN = {
       // local customers this form exists to serve. What it CAN do is say
       // why it is wanted, which costs nothing and lifts uptake.
       emailHint:
-        "If we cannot reach you on the phone, this is how we find you. Nothing else is sent here.",
+        "If we cannot reach you on the phone, this is how we find you. We use it for your booking, never for newsletters.",
       phoneBad:
         "That does not look like a working number. Check it — a driver has to be able to ring you.",
       notesLabel: "ANYTHING THE DRIVER SHOULD KNOW (OPTIONAL)",
@@ -258,6 +258,11 @@ const EN = {
     done: {
       heading: "We're finding your driver",
       body: "No need to call anyone. A driver will accept in the next few minutes and you'll see their name and number here.",
+      // A ride booked ahead is not searched for until its lead (lib/rides/
+      // dispatch-timing.ts), so "in the next few minutes" was untrue for it.
+      bookedHeading: "Your request is in",
+      bookedBody: (when: string, airport: boolean) =>
+        `No need to call anyone. We'll start finding your driver ${airport ? "the day before" : "a few hours before"} your pickup on ${when}, and you'll see their name and number here.`,
       referenceEyebrow: "YOUR REFERENCE",
       follow: "Follow my ride",
       keepReference:
@@ -341,10 +346,20 @@ const EN = {
         n === 1
           ? "1 driver asked — waiting for a reply"
           : `${n} drivers asked — waiting for a reply`,
+      // A booked ride whose search has not started (lib/rides/dispatch-
+      // timing.ts). "Checking drivers near you…" was shown here for days.
+      booked: (when: string, airport: boolean) =>
+        `Requested for ${when}. We'll start finding your driver ${airport ? "the day before" : "a few hours before"}, and they'll appear here.`,
+      // 'no_show' is not in RIDE_STATUSES, so c.status[status] was undefined
+      // and this page drew an empty heading under a spinner, for ever.
+      noShow: {
+        heading: "Your driver couldn't find you",
+        body: "The driver reported that nobody was at the pickup. If that's a mistake, message us and we'll sort it out.",
+      },
     },
     step2: {
       noDriverHelp:
-        "Every driver is busy right now, so a person is arranging this. We'll call you.",
+        "No driver has taken it yet, so a person is arranging it for you. We'll call you on the number you booked with.",
       driverEyebrow: "YOUR DRIVER",
       steps: {
         requested: "Requested",
@@ -525,7 +540,7 @@ const FR: RidesCopy = {
       emailLabel: "E-MAIL (FACULTATIF)",
       emailPlaceholder: "vous@exemple.com",
       emailHint:
-        "Si nous ne pouvons pas vous joindre au téléphone, c’est ainsi que nous vous retrouvons. Rien d’autre n’y est envoyé.",
+        "Si nous ne pouvons pas vous joindre au téléphone, c’est ainsi que nous vous retrouvons. Nous l’utilisons pour votre réservation, jamais pour une newsletter.",
       phoneBad:
         "Ce numéro ne semble pas valide. Vérifiez-le — un chauffeur doit pouvoir vous appeler.",
       notesLabel: "À SAVOIR POUR LE CHAUFFEUR (FACULTATIF)",
@@ -539,6 +554,9 @@ const FR: RidesCopy = {
     done: {
       heading: "Nous cherchons votre chauffeur",
       body: "Pas besoin d’appeler. Un chauffeur acceptera dans les prochaines minutes et vous verrez son nom et son numéro ici.",
+      bookedHeading: "Votre demande est bien reçue",
+      bookedBody: (when: string, airport: boolean) =>
+        `Pas besoin d’appeler. Nous chercherons votre chauffeur ${airport ? "la veille" : "quelques heures avant"} de votre prise en charge du ${when}, et vous verrez son nom et son numéro ici.`,
       referenceEyebrow: "VOTRE RÉFÉRENCE",
       follow: "Suivre ma course",
       keepReference:
@@ -623,10 +641,16 @@ const FR: RidesCopy = {
         n === 1
           ? "1 chauffeur contacté — en attente d’une réponse"
           : `${n} chauffeurs contactés — en attente d’une réponse`,
+      booked: (when: string, airport: boolean) =>
+        `Demande pour le ${when}. Nous chercherons votre chauffeur ${airport ? "la veille" : "quelques heures avant"}, et il s’affichera ici.`,
+      noShow: {
+        heading: "Votre chauffeur ne vous a pas trouvé",
+        body: "Le chauffeur a signalé que personne n’était au point de prise en charge. Si c’est une erreur, écrivez-nous et nous arrangerons cela.",
+      },
     },
     step2: {
       noDriverHelp:
-        "Tous les chauffeurs sont pris pour le moment — quelqu’un s’en occupe. Nous vous appellerons.",
+        "Aucun chauffeur ne l’a encore prise, alors une personne s’en occupe pour vous. Nous vous appellerons au numéro de votre réservation.",
       driverEyebrow: "VOTRE CHAUFFEUR",
       steps: {
         requested: "Demande reçue",
@@ -809,7 +833,7 @@ const CR: RidesCopy = {
       emailLabel: "EMAIL (OPSIONEL)",
       emailPlaceholder: "ou@exemple.com",
       emailHint:
-        "Si nou pa kapav zwenn ou lor telefonn, se koumsa nou pou retrouv ou. Nanye dot pa avoye la.",
+        "Si nous ne pouvons pas vous joindre au téléphone, c’est ainsi que nous vous retrouvons. Nous l’utilisons pour votre réservation, jamais pour une newsletter.",
       phoneBad:
         "Sa nimero la pa paret bon. Verifie li — enn sofer bizin kapav apel ou.",
       notesLabel: "ENN ZAFER SOFER BIZIN KONE (OPSIONEL)",
@@ -823,6 +847,10 @@ const CR: RidesCopy = {
     done: {
       heading: "Nou pe rod ou sofer",
       body: "Pena bizin apel personn. Enn sofer pou aksepte dan bann minit ki vini ek ou pou trouv so non ek so nimero isi.",
+      // French until written in Kreol — listed in KREOL_NEEDS_REVIEW.
+      bookedHeading: "Votre demande est bien reçue",
+      bookedBody: (when: string, airport: boolean) =>
+        `Pas besoin d’appeler. Nous chercherons votre chauffeur ${airport ? "la veille" : "quelques heures avant"} de votre prise en charge du ${when}, et vous verrez son nom et son numéro ici.`,
       referenceEyebrow: "OU REFERANS",
       follow: "Swiv mo kours",
       keepReference:
@@ -906,10 +934,17 @@ const CR: RidesCopy = {
         n === 1
           ? "1 sofer kontakte — pe atann repons"
           : `${n} sofer kontakte — pe atann repons`,
+      // French until written in Kreol — listed in KREOL_NEEDS_REVIEW.
+      booked: (when: string, airport: boolean) =>
+        `Demande pour le ${when}. Nous chercherons votre chauffeur ${airport ? "la veille" : "quelques heures avant"}, et il s’affichera ici.`,
+      noShow: {
+        heading: "Votre chauffeur ne vous a pas trouvé",
+        body: "Le chauffeur a signalé que personne n’était au point de prise en charge. Si c’est une erreur, écrivez-nous et nous arrangerons cela.",
+      },
     },
     step2: {
       noDriverHelp:
-        "Tou bann sofer okipe la — enn dimounn pe arranz sa. Nou pou apel ou.",
+        "Aucun chauffeur ne l’a encore prise, alors une personne s’en occupe pour vous. Nous vous appellerons au numéro de votre réservation.",
       driverEyebrow: "OU SOFER",
       steps: {
         requested: "Demann resevwar",
@@ -960,6 +995,14 @@ export const KREOL_NEEDS_REVIEW: { path: string; fallback: "fr" | null }[] = [
   { path: "book.transfer.eveningManual", fallback: "fr" },
   { path: "book.transfer.bandIncluded", fallback: "fr" },
   { path: "book.transfer.groupManual", fallback: "fr" },
+  // 30 Sep 2026 — the tracking page's "booked, search not started yet" line.
+  { path: "track.status.booked", fallback: "fr" },
+  { path: "book.done.bookedHeading", fallback: "fr" },
+  { path: "book.done.bookedBody", fallback: "fr" },
+  { path: "book.step3.emailHint", fallback: "fr" },
+  { path: "track.step2.noDriverHelp", fallback: "fr" },
+  { path: "track.status.noShow.heading", fallback: "fr" },
+  { path: "track.status.noShow.body", fallback: "fr" },
   // M220 — drafted Kreol, unreviewed.
   ...[
     "tripGroupLabel", "oneWay", "returnPackage", "returnBlurb",

@@ -110,7 +110,10 @@ describe("fixes from the adversarial review of M221", () => {
 
   it("the booked screen is the normal taxi one again (nothing is held since M222)", () => {
     expect(BOOK).not.toContain("donePendingHeading");
-    expect(BOOK).toMatch(/\{c\.done\.heading\}/);
+    // The normal heading, or — for a ride booked ahead — the one that says
+    // the search has not started (lib/rides/dispatch-timing.ts). Never the
+    // retired "pending" screen.
+    expect(BOOK).toMatch(/c\.done\.heading\b/);
   });
 });
 
@@ -270,8 +273,10 @@ describe("the confirmation email names the reason a fare is pending", () => {
     expect(c.html).toContain("Night transfers are priced by hand");
     expect(c.html).toContain("Les transferts de nuit sont tarifés au cas par cas");
     expect(c.html).not.toContain("Evening and night");
-    // Offered to drivers straight away, like a normal taxi (M222).
-    expect(c.html).toContain("are offering it to drivers now");
+    // Offered to drivers like a normal taxi (M222), never held for the fare.
+    // "now" or "the day before" depends on how far off this fixed date is
+    // from the day the test runs — lib/rides/dispatch-timing.ts decides.
+    expect(c.html).toMatch(/(are offering it to drivers now|will offer it to drivers the day before your pickup)/);
     expect(c.html).not.toContain("before a driver is sent");
     const owner = sent.find((s) => s.type === "owner_ride_alert")!.html;
     expect(owner).toContain("falls in the night window");
