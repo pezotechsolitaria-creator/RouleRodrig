@@ -257,6 +257,28 @@ export function withoutHidden(content: SiteContent): SiteContent {
 }
 
 
+/**
+ * ── CODE MIGRATIONS RUN AFTER THE CACHE, NOT ONLY INSIDE IT ────────────────
+ *
+ * migrateQuickAccess() / migrateHomeCards() are CODE: they ship with a deploy.
+ * The cached blob above is keyed on the ROW's updated_at, and Vercel's data
+ * cache survives deploys — so a migration applied only inside parse() reached
+ * the live site up to an hour late. Seen on 30 Sep 2026: the eSIM tile was
+ * deployed, and the homepage went on showing Fishing from a blob cached by
+ * the previous build.
+ *
+ * Both are pure, cheap and idempotent (lib/quick-access.test.ts runs them
+ * twice), so re-applying them here costs nothing and makes a deploy the
+ * moment a tile change goes live.
+ */
+function withCodeMigrations(content: SiteContent): SiteContent {
+  return {
+    ...content,
+    quickAccess: migrateQuickAccess(content.quickAccess) ?? DEFAULT_QUICK_ACCESS,
+    homeCards: migrateHomeCards(content.homeCards) ?? DEFAULT_HOME_CARDS,
+  };
+}
+
 export async function getContent(): Promise<SiteContent> {
   // A FAILED VERSION READ MUST NOT COST A BLOB READ. Falling through to the
   // uncached path here would answer a database blip by fetching 148 kB on
@@ -271,7 +293,7 @@ export async function getContent(): Promise<SiteContent> {
   }
 
   try {
-    return withoutHidden(await readPublicContentAt(version));
+    return withCodeMigrations(withoutHidden(await readPublicContentAt(version)));
   } catch {
     // Uncached fallback, which has its own defaults-on-failure behaviour.
     // Filtered too — a database blip must not un-hide the owner's listings.
