@@ -18,7 +18,9 @@
 
 export type Lang = "en" | "fr";
 export type Step = { title: string; body: string };
-export type Faq = { q: string; a: string };
+/** `id` marks an answer the page decorates (the phone checker sits under
+ *  "compat"); JSON-LD reads only q and a. */
+export type Faq = { q: string; a: string; id?: "compat" };
 
 export const IOS_STEPS: Record<Lang, Step[]> = {
   en: [
@@ -105,7 +107,7 @@ function baseFaq(lang: Lang, from: string): Faq[] {
     return [
       {
         q: "Une eSIM fonctionne-t-elle à Rodrigues ?",
-        a: "Oui, à condition qu'elle utilise le bon réseau. À Rodrigues, seuls my.t (Mauritius Telecom) et Emtel ont un réseau mobile ; Chili (MTML) n'en a pas. Les eSIM vendues par Roulé Rodrigues se connectent à my.t en 4G, qui couvre Port-Mathurin, les villages et les routes principales de l'île.",
+        a: "Oui, à condition qu'elle utilise le bon réseau. À Rodrigues, seuls my.t (Mauritius Telecom) et Emtel ont un réseau mobile ; Chili (MTML) n'en a pas. Les eSIM vendues par Roulé Rodrigues se connectent à my.t en 4G, qui couvre Port-Mathurin, les villages et les routes principales de l'île. Le signal peut faiblir au fond de certaines vallées et sur les îlots du lagon comme l'Île aux Cocos.",
       },
       {
         q: "Combien coûte une eSIM pour Maurice et Rodrigues ?",
@@ -116,6 +118,7 @@ function baseFaq(lang: Lang, from: string): Faq[] {
         a: "Avant le départ, en Wi-Fi. Les jours du forfait ne commencent qu'à la première connexion à un réseau compatible, donc installer tôt ne coûte rien — vous avez 180 jours pour l'installer. Attention : si vous l'activez pendant une escale (Dubaï, Paris…), le décompte commence à ce moment-là.",
       },
       {
+        id: "compat",
         q: "Mon téléphone est-il compatible eSIM ?",
         a: "La plupart des iPhone depuis le XR/XS, des Samsung Galaxy depuis le S20 et des Google Pixel depuis le 3 le sont. Le test fiable : composez *#06# — si un numéro « EID » s'affiche, votre téléphone accepte les eSIM. Il doit aussi être désimlocké.",
       },
@@ -132,7 +135,7 @@ function baseFaq(lang: Lang, from: string): Faq[] {
   return [
     {
       q: "Does an eSIM work on Rodrigues Island?",
-      a: "Yes, if it uses the right network. On Rodrigues only my.t (Mauritius Telecom) and Emtel have mobile coverage; Chili (MTML) has none. The eSIMs sold by Roulé Rodrigues connect to my.t 4G, which covers Port Mathurin, the villages and the main roads of the island.",
+      a: "Yes, if it uses the right network. On Rodrigues only my.t (Mauritius Telecom) and Emtel have mobile coverage; Chili (MTML) has none. The eSIMs sold by Roulé Rodrigues connect to my.t 4G, which covers Port Mathurin, the villages and the main roads of the island. Expect weaker signal in some deep valleys and on lagoon islets such as Île aux Cocos.",
     },
     {
       q: "How much is an eSIM for Mauritius and Rodrigues?",
@@ -143,6 +146,7 @@ function baseFaq(lang: Lang, from: string): Faq[] {
       a: "Before you travel, on Wi-Fi. The plan's days only start when it first connects to a supported network, so installing early costs nothing — you have 180 days to install it. One caveat: if you switch it on during a layover (Dubai, Paris…), the days start there.",
     },
     {
+      id: "compat",
       q: "Is my phone compatible with eSIM?",
       a: "Most iPhones from the XR/XS on, Samsung Galaxy phones from the S20 on and Google Pixels from the 3 on are. The test that is never wrong: dial *#06# — if an “EID” number appears, your phone takes eSIMs. It must also be carrier-unlocked.",
     },

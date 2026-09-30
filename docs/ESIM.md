@@ -11,6 +11,55 @@ comments carry the reasoning line by line; this is the map.
 
 ---
 
+## M226 — One screen to choose (30 Sep 2026)
+
+Owner: "too long on mobile… plans must appear almost immediately". MEASURED on the
+live M225 page at 375×812 before touching it: **7,153px (8.8 screens)**, a 535px
+hero, the first "Choose" below the fold, all four plans ending at 1,484px, each
+pass 161–180px tall, and a 1,512px destination grid.
+
+After (production build, same viewport): **all four plans and their Choose
+buttons end at 721px, above the floating nav (738px), in English AND French**;
+the page is 3,296px including the site footer. The UAE shelf (one per-day plan
+with a two-line hint) ends at 734px.
+
+- **Hero (237px, was 535)**: the h1 is a Bebas keyword kicker ("Rodrigues &
+  Mauritius eSIM", so the H1 now says eSIM) + a two-line promise, "Ready before
+  you land" / "Prête avant l'atterrissage" — the old line needed 4 lines of Syne
+  at any readable size. One sentence; three facts in one row (Delivered in
+  seconds · my.t 4G with the signal bars · Hotspot). No CTA button: the plans
+  ARE the next thing on screen. Status strip, clock and section chips removed.
+- **Passes (78–89px, were 161–180)**: one row each. Badge is a tab on the top
+  edge (0px of height); price in **DM Sans 600 tabular** — Syne's ~1em numerals
+  put "€23.90" at 107px in a 96px stub; DM Sans holds every price from "€6.90"
+  to "149,90 €" in 57–82px, and the prices align digit for digit. Per-GB,
+  "+N countries" and the network line left the cards (the FAQ, the network
+  sentence and the hero carry them). The scroll-driven "print" reveal is gone:
+  above the fold it would load the fourth pass half-clipped.
+- **"Most chosen" was requested and NOT shipped**: the store has no sales, so
+  the owner's pick stays "Our pick". Badges are facts (M224).
+- **How it works**: three steps across, one short line each (~110px).
+- **Network**: one sentence. Home: "Every plan runs on my.t 4G. Chili has no
+  signal on Rodrigues, so we never sell it." The full story is FAQ answer 1,
+  which also took the coverage caveat (valleys, Île aux Cocos).
+- **FAQ**: all closed. The phone checker lives inside "Is my phone compatible?"
+  (`Faq.id = "compat"`, `CompatChecker searchOnly`); "Will my phone work?" beside
+  the plans title opens it. JSON-LD still reads only q/a.
+- **Destinations**: one sideways row with search above it (typing "jap" leaves
+  Japan alone); all 25 links still in the HTML. Names wrap, never truncate.
+- **Order recovery**: a folded `<details id="esim-find">`, opened automatically
+  when arriving on `/esim#esim-find` (the install page's "Find my eSIM").
+- **Price bar**: its sub-line was being cut to "…" (195px in 138px); now
+  "my.t 4G · instant QR" / "my.t 4G · QR instantané", and it wraps if ever
+  too long instead of truncating.
+- **Install page, short and guided**: one action for the device in hand — on a
+  computer the big QR (268px) with three steps under it; on a phone the one-tap
+  install (a phone cannot scan its own screen) with the QR one tap away — then
+  "When you land", then manual codes / full steps / order details folded.
+- French measured separately: the benefit row needed 338px of 335 (gap now
+  10px) and "Mon téléphone est-il compatible ?" dropped below the title and
+  pushed the fourth plan under the nav — it is "Compatibilité ?" there.
+
 ## M225 — The boarding-pass redesign (30 Sep 2026)
 
 Owner: "more premium, pro, modern… improve scrolling to the max… PayPal, account
@@ -235,8 +284,8 @@ pricing, refund with profile cancel).
 
 ## 6. Frontend
 
-- `/esim` and `/fr/esim-maurice-rodrigues` — `EsimStore` (hero, boarding-pass plans
-  (`ui/Ticket`), sticky chip nav + price bar (M225), how it works, **why the network matters**, compatibility checker, FAQ, lost-link lookup,
+- `/esim` and `/fr/esim-maurice-rodrigues` — `EsimStore` (one-screen hero + one-row
+  boarding-pass plans (`ui/Ticket`, M226), sticky price bar, how it works, **why the network matters**, compatibility checker, FAQ, lost-link lookup,
   onward links). French renders French on the **server**.
 - `CheckoutSheet` — portalled bottom sheet: plan restated, email, "my phone supports
   eSIM" tick (the #1 refund cause), PayPal buttons incl. guest card; "opening soon +

@@ -2564,11 +2564,12 @@ html.light .rr-basemap-switch button.is-on {
   }
 }
 
-/* ── eSIM store: boarding-pass motion (M225) ─────────────────────────────────
-   ONE authored moment per page, not an entrance on every section: the hero's
-   signal bars light up in turn (the network "found"), and the plan tickets
-   "print" in as they scroll into view. Neither waits on JS to show content,
-   and both are switched off entirely under prefers-reduced-motion. */
+/* ── eSIM store motion (M225, trimmed in M226) ───────────────────────────────
+   ONE authored moment: the signal bars beside "my.t 4G" light up in turn (the
+   network "found"). The plans no longer "print" in on scroll: since M226 they
+   sit in the first screen, where a scroll-driven reveal would load the fourth
+   pass half-clipped. Nothing here waits on JS to show content, and all of it
+   is switched off under prefers-reduced-motion. */
 @keyframes rr-esim-bar {
   from { opacity: 0.18; transform: scaleY(0.55); }
   to   { opacity: 1;    transform: scaleY(1); }
@@ -2576,22 +2577,6 @@ html.light .rr-basemap-switch button.is-on {
 .rr-esim-bar {
   transform-origin: bottom;
   animation: rr-esim-bar 520ms cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-@keyframes rr-esim-print {
-  from { clip-path: inset(0 0 100% 0 round 1rem); transform: translateY(10px); opacity: 0.4; }
-  to   { clip-path: inset(0 0 0 0 round 1rem);    transform: translateY(0);    opacity: 1; }
-}
-/* SCROLL-DRIVEN, not JS-triggered: each ticket's "print" is tied to its own
-   position in the viewport. No state can leave it hidden (a JS observer that
-   never fired left the whole list clipped in testing), a jump that lands on
-   the plans shows them fully printed, and browsers without view timelines
-   simply show them. The stagger is the scroll itself. */
-@supports (animation-timeline: view()) {
-  .rr-esim-ticket {
-    animation: rr-esim-print linear both;
-    animation-timeline: view();
-    animation-range: entry 0% cover 22%;
-  }
 }
 /* The FAQ opens instead of jumping (progressive: browsers without
    ::details-content simply snap open, as before). */
@@ -2602,14 +2587,11 @@ html.light .rr-basemap-switch button.is-on {
   transition: block-size 320ms cubic-bezier(0.16, 1, 0.3, 1), content-visibility 320ms allow-discrete;
 }
 .rr-esim-faq details[open]::details-content { block-size: auto; }
-/* Below-the-fold sections skip layout and paint until they approach the
-   viewport: the long page scrolls at 60fps on a mid-range Android. */
-.rr-esim-defer { content-visibility: auto; contain-intrinsic-size: auto 640px; }
-/* Horizontal chip rail without a visible scrollbar. */
+/* Horizontal rail without a visible scrollbar (the next tile peeking in is
+   the cue that it scrolls). */
 .rr-esim-rail { scrollbar-width: none; }
 .rr-esim-rail::-webkit-scrollbar { display: none; }
 @media (prefers-reduced-motion: reduce) {
-  .rr-esim-bar,
-  .rr-esim-ticket { animation: none !important; clip-path: none !important; }
+  .rr-esim-bar { animation: none !important; }
   .rr-esim-faq details::details-content { transition: none; }
 }

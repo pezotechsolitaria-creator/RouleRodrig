@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Apple, Check, Copy, Loader2, QrCode, Smartphone, LifeBuoy, AlertTriangle, MessageCircle } from "lucide-react";
+import { Apple, Check, ChevronDown, Copy, Loader2, QrCode, Smartphone, LifeBuoy, AlertTriangle, MessageCircle } from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
 import type { OrderView } from "@/lib/esim/service";
 import { buildPickupQr } from "@/lib/orders/pickup-qr";
@@ -20,6 +20,11 @@ import { toUiLang, type UiLang } from "../../copy";
 // iPhone, Google's on Android), keeps the QR for "installing on another
 // phone" and for desktops, and always shows the two manual codes with copy
 // buttons — the path that works on every phone ever made.
+//
+// SHORT AND GUIDED (M226): one action for the device you are holding (the
+// big QR with three steps on a computer, the one-tap button on a phone), the
+// three things to do on landing, and everything else — manual codes, the
+// full step list, the order details — folded, one tap away.
 
 const T = {
   en: {
@@ -30,11 +35,17 @@ const T = {
     installIphone: "Install on this iPhone",
     installIphoneNote: "iOS 17.4 or later. Opens the iPhone's own eSIM screen.",
     installAndroid: "Install on this phone",
-    installAndroidNote: "Pixel and recent Samsung. If nothing happens, use the codes below.",
+    installAndroidNote: "Pixel and recent Samsung. If nothing happens, open “Enter it by hand” below.",
     otherPhone: "Other phone? Show the QR code",
     scanTitle: "Scan with the phone you're travelling with",
     scanSub: "Settings → Mobile / Cellular → Add eSIM → Use QR code.",
-    manualTitle: "Or enter it by hand",
+    scanSteps: [
+      "On the travel phone, open Settings → Add eSIM (under Mobile, Cellular or SIM manager)",
+      "Choose “Use QR code” and scan this code",
+      "Name it “Rodrigues” and choose it for mobile data",
+    ],
+    orderDetails: "Order details",
+    manualTitle: "Enter it by hand",
     smdp: "SM-DP+ address",
     code: "Activation code",
     full: "Full code (Android “Enter activation code”)",
@@ -79,11 +90,17 @@ const T = {
     installIphone: "Installer sur cet iPhone",
     installIphoneNote: "iOS 17.4 ou plus récent. Ouvre l'écran eSIM de l'iPhone.",
     installAndroid: "Installer sur ce téléphone",
-    installAndroidNote: "Pixel et Samsung récents. Si rien ne se passe, utilisez les codes ci-dessous.",
+    installAndroidNote: "Pixel et Samsung récents. Si rien ne se passe, ouvrez « Saisir à la main » ci-dessous.",
     otherPhone: "Autre téléphone ? Afficher le QR code",
     scanTitle: "Scannez avec le téléphone du voyage",
     scanSub: "Réglages → Données cellulaires → Ajouter une eSIM → Code QR.",
-    manualTitle: "Ou saisissez-la à la main",
+    scanSteps: [
+      "Sur le téléphone du voyage, ouvrez Réglages → Ajouter une eSIM (Données cellulaires, Réseaux mobiles ou Gestionnaire SIM)",
+      "Choisissez « Code QR » et scannez ce code",
+      "Nommez-la « Rodrigues » et choisissez-la pour les données",
+    ],
+    orderDetails: "Détails de la commande",
+    manualTitle: "Saisir à la main",
     smdp: "Adresse SM-DP+",
     code: "Code d'activation",
     full: "Code complet (Android « Saisir le code d'activation »)",
@@ -215,8 +232,8 @@ export default function OrderInstall({
     );
   }
 
-  const summary = (
-    <dl className="mt-8 divide-y divide-white/10 rounded-2xl border border-white/10 px-4">
+  const summaryList = (
+    <dl className="divide-y divide-white/10 rounded-2xl border border-white/10 px-4">
       {[
         [t.order, view.ref],
         [t.plan, `${lang === "en" ? view.destination.en : view.destination.fr} · ${lang === "en" ? view.planLabelEn : view.planLabelFr}`],
@@ -233,6 +250,7 @@ export default function OrderInstall({
       ))}
     </dl>
   );
+  const summary = <div className="mt-8">{summaryList}</div>;
 
   // ── The pass itself: the page opens on the document you just bought ─────
   const home = view.destination.home;
@@ -316,16 +334,39 @@ export default function OrderInstall({
   const act = view.activation;
   const steps = tab === "ios" ? IOS_STEPS[lang] : ANDROID_STEPS[lang];
 
+  // ── The QR, big, with the three steps that go with it ──────────────────
+  // First thing on a computer; one tap away on a phone ("installing on
+  // another phone"), because a phone cannot scan its own screen.
+  const qrPanel = qr && (
+    <div className="mt-5 rounded-3xl border border-white/10 bg-white/[0.03] p-5">
+      <p className="text-center font-syne text-base font-bold text-offwhite">{t.scanTitle}</p>
+      <div className="mx-auto mt-4 w-full max-w-[18rem] rounded-2xl bg-white p-2.5">
+        <svg viewBox={`0 0 ${qr.span} ${qr.span}`} role="img" aria-label="eSIM QR code" className="block h-auto w-full" shapeRendering="crispEdges">
+          <rect width={qr.span} height={qr.span} fill="#fff" />
+          <path transform={`translate(${qr.quiet} ${qr.quiet})`} d={qr.path} fill="#000" />
+        </svg>
+      </div>
+      <ol className="mx-auto mt-5 max-w-[22rem] space-y-2.5">
+        {t.scanSteps.map((s, i) => (
+          <li key={s} className="flex items-start gap-3 font-dm text-sm leading-snug text-offwhite/85">
+            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-yellow/40 font-syne text-[11px] font-bold text-yellow">{i + 1}</span>
+            {s}
+          </li>
+        ))}
+      </ol>
+    </div>
+  );
+
   return (
     <div className="mx-auto max-w-md px-5 pt-6">
       {passHeader(t.ready, t.stampReady, true)}
-      <p className="mt-4 font-dm text-sm leading-relaxed text-offwhite/70">
+      <p className="mt-3 font-dm text-sm leading-relaxed text-offwhite/70">
         {t.readySub(view.email, lang === "en" ? view.destination.enIn : view.destination.frIn)}
       </p>
 
-      {/* ── One tap, for the phone this page is open on ─────────────────── */}
+      {/* ── The one action for the device this page is open on ─────────── */}
       {device === "ios" && (
-        <div className="mt-6">
+        <div className="mt-5">
           <a
             href={act.appleUrl}
             onClick={() => esimTrack.installTapped({ method: "apple" })}
@@ -337,7 +378,7 @@ export default function OrderInstall({
         </div>
       )}
       {device === "android" && (
-        <div className="mt-6">
+        <div className="mt-5">
           <a
             href={act.androidUrl}
             onClick={() => esimTrack.installTapped({ method: "android" })}
@@ -348,8 +389,6 @@ export default function OrderInstall({
           <p className="mt-2 text-center font-dm text-xs text-muted">{t.installAndroidNote}</p>
         </div>
       )}
-
-      {/* ── QR, for another phone or from a computer ────────────────────── */}
       {device !== "other" && !showQr && (
         <button
           type="button"
@@ -357,96 +396,99 @@ export default function OrderInstall({
             setShowQr(true);
             esimTrack.installTapped({ method: "qr_shown" });
           }}
-          className="mt-5 flex min-h-12 w-full items-center justify-center gap-2 rounded-full border border-white/15 font-dm text-sm text-offwhite/90 hover:bg-white/5"
+          className="mt-3 flex min-h-12 w-full items-center justify-center gap-2 rounded-full border border-white/15 font-dm text-sm text-offwhite/90 hover:bg-white/5"
         >
           <QrCode size={16} aria-hidden /> {t.otherPhone}
         </button>
       )}
-      {showQr && qr && (
-        <div className="mt-6 rounded-3xl border border-white/10 bg-white/[0.03] p-5 text-center">
-          <p className="font-syne text-base font-bold text-offwhite">{t.scanTitle}</p>
-          <p className="mt-1 font-dm text-xs text-muted">{t.scanSub}</p>
-          <div className="mx-auto mt-4 w-full max-w-[260px] rounded-2xl bg-white p-2">
-            <svg viewBox={`0 0 ${qr.span} ${qr.span}`} role="img" aria-label="eSIM QR code" className="block h-auto w-full" shapeRendering="crispEdges">
-              <rect width={qr.span} height={qr.span} fill="#fff" />
-              <path transform={`translate(${qr.quiet} ${qr.quiet})`} d={qr.path} fill="#000" />
-            </svg>
-          </div>
-        </div>
-      )}
+      {showQr && qrPanel}
 
-      {/* ── Manual codes: the path that works on every phone ever made ──── */}
-      <section className="mt-8" aria-labelledby="manual">
-        <h2 id="manual" className="font-syne text-lg font-bold text-offwhite">
-          {t.manualTitle}
-        </h2>
-        <div className="mt-3 space-y-3">
-          <CopyField label={t.smdp} value={act.smdpAddress} t={t} onCopy={() => esimTrack.installTapped({ method: "copy_smdp" })} />
-          <CopyField label={t.code} value={act.activationCode} t={t} onCopy={() => esimTrack.installTapped({ method: "copy_code" })} />
-          {device !== "ios" && <CopyField label={t.full} value={act.lpa} t={t} onCopy={() => esimTrack.installTapped({ method: "copy_code" })} />}
-        </div>
-      </section>
-
-      {/* ── Step by step ────────────────────────────────────────────────── */}
-      <section className="mt-10" aria-labelledby="steps">
-        <h2 id="steps" className="font-syne text-lg font-bold text-offwhite">
-          {t.stepsTitle}
-        </h2>
-        <div role="tablist" className="mt-3 inline-flex rounded-full border border-white/10 p-1">
-          {(["ios", "android"] as const).map((k) => (
-            <button
-              key={k}
-              role="tab"
-              type="button"
-              aria-selected={tab === k}
-              onClick={() => setTab(k)}
-              className={`min-h-10 rounded-full px-5 font-dm text-sm transition-colors ${tab === k ? "bg-yellow font-semibold text-dark" : "text-offwhite/80"}`}
-            >
-              {k === "ios" ? t.iphone : t.android}
-            </button>
-          ))}
-        </div>
-        <ol className="mt-4 space-y-4" role="tabpanel">
-          {steps.map((s, i) => (
-            <li key={s.title} className="flex gap-3.5">
-              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-yellow/40 font-syne text-xs font-bold text-yellow">
-                {i + 1}
-              </span>
-              <div>
-                <h3 className="font-syne text-[15px] font-bold text-offwhite">{s.title}</h3>
-                <p className="mt-0.5 font-dm text-sm leading-relaxed text-muted">{s.body}</p>
-              </div>
-            </li>
-          ))}
-        </ol>
-        {view.apn && (
-          <p className="mt-4 font-dm text-xs text-muted">
-            APN: <span className="font-mono text-offwhite/80">{view.apn}</span>
-          </p>
-        )}
-      </section>
-
-      {/* ── On arrival ──────────────────────────────────────────────────── */}
-      <section className="mt-10 rounded-3xl border border-yellow/25 bg-yellow/[0.05] p-5" aria-labelledby="land">
-        <h2 id="land" className="font-syne text-lg font-bold text-offwhite">
+      {/* ── On arrival: the three things that make it connect ──────────── */}
+      <section className="mt-6 rounded-3xl border border-yellow/25 bg-yellow/[0.05] p-5" aria-labelledby="land">
+        <h2 id="land" className="font-syne text-base font-bold text-offwhite">
           {t.landTitle}
         </h2>
         <ul className="mt-3 space-y-2.5">
           {t.land.map((l) => (
-            <li key={l} className="flex items-start gap-2.5 font-dm text-sm text-offwhite/90">
+            <li key={l} className="flex items-start gap-2.5 font-dm text-sm leading-snug text-offwhite/90">
               <Check size={16} className="mt-0.5 shrink-0 text-yellow" aria-hidden />
               {l}
             </li>
           ))}
         </ul>
-        <p className="mt-4 font-dm text-xs text-muted">{t.once}</p>
+        <p className="mt-3 font-dm text-xs text-muted">{t.once}</p>
       </section>
 
-      {summary}
+      {/* ── Everything else, folded: open only what you need ───────────── */}
+      <div className="rr-esim-faq mt-6 divide-y divide-white/10 border-y border-white/10">
+        <details className="group">
+          <summary className={foldSummary}>
+            {t.manualTitle}
+            <ChevronDown size={16} className={foldChevron} aria-hidden />
+          </summary>
+          <div className="space-y-3 pb-4">
+            <CopyField label={t.smdp} value={act.smdpAddress} t={t} onCopy={() => esimTrack.installTapped({ method: "copy_smdp" })} />
+            <CopyField label={t.code} value={act.activationCode} t={t} onCopy={() => esimTrack.installTapped({ method: "copy_code" })} />
+            {device !== "ios" && <CopyField label={t.full} value={act.lpa} t={t} onCopy={() => esimTrack.installTapped({ method: "copy_code" })} />}
+          </div>
+        </details>
+        <details className="group">
+          <summary className={foldSummary}>
+            {t.stepsTitle}
+            <ChevronDown size={16} className={foldChevron} aria-hidden />
+          </summary>
+          <div className="pb-4">
+            <div role="tablist" className="inline-flex rounded-full border border-white/10 p-1">
+              {(["ios", "android"] as const).map((k) => (
+                <button
+                  key={k}
+                  role="tab"
+                  type="button"
+                  aria-selected={tab === k}
+                  onClick={() => setTab(k)}
+                  className={`min-h-10 rounded-full px-5 font-dm text-sm transition-colors ${tab === k ? "bg-yellow font-semibold text-dark" : "text-offwhite/80"}`}
+                >
+                  {k === "ios" ? t.iphone : t.android}
+                </button>
+              ))}
+            </div>
+            <ol className="mt-4 space-y-4" role="tabpanel">
+              {steps.map((s, i) => (
+                <li key={s.title} className="flex gap-3.5">
+                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-yellow/40 font-syne text-xs font-bold text-yellow">
+                    {i + 1}
+                  </span>
+                  <div>
+                    <h3 className="font-syne text-[15px] font-bold text-offwhite">{s.title}</h3>
+                    <p className="mt-0.5 font-dm text-sm leading-relaxed text-muted">{s.body}</p>
+                  </div>
+                </li>
+              ))}
+            </ol>
+            {view.apn && (
+              <p className="mt-4 font-dm text-xs text-muted">
+                APN: <span className="font-mono text-offwhite/80">{view.apn}</span>
+              </p>
+            )}
+          </div>
+        </details>
+        <details className="group">
+          <summary className={foldSummary}>
+            {t.orderDetails}
+            <ChevronDown size={16} className={foldChevron} aria-hidden />
+          </summary>
+          <div className="pb-4">{summaryList}</div>
+        </details>
+      </div>
+
       {helpLine}
     </div>
   );
 }
+
+const foldSummary =
+  "flex min-h-12 cursor-pointer list-none items-center justify-between gap-4 py-3 font-syne text-[15px] font-bold text-offwhite transition-colors hover:text-yellow [&::-webkit-details-marker]:hidden";
+const foldChevron = "shrink-0 text-offwhite/60 transition-transform duration-300 group-open:rotate-180";
 
 function CopyField({
   label,

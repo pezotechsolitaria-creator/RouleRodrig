@@ -68,7 +68,7 @@ export default function StickyBar({
       >
         <div className="min-w-0 flex-1">
           <p className="font-syne text-[15px] font-bold leading-tight text-offwhite">{from}</p>
-          <p className="truncate font-dm text-[11px] text-muted">{sub}</p>
+          <p className="font-dm text-[11px] leading-snug text-muted">{sub}</p>
         </div>
         {helpHref && (
           <a

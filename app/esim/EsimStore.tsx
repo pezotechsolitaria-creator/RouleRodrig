@@ -1,49 +1,46 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowRight, Check, ChevronDown, CreditCard, House, MessageCircle, PlaneLanding, Search } from "lucide-react";
+import { ArrowRight, ChevronDown, Lock, MessageCircle, Search, Wifi, Zap } from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
 import type { PublicPlan, LiveDestination } from "@/lib/esim/service";
 import { formatEur } from "@/lib/esim/pricing";
-import { displayNetworks } from "@/lib/esim/networks";
 import { esimFaq, worldFaq } from "@/lib/esim/content";
 import { DESTINATIONS, HOME_CODE, type Destination } from "@/lib/esim/destinations";
 import { esimTrack } from "@/lib/esim/analytics";
 import CheckoutSheet from "./CheckoutSheet";
 import CompatChecker from "./CompatChecker";
 import DestinationGrid from "./DestinationGrid";
-import SignalStrip from "./ui/SignalStrip";
-import SectionNav from "./ui/SectionNav";
 import Ticket from "./ui/Ticket";
-import NetworkBoard from "./ui/NetworkBoard";
 import StickyBar from "./ui/StickyBar";
-import { scrollToSection, waLink } from "./ui/scroll";
+import { prefersReducedMotion, waLink } from "./ui/scroll";
 import { COPY, toUiLang, type UiLang } from "./copy";
 
-// ── The eSIM store — boarding-pass edition (M225) ────────────────────────────
+// ── The eSIM store — the one-screen edition (M226) ───────────────────────────
 //
-// One long page read on a phone by someone deciding whether to trust a website
-// with their arrival. The design is a travel document system, because that is
-// what the product is: the thing that gets you onto the network when you land.
+// MEASURED on the live M225 page at 375×812: 8.8 screens long, a 535px hero,
+// the first "Choose" below the fold and the fourth plan ending 1.8 screens
+// down. The buyer came to pick a plan, so the page is now built so that the
+// promise AND all four plans fit in the first screen, above the floating nav:
 //
-//   hero          a phone status strip (network + Rodrigues time), the promise,
-//                 ONE gold action ("See plans · from €x")
-//   section rail  sticky chips + reading progress, docked under the header
-//   plans         boarding passes — body = what you get, stub = what it costs
-//   how           a three-stop route line
-//   network       a departures board (the store's reason to exist, on MU)
-//   phone check   *#06# first, then the model list
-//   FAQ           opens smoothly; below-the-fold sections defer their paint
-//   price bar     follows you once the plans are out of view, above the nav
+//   hero      keyword kicker + a two-line promise, one sentence, three facts
+//   plans     one-row boarding passes; badge as a tab on the edge, not a line
+//   how       three steps across, not down
+//   network   one sentence (the my.t vs Chili story, which the FAQ tells in full)
+//   FAQ       all closed; the phone checker lives inside its own question
+//   then      a sideways row of other countries, a folded order finder, links
+//
+// The price bar still follows once the plans leave the screen. Nothing on
+// the page waits on script or animation to be visible.
 //
 // `lang` is passed by French pages so their SERVER render is French; English
 // pages let the visitor's language choice take over after hydration.
 //
 // ONE COMPONENT, TWO KINDS OF SHELF (M224): the home shelf keeps the Rodrigues
-// network story; other destinations get the same experience with their own
-// facts, computed from their own shelf.
+// network story; other destinations get the same page with their own facts,
+// computed from their own shelf.
 
 /** "Orange, SFR and Bouygues" / "Orange, SFR et Bouygues". */
 function listOf(items: string[], lang: UiLang): string {
@@ -63,6 +60,17 @@ function worldNetworks(plans: PublicPlan[] | null, withType = false): string[] {
   return [...seen.values()];
 }
 
+/** Four bars that light up in turn: the network, "found". */
+function SignalBars({ className = "" }: { className?: string }) {
+  return (
+    <span className={`flex h-3 items-end gap-[2px] ${className}`} aria-hidden>
+      {[4, 6, 9, 12].map((h, i) => (
+        <span key={h} className="rr-esim-bar w-[2.5px] rounded-[1px] bg-yellow" style={{ height: h, animationDelay: `${160 + i * 130}ms` }} />
+      ))}
+    </span>
+  );
+}
+
 export default function EsimStore({
   plans,
   selling,
@@ -77,7 +85,7 @@ export default function EsimStore({
   whatsapp?: string | null;
   /** The shelf being shown. Defaults to Mauritius & Rodrigues. */
   destination?: Destination;
-  /** Destinations with plans on sale, for the "other destinations" grid. */
+  /** Destinations with plans on sale, for the "other destinations" row. */
   live?: LiveDestination[];
 }) {
   const home = destination.code === HOME_CODE;
@@ -108,200 +116,185 @@ export default function EsimStore({
     () => (plans ?? []).find((p) => p.badge === "popular")?.id ?? (plans ?? []).find((p) => p.badge === "best_value")?.id ?? null,
     [plans],
   );
-  const code = home ? "RRG" : destination.code;
   const helpHref = waLink(whatsapp, t.helpMsgGeneric);
-  const hasDest = live.some((l) => l.code !== destination.code);
-
-  const sections = useMemo(
-    () => [
-      { id: "esim-plans", label: t.chips.plans },
-      { id: "esim-how", label: t.chips.how },
-      ...(home || nets.length ? [{ id: "esim-net", label: t.chips.net }] : []),
-      { id: "esim-compat", label: t.chips.compat },
-      { id: "esim-faq", label: t.chips.faq },
-      ...(hasDest ? [{ id: "esim-destinations", label: t.chips.dest }] : []),
-    ],
-    [t, home, nets.length, hasDest],
-  );
+  const network = home ? "my.t 4G" : (netsTyped[0] ?? t.world.localNetworks);
 
   function choose(p: PublicPlan) {
     esimTrack.planChosen({ plan: p.name, price_eur: p.retail_eur_cents / 100, badge: p.badge });
     setChosen(p);
   }
 
+  /** "Will my phone work?" opens its own FAQ answer (with the model search)
+   *  and brings it into view; focus goes to the question, not the page top. */
+  function openCompat() {
+    const d = document.getElementById("esim-compat") as HTMLDetailsElement | null;
+    if (!d) return;
+    d.open = true;
+    d.scrollIntoView({ behavior: prefersReducedMotion() ? "auto" : "smooth", block: "start" });
+    d.querySelector("summary")?.focus({ preventScroll: true });
+  }
+
   return (
     <>
-      {/* ── Hero ─────────────────────────────────────────────────────────── */}
-      <header id="esim-hero" className="relative overflow-hidden px-5 pb-8 pt-5">
-        <div aria-hidden className="pointer-events-none absolute -top-40 left-1/2 h-80 w-[40rem] -translate-x-1/2 rounded-full bg-yellow/[0.07] blur-3xl" />
-        <div aria-hidden className="pointer-events-none absolute -bottom-32 left-1/2 h-64 w-[36rem] -translate-x-1/2 rounded-full bg-[#f97316]/[0.09] blur-3xl" />
+      {/* ── Hero: the promise, in a quarter of the screen ────────────────── */}
+      <header id="esim-hero" className="relative overflow-hidden px-5 pb-5 pt-5">
+        <div aria-hidden className="pointer-events-none absolute -top-32 left-1/2 h-64 w-[34rem] -translate-x-1/2 rounded-full bg-yellow/[0.07] blur-3xl" />
         <div className="relative mx-auto max-w-2xl">
-          <SignalStrip
-            network={home ? "my.t 4G" : (netsTyped[0] ?? t.world.localNetworks)}
-            place={(home ? "Rodrigues" : place.name).toUpperCase()}
-            clockLabel={home ? t.islandTime : undefined}
-          />
-          <h1 className="mt-6 max-w-[22ch] font-syne text-[clamp(1.875rem,7.6vw,3.25rem)] font-extrabold leading-[1.02] tracking-[-0.02em] text-offwhite [hyphens:none] [text-wrap:balance] [word-break:keep-all]">
-            {home ? t.h1 : t.world.h1(place.inPlace)}
+          <h1 className="font-syne text-offwhite">
+            <span className="block font-bebas text-[14px] font-normal leading-none tracking-[0.22em] text-yellow">
+              {home ? t.h1Kicker : t.world.h1Kicker(place.name)}
+            </span>
+            <span className="sr-only"> — </span>
+            <span className="mt-2.5 block text-[1.875rem] font-extrabold leading-[1.05] tracking-[-0.02em] [text-wrap:balance] sm:text-[2.75rem]">
+              {t.h1}
+            </span>
           </h1>
-          <p className="mt-4 max-w-[58ch] font-dm text-[15px] leading-relaxed text-offwhite/70">{home ? t.sub : t.world.sub(place.name, place.inPlace)}</p>
-          <div className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-2">
-            <button
-              type="button"
-              onClick={() => scrollToSection("esim-plans")}
-              className="inline-flex min-h-12 items-center gap-2 rounded-full bg-yellow px-6 font-syne text-sm font-bold text-dark shadow-[0_10px_30px_-10px_rgba(245,200,66,0.55)] transition-[background-color,transform] duration-200 hover:bg-yellow-dark active:scale-[0.98]"
-            >
-              {fromPrice ? t.heroCta(fromPrice) : t.heroCtaNoPrice}
-              <ArrowRight size={16} aria-hidden />
-            </button>
-            <button
-              type="button"
-              onClick={() => scrollToSection("esim-compat")}
-              className="min-h-11 font-dm text-sm text-offwhite/80 underline decoration-white/25 underline-offset-[6px] transition-colors hover:text-offwhite hover:decoration-yellow/60"
-            >
-              {t.heroCompat}
-            </button>
-          </div>
-          <ul className="mt-6 flex flex-wrap gap-x-5 gap-y-2 font-dm text-[13px] text-offwhite/75">
-            {[t.trust[0], t.trust[2], t.trust[3]].map((item) => (
-              <li key={item} className="flex items-center gap-1.5">
-                <Check size={14} className="shrink-0 text-yellow/80" aria-hidden />
-                {item}
-              </li>
-            ))}
+          <p className="mt-2.5 max-w-[52ch] font-dm text-sm leading-relaxed text-offwhite/70">{home ? t.sub : t.world.sub(place.name, place.inPlace)}</p>
+          {/* gap 10px: the French row needs 338px at 12px, and the page has 335. */}
+          <ul className="mt-3.5 flex flex-wrap gap-x-2.5 gap-y-1.5 font-dm text-[12px] text-offwhite/80">
+            <li className="flex items-center gap-1.5 whitespace-nowrap">
+              <Zap size={13} className="text-yellow" aria-hidden /> {t.micro[0]}
+            </li>
+            <li className="flex items-center gap-1.5 whitespace-nowrap">
+              <SignalBars /> {network}
+            </li>
+            <li className="flex items-center gap-1.5 whitespace-nowrap">
+              <Wifi size={13} className="text-yellow" aria-hidden /> {t.micro[2]}
+            </li>
           </ul>
         </div>
       </header>
 
-      <SectionNav sections={sections} label={lang === "en" ? "On this page" : "Sur cette page"} />
-
       <div className="mx-auto max-w-2xl px-5">
-        {/* ── Plans ──────────────────────────────────────────────────────── */}
-        <section id="esim-plans" aria-labelledby="esim-plans-title" className="scroll-mt-32 pt-9">
-          <div className="flex items-end justify-between gap-4">
-            <h2 id="esim-plans-title" className="font-syne text-[1.625rem] font-bold leading-tight text-offwhite">
+        {/* ── Plans: all of them in the first screen ─────────────────────── */}
+        <section id="esim-plans" aria-labelledby="esim-plans-title" className="scroll-mt-20 pt-1">
+          <div className="flex flex-wrap items-baseline justify-between gap-x-3">
+            <h2 id="esim-plans-title" className="font-syne text-[1.125rem] font-bold leading-tight text-offwhite">
               {t.plansTitle}
             </h2>
+            <button
+              type="button"
+              onClick={openCompat}
+              className="-my-2 min-h-11 font-dm text-[13px] text-offwhite/70 underline decoration-white/25 underline-offset-4 transition-colors hover:text-offwhite hover:decoration-yellow/60"
+            >
+              {t.heroCompat}
+            </button>
           </div>
-          {fromPrice && <p className="mt-1.5 font-dm text-[13px] text-muted">{t.plansNote}</p>}
 
           {plans === null ? (
-            <p className="mt-6 rounded-2xl border border-white/10 px-5 py-6 font-dm text-sm text-muted">{t.loadError}</p>
+            <p className="mt-4 rounded-2xl border border-white/10 px-5 py-6 font-dm text-sm text-muted">{t.loadError}</p>
           ) : plans.length === 0 ? (
-            <p className="mt-6 rounded-2xl border border-white/10 px-5 py-6 font-dm text-sm text-muted">{t.noPlans}</p>
+            <p className="mt-4 rounded-2xl border border-white/10 px-5 py-6 font-dm text-sm text-muted">{t.noPlans}</p>
           ) : (
-            <PrintedList>
-              {plans.map((p, i) => (
-                <Ticket
-                  key={p.id}
-                  plan={p}
-                  lang={lang}
-                  code={code}
-                  index={i}
-                  featured={p.id === featuredId}
-                  networks={home ? displayNetworks(p.networks) : worldNetworks([p], true)}
-                  onChoose={choose}
-                />
-              ))}
-            </PrintedList>
+            <>
+              {/* 14px between passes: a badge tab rises 8px above its pass. */}
+              <ul className="mt-4 space-y-3.5">
+                {plans.map((p) => (
+                  <Ticket key={p.id} plan={p} lang={lang} featured={p.id === featuredId} onChoose={choose} />
+                ))}
+              </ul>
+              <p className="mt-3 flex items-center gap-1.5 font-dm text-[12px] text-muted">
+                <Lock size={12} aria-hidden /> {t.plansNote}
+              </p>
+            </>
           )}
         </section>
 
-        {/* ── How it works: a three-stop route ───────────────────────────── */}
-        <section id="esim-how" aria-labelledby="esim-how-title" className="scroll-mt-32 pt-16">
-          <h2 id="esim-how-title" className="font-syne text-[1.625rem] font-bold leading-tight text-offwhite">
-            {t.howTitle}
+        {/* ── How it works: three steps across ─────────────────────────────── */}
+        <section id="esim-how" aria-labelledby="esim-how-title" className="scroll-mt-20 pt-9">
+          <h2 id="esim-how-title" className="font-bebas text-[13px] font-normal tracking-[0.24em] text-muted">
+            {t.howTitle.toUpperCase()}
           </h2>
-          <ol className="relative mt-7 space-y-7 before:absolute before:bottom-6 before:left-[1.375rem] before:top-6 before:border-l before:border-dashed before:border-yellow/30">
-            {t.how.map((s, i) => {
-              const Icon = [CreditCard, House, PlaneLanding][i] ?? CreditCard;
-              return (
-                <li key={s.t} className="relative flex gap-4">
-                  <span className="relative z-[1] flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-yellow/40 bg-dark text-yellow">
-                    <Icon size={18} aria-hidden />
+          <ol className="mt-3 grid grid-cols-3 gap-3">
+            {t.how.map((s, i) => (
+              <li key={s.t} className="min-w-0">
+                <span className="flex items-center gap-2">
+                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-yellow/40 font-syne text-xs font-bold text-yellow">
+                    {i + 1}
                   </span>
-                  <div className="pt-1">
-                    <h3 className="font-syne text-[17px] font-bold text-offwhite">{s.t}</h3>
-                    <p className="mt-1 max-w-[52ch] font-dm text-sm leading-relaxed text-offwhite/65">{s.b}</p>
-                  </div>
-                </li>
-              );
-            })}
+                  {i < t.how.length - 1 && <span aria-hidden className="flex-1 border-t border-dashed border-yellow/30" />}
+                </span>
+                <p className="mt-2 font-syne text-[13px] font-bold leading-tight text-offwhite">{s.t}</p>
+                <p className="mt-1 font-dm text-[12px] leading-snug text-offwhite/60">{s.b}</p>
+              </li>
+            ))}
           </ol>
         </section>
 
-        {/* ── The network ────────────────────────────────────────────────── */}
+        {/* ── The network, in one sentence ─────────────────────────────────── */}
         {(home || nets.length > 0) && (
-          <section id="esim-net" aria-labelledby="esim-net-title" className="scroll-mt-32 pt-16">
-            <NetworkBoard
-              lang={lang}
-              home={home}
-              networks={netsTyped.slice(0, 5)}
-              title={home ? t.netTitle : t.world.netTitle(place.inPlace)}
-              body={home ? t.netBody : t.world.netBody(listOf(nets.slice(0, 4), lang), place.inPlace)}
-              footnote={home ? `${t.boardNote} ${t.netCoverage}` : undefined}
-            />
-          </section>
+          <p id="esim-net" className="mt-7 flex items-start gap-3 rounded-2xl border border-white/10 bg-white/[0.02] px-4 py-3 font-dm text-[13px] leading-snug text-offwhite/70">
+            <SignalBars className="mt-[3px] shrink-0" />
+            <span>
+              {home ? (
+                <>
+                  <b className="font-semibold text-offwhite">{t.trustStrong}</b> {t.trustRest}
+                </>
+              ) : (
+                t.world.netBody(listOf(nets.slice(0, 4), lang), place.inPlace, nets.length > 1)
+              )}
+            </span>
+          </p>
         )}
 
-        {/* ── Phone check ────────────────────────────────────────────────── */}
-        <section id="esim-compat" aria-labelledby="esim-compat-title" className="rr-esim-defer scroll-mt-32 pt-16">
-          <h2 id="esim-compat-title" className="font-syne text-[1.625rem] font-bold leading-tight text-offwhite">
-            {t.compatTitle}
-          </h2>
-          <div className="mt-6">
-            <CompatChecker lang={lang} />
-          </div>
-        </section>
-
-        {/* ── FAQ ────────────────────────────────────────────────────────── */}
-        <section id="esim-faq" aria-labelledby="esim-faq-title" className="rr-esim-defer rr-esim-faq scroll-mt-32 pt-16">
-          <h2 id="esim-faq-title" className="font-syne text-[1.625rem] font-bold leading-tight text-offwhite">
+        {/* ── FAQ: everything closed until asked ──────────────────────────── */}
+        <section id="esim-faq" aria-labelledby="esim-faq-title" className="rr-esim-faq scroll-mt-20 pt-10">
+          <h2 id="esim-faq-title" className="font-syne text-[1.125rem] font-bold leading-tight text-offwhite">
             {t.faqTitle}
           </h2>
-          <div className="mt-5 divide-y divide-white/10 border-y border-white/10">
+          <div className="mt-3 divide-y divide-white/10 border-y border-white/10">
             {faq.map((f) => (
-              <details key={f.q} className="group">
-                <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-4 py-3.5 font-syne text-[15px] font-bold text-offwhite transition-colors hover:text-yellow [&::-webkit-details-marker]:hidden">
+              <details key={f.q} id={f.id === "compat" ? "esim-compat" : undefined} className="group scroll-mt-20">
+                <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-4 py-3 font-syne text-[14px] font-bold leading-snug text-offwhite transition-colors hover:text-yellow [&::-webkit-details-marker]:hidden">
                   <h3>{f.q}</h3>
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/10 transition-[transform,border-color] duration-300 group-open:rotate-180 group-open:border-yellow/40">
-                    <ChevronDown size={16} className="text-offwhite/70" aria-hidden />
+                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-white/10 transition-[transform,border-color] duration-300 group-open:rotate-180 group-open:border-yellow/40">
+                    <ChevronDown size={15} className="text-offwhite/70" aria-hidden />
                   </span>
                 </summary>
-                <p className="max-w-[62ch] pb-5 pr-10 font-dm text-sm leading-relaxed text-offwhite/65">{f.a}</p>
+                <div className="pb-4 pr-2">
+                  <p className="max-w-[62ch] pr-7 font-dm text-sm leading-relaxed text-offwhite/65">{f.a}</p>
+                  {f.id === "compat" && (
+                    <div className="mt-3">
+                      <CompatChecker lang={lang} searchOnly />
+                    </div>
+                  )}
+                </div>
               </details>
             ))}
           </div>
         </section>
 
         {/* ── Other destinations — Mauritius first, the world second ──────── */}
-        <div className="rr-esim-defer">
-          <DestinationGrid lang={lang} live={live} current={destination} />
-        </div>
+        <DestinationGrid lang={lang} live={live} current={destination} />
 
-        {/* ── Lost link ─────────────────────────────────────────────────── */}
+        {/* ── Lost link, folded ──────────────────────────────────────────── */}
         <FindMyEsim lang={lang} />
 
         {/* ── Onward ────────────────────────────────────────────────────── */}
-        <nav aria-labelledby="esim-also" className="mt-14 border-t border-white/10 pt-8">
+        <nav aria-labelledby="esim-also" className="mt-8">
           <p id="esim-also" className="font-bebas text-[12px] tracking-[0.24em] text-muted">
             {(home ? t.alsoTitle : t.world.alsoTitle).toUpperCase()}
           </p>
-          <ul className="mt-3 divide-y divide-white/[0.07]">
+          <ul className="mt-2.5 flex flex-wrap gap-2">
             {(home ? t.also : t.world.also).map((l) => (
               <li key={l.href}>
-                <Link href={l.href} className="group flex min-h-12 items-center justify-between gap-3 font-dm text-[15px] text-offwhite/85 transition-colors hover:text-yellow">
-                  {l.label} <ArrowRight size={16} aria-hidden className="text-muted transition-[transform,color] group-hover:translate-x-0.5 group-hover:text-yellow" />
+                <Link
+                  href={l.href}
+                  className="inline-flex min-h-11 items-center gap-1.5 rounded-full border border-white/12 px-4 font-dm text-[13px] text-offwhite/85 transition-colors hover:border-yellow/40 hover:text-yellow"
+                >
+                  {l.label} <ArrowRight size={13} aria-hidden className="text-muted" />
                 </Link>
               </li>
             ))}
             {helpHref && (
               <li>
-                <a href={helpHref} target="_blank" rel="noopener noreferrer" className="group flex min-h-12 items-center justify-between gap-3 font-dm text-[15px] text-offwhite/85 transition-colors hover:text-yellow">
-                  <span className="flex items-center gap-2">
-                    <MessageCircle size={16} aria-hidden /> {t.help}
-                  </span>
-                  <ArrowRight size={16} aria-hidden className="text-muted transition-[transform,color] group-hover:translate-x-0.5 group-hover:text-yellow" />
+                <a
+                  href={helpHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex min-h-11 items-center gap-2 rounded-full border border-yellow/30 px-4 font-dm text-[13px] text-yellow/90 transition-colors hover:bg-yellow/10"
+                >
+                  <MessageCircle size={14} aria-hidden /> {t.help}
                 </a>
               </li>
             )}
@@ -311,7 +304,7 @@ export default function EsimStore({
 
       <StickyBar
         from={fromPrice ? t.barFrom(fromPrice) : t.heroCtaNoPrice}
-        sub={home ? `my.t 4G · ${t.barSub}` : t.barSub}
+        sub={home ? `my.t 4G · ${t.barQr}` : t.barSub}
         cta={t.barCta}
         helpHref={helpHref}
         helpLabel={t.help}
@@ -332,19 +325,23 @@ export default function EsimStore({
   );
 }
 
-/** The ticket list. Its entrance is pure CSS (see .rr-esim-ticket in
- *  globals.css): scroll-driven, so nothing here can leave it hidden. */
-function PrintedList({ children }: { children: React.ReactNode }) {
-  return <ul className="rr-esim-tickets mt-6 space-y-3.5">{children}</ul>;
-}
-
 function FindMyEsim({ lang }: { lang: UiLang }) {
   const t = COPY[lang];
   const router = useRouter();
+  const box = useRef<HTMLDetailsElement>(null);
   const [ref, setRef] = useState("");
   const [email, setEmail] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // The install page's "Find my eSIM" links to /esim#esim-find: arrive with
+  // the form already open.
+  useEffect(() => {
+    if (window.location.hash === "#esim-find" && box.current) {
+      box.current.open = true;
+      box.current.scrollIntoView({ block: "center" });
+    }
+  }, []);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -362,50 +359,58 @@ function FindMyEsim({ lang }: { lang: UiLang }) {
   }
 
   return (
-    <section id="esim-find" aria-labelledby="esim-find-title" className="scroll-mt-32 pt-16">
-      <div className="rounded-3xl border border-white/10 bg-white/[0.02] p-5">
-        <h2 id="esim-find-title" className="font-syne text-lg font-bold text-offwhite">
-          {t.findTitle}
-        </h2>
-        <p className="mt-1 font-dm text-sm text-offwhite/65">{t.findBody}</p>
-        <form onSubmit={submit} className="mt-4 grid gap-2.5 sm:grid-cols-[1fr_1.4fr_auto]">
-          <label>
-            <span className="sr-only">{t.findRef}</span>
-            <input
-              value={ref}
-              onChange={(e) => setRef(e.target.value)}
-              placeholder={t.findRef}
-              autoCapitalize="characters"
-              required
-              className="w-full rounded-xl border border-dark-border bg-dark-card px-4 py-3 font-dm text-base text-offwhite placeholder:text-muted/70 focus:border-yellow focus:outline-none"
-            />
-          </label>
-          <label>
-            <span className="sr-only">{t.findEmail}</span>
-            <input
-              type="email"
-              autoComplete="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder={t.findEmail}
-              required
-              className="w-full rounded-xl border border-dark-border bg-dark-card px-4 py-3 font-dm text-base text-offwhite placeholder:text-muted/70 focus:border-yellow focus:outline-none"
-            />
-          </label>
-          <button
-            type="submit"
-            disabled={busy}
-            className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-yellow/35 px-5 font-syne text-sm font-bold text-yellow transition-colors hover:bg-yellow/10 disabled:opacity-60"
-          >
-            <Search size={15} aria-hidden /> {t.findGo}
-          </button>
-        </form>
-        {error && (
-          <p role="alert" className="mt-2 font-dm text-sm text-red-300">
-            {error}
-          </p>
-        )}
-      </div>
-    </section>
+    <div className="rr-esim-faq mt-8">
+      <details ref={box} id="esim-find" className="group scroll-mt-20 rounded-2xl border border-white/10 bg-white/[0.02]">
+        <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 [&::-webkit-details-marker]:hidden">
+          <span className="flex items-center gap-2.5 font-dm text-sm">
+            <Search size={15} className="shrink-0 text-muted" aria-hidden />
+            <span>
+              <span className="font-semibold text-offwhite">{t.findTitle}</span> <span className="text-offwhite/60">{t.findGo}</span>
+            </span>
+          </span>
+          <ChevronDown size={15} className="shrink-0 text-offwhite/60 transition-transform duration-300 group-open:rotate-180" aria-hidden />
+        </summary>
+        <div className="px-4 pb-4">
+          <p className="font-dm text-[13px] text-offwhite/65">{t.findBody}</p>
+          <form onSubmit={submit} className="mt-3 grid gap-2.5 sm:grid-cols-[1fr_1.4fr_auto]">
+            <label>
+              <span className="sr-only">{t.findRef}</span>
+              <input
+                value={ref}
+                onChange={(e) => setRef(e.target.value)}
+                placeholder={t.findRef}
+                autoCapitalize="characters"
+                required
+                className="w-full rounded-xl border border-dark-border bg-dark-card px-4 py-3 font-dm text-base text-offwhite placeholder:text-muted/70 focus:border-yellow focus:outline-none"
+              />
+            </label>
+            <label>
+              <span className="sr-only">{t.findEmail}</span>
+              <input
+                type="email"
+                autoComplete="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder={t.findEmail}
+                required
+                className="w-full rounded-xl border border-dark-border bg-dark-card px-4 py-3 font-dm text-base text-offwhite placeholder:text-muted/70 focus:border-yellow focus:outline-none"
+              />
+            </label>
+            <button
+              type="submit"
+              disabled={busy}
+              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-yellow/35 px-5 font-syne text-sm font-bold text-yellow transition-colors hover:bg-yellow/10 disabled:opacity-60"
+            >
+              <Search size={15} aria-hidden /> {t.findGo}
+            </button>
+          </form>
+          {error && (
+            <p role="alert" className="mt-2 font-dm text-sm text-red-300">
+              {error}
+            </p>
+          )}
+        </div>
+      </details>
+    </div>
   );
 }

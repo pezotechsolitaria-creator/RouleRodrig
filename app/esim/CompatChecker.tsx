@@ -11,15 +11,27 @@ import { COPY, type UiLang } from "./copy";
 // the panel, because it is the one answer that is never wrong; the model list
 // is the quick reassurance for everybody who already knows their phone is
 // recent.
+//
+// `searchOnly` drops the *#06# block for places that already state the test in
+// their own words (the FAQ answer it sits under) — never say it twice.
 
-export default function CompatChecker({ lang, compact = false }: { lang: UiLang; compact?: boolean }) {
+export default function CompatChecker({
+  lang,
+  compact = false,
+  searchOnly = false,
+}: {
+  lang: UiLang;
+  compact?: boolean;
+  searchOnly?: boolean;
+}) {
   const t = COPY[lang];
   const [q, setQ] = useState("");
   const results = useMemo(() => searchDevices(q), [q]);
   const searching = q.trim().length > 0;
 
   return (
-    <div className={compact ? "" : "overflow-hidden rounded-3xl border border-white/10 bg-[#0d0d0d]"}>
+    <div className={compact || searchOnly ? "" : "overflow-hidden rounded-3xl border border-white/10 bg-[#0d0d0d]"}>
+      {!searchOnly && (
       <div className={compact ? "" : "px-5 pt-5"}>
         <div className="flex items-center gap-4">
           <span className="font-bebas text-[12px] tracking-[0.24em] text-muted">{t.compatDial.toUpperCase()}</span>
@@ -30,8 +42,9 @@ export default function CompatChecker({ lang, compact = false }: { lang: UiLang;
         <p className="mt-3 font-dm text-sm leading-relaxed text-offwhite/85">{t.compatCleared}</p>
         <p className="mt-1.5 font-dm text-xs leading-relaxed text-offwhite/55">{t.compatUnlocked}</p>
       </div>
+      )}
 
-      <div className={compact ? "mt-4" : "mt-5 border-t border-white/10 bg-black/40 px-5 pb-5 pt-4"}>
+      <div className={searchOnly ? "" : compact ? "mt-4" : "mt-5 border-t border-white/10 bg-black/40 px-5 pb-5 pt-4"}>
         <label className="relative block">
           <span className="sr-only">{t.compatSearch}</span>
           <Search size={16} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-muted" aria-hidden />
@@ -71,7 +84,7 @@ export default function CompatChecker({ lang, compact = false }: { lang: UiLang;
             )}
           </div>
         ) : (
-          !compact && (
+          !compact && !searchOnly && (
             <p className="mt-3 font-dm text-xs leading-relaxed text-muted">{ESIM_DEVICES.map((f) => f.brand).join(" · ")}</p>
           )
         )}
