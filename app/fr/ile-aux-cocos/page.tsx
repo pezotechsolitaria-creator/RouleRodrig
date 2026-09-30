@@ -4,6 +4,7 @@ import LangLink from "@/components/nav/LangLink";
 import { getContent } from "@/lib/content";
 import { SITE_URL } from "@/lib/site";
 import { breadcrumbLd } from "@/lib/schema";
+import { ileAuxCocosBooking, type CocosBooking } from "@/lib/ile-aux-cocos-listing";
 import JsonLd from "@/components/JsonLd";
 import AppPageHeader from "@/components/AppPageHeader";
 import PageLanguage from "@/components/PageLanguage";
@@ -42,6 +43,21 @@ const TITLE = `Île aux Cocos, Rodrigues${NB}: tout savoir`;
 const DESCRIPTION =
   "Excursion à l'île aux Cocos : réserve de noddis et de sternes à 4 km à l'ouest de Rodrigues. Départ de Pointe du Diable, accès sur autorisation.";
 
+/** « Rs 1 999 par personne », from the listing — or nothing at all. */
+function prixTexte(b: CocosBooking): string | null {
+  if (!b.price) return null;
+  return `Rs ${b.price.toLocaleString("fr-FR")}${b.perPerson ? " par personne" : ""}`;
+}
+
+/** The listing and its price in one French sentence; empty without a listing. */
+function sortieProposee(b: CocosBooking): string {
+  if (!b.name) return "";
+  const prix = prixTexte(b);
+  return prix
+    ? `La sortie proposée sur Roule Rodrigues, «${NB}${b.name}${NB}», est à ${prix}.`
+    : `La sortie proposée sur Roule Rodrigues est «${NB}${b.name}${NB}».`;
+}
+
 export const metadata: Metadata = {
   title: `${TITLE} | Roule Rodrigues`,
   description: DESCRIPTION,
@@ -63,6 +79,8 @@ export const metadata: Metadata = {
   },
 };
 
+const PRIX_Q = `Combien coûte l'excursion à l'île aux Cocos${NB}?`;
+
 const FAQ: { q: string; a: string }[] = [
   {
     q: `Peut-on visiter l'île aux Cocos seul${NB}?`,
@@ -81,8 +99,9 @@ const FAQ: { q: string; a: string }[] = [
     a: "Non. La pointe sud est délimitée par des piquets en bois et fermée aux visiteurs, pour tenir les gens à l'écart de la colonie nicheuse. Ce n'est pas une formalité : c'est la condition à laquelle la réserve se visite.",
   },
   {
-    q: `Combien coûte l'excursion à l'île aux Cocos${NB}?`,
-    a: "Chaque opérateur fixe son prix, en général bateau et déjeuner compris. La sortie proposée sur Roulé Rodrigues est à Rs 2 000 par personne avec Les Inséparables. Vérifiez ce qui est inclus au moment de réserver, car cela varie d'un opérateur à l'autre.",
+    q: PRIX_Q,
+    // Écrite par faqCocos() à partir de l'annonce — voir plus bas.
+    a: "",
   },
   {
     q: `Quand y aller${NB}?`,
@@ -90,8 +109,31 @@ const FAQ: { q: string; a: string }[] = [
   },
 ];
 
+// The price answer is the listing's, read at render (SEO audit 2026-09-29 C1,
+// C12): it said "Rs 2 000" while the listing charges what its own note says.
+// See lib/ile-aux-cocos-listing.ts. No listing, no figure.
+function faqCocos(b: CocosBooking): { q: string; a: string }[] {
+  return FAQ.map((f) =>
+    f.q === PRIX_Q
+      ? {
+          q: f.q,
+          a: [
+            "Chaque opérateur fixe son prix, en général bateau et déjeuner compris.",
+            sortieProposee(b),
+            "Vérifiez ce qui est inclus au moment de réserver, car cela varie d'un opérateur à l'autre.",
+          ]
+            .filter(Boolean)
+            .join(" "),
+        }
+      : f,
+  );
+}
+
 export default async function IleAuxCocosFrPage() {
   const content = await getContent();
+  const booking = ileAuxCocosBooking(content.recommended.items);
+  const faq = faqCocos(booking);
+  const prix = prixTexte(booking);
 
   return (
     <>
@@ -130,7 +172,7 @@ export default async function IleAuxCocosFrPage() {
             "@context": "https://schema.org",
             "@type": "FAQPage",
             inLanguage: "fr",
-            mainEntity: FAQ.map((f) => ({
+            mainEntity: faq.map((f) => ({
               "@type": "Question",
               name: f.q,
               acceptedAnswer: { "@type": "Answer", text: f.a },
@@ -216,7 +258,7 @@ export default async function IleAuxCocosFrPage() {
               Questions fréquentes
             </h2>
             <dl className="mt-3 space-y-4">
-              {FAQ.map((f) => (
+              {faq.map((f) => (
                 <div key={f.q}>
                   <dt className="font-syne text-base font-bold text-offwhite">
                     {f.q}
@@ -232,13 +274,21 @@ export default async function IleAuxCocosFrPage() {
           <section className="mt-8 rounded-2xl border border-white/10 bg-dark-card p-5">
             <h2 className="font-syne text-lg font-extrabold">Réserver</h2>
             <p className="mt-2 font-dm text-sm leading-relaxed text-muted">
-              L&apos;excursion proposée sur Roulé Rodrigues part avec Les
-              Inséparables. Les opérateurs obtiennent l&apos;autorisation dans
-              le cadre de la sortie : réserver auprès de l&apos;un d&apos;eux,
-              c&apos;est ainsi que la permission se règle.
+              {booking.name && (
+                <>
+                  L&apos;excursion proposée sur Roule Rodrigues est «{NB}
+                  {booking.name}
+                  {NB}»{prix && <>, à {prix}</>}.{" "}
+                </>
+              )}
+              Les opérateurs obtiennent l&apos;autorisation dans le cadre de la
+              sortie : réserver auprès de l&apos;un d&apos;eux, c&apos;est ainsi
+              que la permission se règle.
             </p>
             <div className="mt-4 flex flex-wrap gap-2">
-              <LangLink lang="fr" href="/browse/tours"
+              {/* La page de l'excursion elle-même, plus l'étagère /browse/tours
+                  (SEO audit 2026-09-29 C12). */}
+              <LangLink lang="fr" href={booking.href}
                 className="flex min-h-12 items-center justify-center rounded-xl bg-yellow px-5 font-dm text-sm font-bold text-dark"
               >
                 Voir l&apos;excursion

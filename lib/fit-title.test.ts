@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { fitTitle } from "./fit-title";
+import { fitTitle, fitTitleWithTails } from "./fit-title";
 
 // ── 29 TITLES OVER 60 CHARACTERS, THE WORST AT 83 ───────────────────────────
 //
@@ -64,5 +64,40 @@ describe("fitTitle", () => {
 
   it("returns nothing when there is no room at all", () => {
     expect(fitTitle("anything", 0)).toBe("");
+  });
+});
+
+// ── THE ISLAND YIELDS BEFORE THE NAME (SEO audit 2026-09-29 T6) ─────────────
+//
+// The live title was "Île aux Cocos Excursion with Les… — Rs 1,999 in
+// Rodrigues": the name was clipped to keep " in Rodrigues", so the result no
+// longer said whose trip it was.
+
+describe("fitTitleWithTails", () => {
+  const NAME = "Île aux Cocos Excursion with Les Inséparables";
+  const PRICE = " — Rs 1,999";
+
+  it("keeps everything when everything fits", () => {
+    expect(fitTitleWithTails("Balade en mer", " — Rs 700", " in Rodrigues")).toBe(
+      "Balade en mer — Rs 700 in Rodrigues",
+    );
+  });
+
+  it("drops the optional tail before touching the name", () => {
+    const title = fitTitleWithTails(NAME, PRICE, " in Rodrigues", 60);
+    expect(title).toBe(`${NAME}${PRICE}`);
+    expect(title.length).toBeLessThanOrEqual(60);
+  });
+
+  it("clips the name only when name and price alone overflow, and never the price", () => {
+    const long = "Rituel Signature Harmony Spa with a very long operator name here";
+    const title = fitTitleWithTails(long, PRICE, " in Rodrigues", 60);
+    expect(title.length).toBeLessThanOrEqual(60);
+    expect(title.endsWith(`…${PRICE}`)).toBe(true);
+    expect(title).not.toContain("in Rodrigues");
+  });
+
+  it("works with no price at all", () => {
+    expect(fitTitleWithTails("Balade en mer", "", " in Rodrigues")).toBe("Balade en mer in Rodrigues");
   });
 });

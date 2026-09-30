@@ -16,6 +16,7 @@ import FoodCard from "@/components/food/FoodCard";
 import DishOrderPanel from "@/components/food/DishOrderPanel";
 import FoodCartBar from "@/components/food/FoodCartBar";
 import { LabelledLink, T, TCount, TDiet, TName } from "@/components/food/FoodCopy";
+import HowOrdering, { type KitchenTerms } from "./HowOrdering";
 
 // The dish page.
 //
@@ -35,7 +36,7 @@ export async function generateMetadata({
   const { slug } = await params;
   const supabase = await createClient();
   const dish = await getFoodItem(supabase, slug);
-  if (!dish) return { title: "Dish not found | Roulé Rodrigues" };
+  if (!dish) return { title: "Dish not found | Roule Rodrigues" };
 
   // WAS: descriptor ?? description.slice(0,155) ?? a template.
   //
@@ -93,6 +94,31 @@ export default async function DishPage({ params }: { params: Promise<{ slug: str
   // dish, and every Chez Banane dish, pays no second round trip.
   const readyNowExists =
     !dish.orderable && !notice ? await anyWalkUpServingNow(supabase) : false;
+
+  // What "How ordering works" may say (SEO audit 2026-09-29 C15), from the
+  // same two reads the checkout makes in app/api/cart/resolve: the kitchen's
+  // store_payment_options() and the platform delivery switch. Both are public.
+  // A failed read fails CLOSED — no payment sentence — never into a guess.
+  const [{ data: opts }, { data: market }] = await Promise.all([
+    supabase.rpc("store_payment_options", { p_store_id: dish.kitchenId }).maybeSingle(),
+    supabase.from("marketplace_settings").select("delivery_enabled").eq("id", "main").maybeSingle(),
+  ]);
+  const o = opts as {
+    accepts_cash?: boolean;
+    accepts_bank_transfer?: boolean;
+    offers_pickup?: boolean;
+    offers_rr_delivery?: boolean;
+  } | null;
+  const terms: KitchenTerms | null = o
+    ? {
+        pickup: o.offers_pickup === true,
+        cash: o.accepts_cash === true,
+        transfer: o.accepts_bank_transfer === true,
+        delivery:
+          o.offers_rr_delivery === true &&
+          (market as { delivery_enabled?: boolean } | null)?.delivery_enabled === true,
+      }
+    : null;
 
   return (
     <main className="min-h-screen bg-dark pb-44 text-offwhite">
@@ -160,7 +186,7 @@ export default async function DishPage({ params }: { params: Promise<{ slug: str
       </div>
 
       <div className="mx-auto -mt-6 max-w-2xl px-4 lg:max-w-5xl">
-        <div className="lg:grid lg:grid-cols-[1.3fr_1fr] lg:gap-10">
+        <div className="lg:grid lg:grid-cols-[1.3fr_1fr] lg:grid-rows-[auto_1fr] lg:gap-x-10">
           <div>
             <h1 className="font-syne text-2xl font-extrabold leading-tight sm:text-3xl">{dish.name}</h1>
 
@@ -239,7 +265,14 @@ export default async function DishPage({ params }: { params: Promise<{ slug: str
               <div className="min-w-0">
                 <p className="font-dm text-sm text-offwhite">
                   <T k="dish.preparedBy" /> <span className="font-semibold">{dish.kitchenName}</span>
-                  {!dish.kitchenOpen && <span className="text-muted"> · <T k="dish.closedNow" /></span>}
+                  {/* Not for a kitchen that takes notice (SEO audit 2026-09-29
+                      C15): it is booked for a later slot, so "closed right now"
+                      is true and irrelevant — and it was the line a crawler
+                      kept, at whatever hour it came. "Order 24 h ahead" above
+                      is what matters there. */}
+                  {!dish.kitchenOpen && notice === 0 && (
+                    <span className="text-muted"> · <T k="dish.closedNow" /></span>
+                  )}
                 </p>
                 {/* The certifier is named, not implied. "Halal certified" on its
                     own asks the customer to trust the platform; the issuer's
@@ -286,7 +319,7 @@ export default async function DishPage({ params }: { params: Promise<{ slug: str
                 {dish.kitchenWhatsapp && (
                   <a
                     href={`https://wa.me/${dish.kitchenWhatsapp.replace(/\D/g, "")}?text=${encodeURIComponent(
-                      `Hello ${dish.kitchenName}, I saw "${dish.name}" on Roulé Rodrigues and I would like to order it.`,
+                      `Hello ${dish.kitchenName}, I saw "${dish.name}" on Roule Rodrigues and I would like to order it.`,
                     )}`}
                     target="_blank"
                     rel="noopener noreferrer"
@@ -305,11 +338,33 @@ export default async function DishPage({ params }: { params: Promise<{ slug: str
           </div>
 
           {/* On desktop the order panel sticks beside the dish; on mobile it
-              sits directly under it, above the related strip. */}
-          <div className="mt-6 lg:mt-0">
+              sits directly under it, above the related strip. It spans both
+              grid rows so it stays sticky beside the dish AND the how-to card;
+              the rows are auto/1fr so any spare height goes under the card,
+              not between the dish and it. */}
+          <div className="mt-6 lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:mt-0">
             <div className="lg:sticky lg:top-6">
               <DishOrderPanel dish={dish} readyNowExists={readyNowExists} />
             </div>
+          </div>
+
+          {/* How ordering works (SEO audit 2026-09-29 C15) comes AFTER the
+              order panel in the markup: on a phone it sat between the dish and
+              "Add to order" (an estimated 250-300px at 375px wide, not
+              measured), opening with the notice rule the panel's own first
+              line states. On desktop it sits under the dish, as
+              before. Server-rendered in either place, so a crawler loses
+              nothing. */}
+          <div className="lg:col-start-1 lg:row-start-2">
+            <HowOrdering
+              notice={notice}
+              kitchen={
+                dish.kitchenAddress?.trim()
+                  ? `${dish.kitchenName}, ${dish.kitchenAddress.trim()}`
+                  : dish.kitchenName
+              }
+              terms={terms}
+            />
           </div>
         </div>
 

@@ -90,6 +90,19 @@ export default function ExperienceMarket({
         </span>
         <h2 className="mt-5 font-syne text-2xl font-extrabold text-offwhite">{copy.emptyTitle}</h2>
         <p className="mx-auto mt-3 max-w-md font-dm text-sm leading-relaxed text-muted">{copy.emptyBody}</p>
+        {/* SEO audit 2026-09-29 C2/C5: the chauffeur empty state explains the
+            two ways a ride is priced — give each its page, so the sentence can
+            be followed instead of being a dead end. */}
+        {copy.slug === "chauffeur" && (
+          <p className="mt-4 flex flex-wrap items-center justify-center gap-x-4 font-dm text-sm">
+            <Link href="/transfers" className="inline-flex min-h-11 items-center text-yellow underline underline-offset-4">
+              {fr ? "Transferts aéroport" : "Airport transfers"}
+            </Link>
+            <Link href="/taxi" className="inline-flex min-h-11 items-center text-yellow underline underline-offset-4">
+              {fr ? "Taxis à Rodrigues" : "Taxis in Rodrigues"}
+            </Link>
+          </p>
+        )}
         <Link
           href="/explore"
           className="mt-6 inline-flex items-center gap-2 rounded-xl bg-yellow px-5 py-3 font-dm text-sm font-bold text-dark transition-opacity hover:opacity-90"

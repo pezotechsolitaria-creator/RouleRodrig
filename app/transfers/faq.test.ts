@@ -14,11 +14,17 @@ import { join } from "node:path";
 //
 // Two properties matter more than the word count, and both are guarded here.
 
-const SRC = readFileSync(join(process.cwd(), "app/transfers/page.tsx"), "utf8");
+const PAGE = readFileSync(join(process.cwd(), "app/transfers/page.tsx"), "utf8");
+// The questions moved to lib/transfers-faq.ts (SEO audit 2026-09-29 C2) so
+// /taxi, /llms.txt and /llms-full.txt say the fares the same way; the page
+// renders exactly what transferFaq() returns.
+const MODULE = readFileSync(join(process.cwd(), "lib/transfers-faq.ts"), "utf8");
+const SRC = `${PAGE}\n${MODULE}`;
 
 describe("the FAQ and its markup are one list", () => {
   it("builds the questions once", () => {
-    expect(SRC).toMatch(/const airportFaq: \{ q: string; a: string \}\[\] = \[/);
+    expect(MODULE).toMatch(/export function transferFaq\(fares: TransferFares\): TransferFaqItem\[\]/);
+    expect(PAGE).toMatch(/const airportFaq = transferFaq\(fares\);/);
   });
 
   it("renders that array visibly", () => {
@@ -26,12 +32,12 @@ describe("the FAQ and its markup are one list", () => {
     // markup. Two separately maintained lists is how a site ends up publishing
     // a question nobody can see — which this project has already done once, on
     // /browse/stays and /browse/tours.
-    expect(SRC).toMatch(/airportFaq\.map\(\(f\) => \(\s*\n?\s*<div key=\{f\.q\}>/);
+    expect(PAGE).toMatch(/airportFaq\.map\(\(f\) => \(\s*\n?\s*<div key=\{f\.q\}>/);
   });
 
   it("feeds FAQPage from the same array", () => {
-    expect(SRC).toMatch(/"@type": "FAQPage"/);
-    expect(SRC).toMatch(/mainEntity: airportFaq\.map/);
+    expect(PAGE).toMatch(/"@type": "FAQPage"/);
+    expect(PAGE).toMatch(/mainEntity: airportFaq\.map/);
   });
 });
 
@@ -42,12 +48,12 @@ describe("it never quotes a fare it could not read", () => {
     // gated the same way, with the note that an invented price is worse than
     // none. The FAQ has to hold the same line, because an answer is quoted far
     // more readily than a card.
-    expect(SRC).toMatch(/\.\.\.\(airport\s*\n?\s*\? \[/);
+    expect(MODULE).toMatch(/\.\.\.\(airport\s*\n?\s*\? \[/);
   });
 
   it("puts the fare inside the conditional entry, not the static ones", () => {
     // M220: the answer is now the three zone fares, read from the price list.
-    const gated = SRC.slice(SRC.indexOf("...(airport"), SRC.indexOf("q: \"Can I book an airport transfer"));
+    const gated = MODULE.slice(MODULE.indexOf("...(airport"), MODULE.indexOf("q: \"Can I book an airport transfer"));
     expect(gated).toContain("How much is a transfer");
     expect(gated).toContain("money(airport.oneWay[0])");
     expect(gated).toContain("money(airport.oneWay[2])");
@@ -57,13 +63,14 @@ describe("it never quotes a fare it could not read", () => {
     // The most common airport destination, and the query people type. Its
     // zone and road distance come from the database, so the question exists
     // only when the database answered.
-    expect(SRC).toMatch(/\.\.\.\(portMathurin\s*\n?\s*\? \[/);
-    expect(SRC).toContain("portMathurin.roadKm");
-    expect(SRC).toContain("airport.oneWay[portMathurin.zone - 1]");
+    expect(MODULE).toContain("const pm = portMathurin(airport);");
+    expect(MODULE).toMatch(/\.\.\.\(pm\s*\n?\s*\? \[/);
+    expect(MODULE).toContain("pm.roadKm");
+    expect(MODULE).toContain("airport.oneWay[pm.zone - 1]");
   });
 
   it("explains the night rule only when there is one", () => {
-    expect(SRC).toMatch(/\.\.\.\(night\s*\n?\s*\? \[/);
+    expect(MODULE).toMatch(/\.\.\.\(night\s*\n?\s*\? \[/);
   });
 
   it("keeps the questions that need no price unconditional", () => {

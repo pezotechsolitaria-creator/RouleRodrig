@@ -13,7 +13,9 @@ import { createClient } from "@/lib/supabase/server";
 import { SITE_URL } from "@/lib/site";
 import { getFoodHome, browseFood } from "@/lib/food/queries";
 import { walkUpKitchensServingNow } from "@/lib/food/ready-now";
-import { DIETARY_TAGS } from "@/lib/food/types";
+import { DIETARY_TAGS, type FoodHome } from "@/lib/food/types";
+import type { KitchenLine } from "@/lib/food/copy.i18n";
+import RestaurantsIntro from "./RestaurantsIntro";
 import { breadcrumbLd, itemListLd } from "@/lib/schema";
 import JsonLd from "@/components/JsonLd";
 import FoodFaq from "@/components/food/FoodFaq";
@@ -194,6 +196,8 @@ export default async function FoodPage({
   // kitchen there is nothing to rank, and that kitchen is booked a day ahead,
   // so its half-hour is not when anybody eats. Same rule: kept while active.
   const showQuickest = (home?.kitchens.length ?? 0) > 1 || f.sort === "fastest";
+
+  const kitchenLines = home && !empty ? await restaurantLines(supabase, home) : [];
 
   return (
     <main className="min-h-screen bg-dark px-4 pb-56 pt-0 text-offwhite md:pb-44">
@@ -503,7 +507,13 @@ export default async function FoodPage({
               label="Manger à Rodrigues — cette page en français"
             />
 
-            <ConciergeFooter />
+            {/* The heading "restaurants in rodrigues" lands on (SEO audit
+                2026-09-29 C21), with the concierge card it always ended on:
+                the one way to a table at a restaurant this site does not
+                list. */}
+            <RestaurantsIntro kitchens={kitchenLines}>
+              <ConciergeFooter />
+            </RestaurantsIntro>
           </>
         )}
       </div>
@@ -586,12 +596,50 @@ function EmptyLaunchState() {
   );
 }
 
+/**
+ * The facts RestaurantsIntro states about each kitchen (SEO audit 2026-09-29
+ * C21), read, never written: name, address, dish count and notice hours from
+ * food_home(), and cash from that kitchen's store_payment_options() — the RPC
+ * the checkout asks. food_home()'s kitchen rows carry no store id, so it is
+ * read off the dishes they cook; a kitchen whose id or options cannot be read
+ * gets no cash clause rather than a guess. At most three, one call each.
+ */
+async function restaurantLines(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  home: FoodHome,
+): Promise<KitchenLine[]> {
+  const idByName = new Map<string, string>();
+  for (const item of home.rails.flatMap((r) => r.items)) {
+    idByName.set(item.kitchenName, item.kitchenId);
+  }
+  return Promise.all(
+    home.kitchens.slice(0, 3).map(async (k) => {
+      const id = idByName.get(k.name);
+      let cash = false;
+      if (id) {
+        const { data } = await supabase
+          .rpc("store_payment_options", { p_store_id: id })
+          .maybeSingle();
+        const o = data as { accepts_cash?: boolean; offers_pickup?: boolean } | null;
+        cash = o?.accepts_cash === true && o?.offers_pickup === true;
+      }
+      return {
+        name: k.name,
+        place: k.address?.trim() || null,
+        dishes: k.dishCount,
+        notice: k.minNoticeHours > 0 ? k.minNoticeHours : 0,
+        cash,
+      };
+    }),
+  );
+}
+
 // The concierge is not deleted — it answers a different question. Ordering a
 // dish and being sat at a restaurant table by someone who knows the island are
 // two products, and the second one already has paying partners.
 function ConciergeFooter() {
   return (
-    <div className="mt-12 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-dark-card px-5 py-4">
+    <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-dark-card px-5 py-4">
       <ConciergeLead
         className="font-dm text-sm text-muted"
         strongClassName="text-offwhite"

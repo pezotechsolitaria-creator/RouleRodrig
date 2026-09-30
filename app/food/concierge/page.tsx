@@ -23,6 +23,8 @@ export const revalidate = 60;
 
 export const metadata: Metadata = {
   title: "Food Concierge — Where to Eat on Rodrigues",
+  // ≤155 characters (SEO audit 2026-09-29 T15; it was 180). "Free to use" is
+  // what came off: it was the part Google cut, and no field states the price.
   description:
     "Where to eat on Rodrigues? Tell our local food concierge on WhatsApp what you crave, from ourite octopus to fresh fish, and we book your table. Free.",
   alternates: { canonical: `${SITE_URL}/food/concierge` },

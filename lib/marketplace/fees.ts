@@ -141,7 +141,7 @@ const PITCH: Record<Language, PitchWords> = {
   en: {
     free: "no monthly fee and no commission while we get the first shops on board",
     commission: (pct) =>
-      `no monthly fee — Roulé Rodrigues keeps ${pct} of each completed sale`,
+      `no monthly fee — Roule Rodrigues keeps ${pct} of each completed sale`,
     hybrid: (pct) => `a simple monthly subscription, plus ${pct} of each completed sale`,
     subscriptionWithRate: (pct) => `a simple monthly subscription, plus ${pct} of each sale`,
     subscriptionFree: "no commission on your sales, just a simple subscription",
@@ -149,7 +149,7 @@ const PITCH: Record<Language, PitchWords> = {
   fr: {
     free: "aucun abonnement et aucune commission pendant que nous mettons les premières boutiques en ligne",
     commission: (pct) =>
-      `aucun abonnement — Roulé Rodrigues garde ${pct} de chaque vente conclue`,
+      `aucun abonnement — Roule Rodrigues garde ${pct} de chaque vente conclue`,
     hybrid: (pct) => `un abonnement mensuel simple, plus ${pct} de chaque vente conclue`,
     subscriptionWithRate: (pct) => `un abonnement mensuel simple, plus ${pct} de chaque vente`,
     subscriptionFree: "aucune commission sur vos ventes, juste un abonnement simple",
@@ -157,7 +157,7 @@ const PITCH: Record<Language, PitchWords> = {
   cr: {
     free: "okenn abonman ek okenn komision pandan ki nou pe met bann premie laboutik an liny",
     commission: (pct) =>
-      `okenn abonman — Roulé Rodrigues gard ${pct} lor sak vant ki finn fini`,
+      `okenn abonman — Roule Rodrigues gard ${pct} lor sak vant ki finn fini`,
     hybrid: (pct) => `enn abonman mansiel senp, plis ${pct} lor sak vant ki finn fini`,
     subscriptionWithRate: (pct) => `enn abonman mansiel senp, plis ${pct} lor sak vant`,
     subscriptionFree: "okenn komision lor ou bann vant, zis enn abonman senp",
@@ -196,7 +196,7 @@ export function sellerPitch(
 export const MODEL_COPY: Record<MonetizationModel, { label: string; help: string }> = {
   commission: {
     label: "Commission only",
-    help: "Shops sell for free and Roulé Rodrigues keeps a percentage of each completed sale.",
+    help: "Shops sell for free and Roule Rodrigues keeps a percentage of each completed sale.",
   },
   subscription: {
     label: "Subscription only",
@@ -204,7 +204,7 @@ export const MODEL_COPY: Record<MonetizationModel, { label: string; help: string
   },
   hybrid: {
     label: "Subscription + commission",
-    help: "Shops pay a monthly fee and Roulé Rodrigues also keeps a percentage of each sale.",
+    help: "Shops pay a monthly fee and Roule Rodrigues also keeps a percentage of each sale.",
   },
   free: {
     label: "Free",

@@ -119,7 +119,11 @@ describe("the browse page prices stays and activities", () => {
   });
 
   it("reads the price off the listing", () => {
-    expect(src).toMatch(/i\.depositAmount/);
+    // placePrice(), not depositAmount: the deposit holds a booking and is not
+    // the price. Île aux Cocos went out with no Offer beside an on-screen
+    // "Rs 1999/Person" (SEO audit 2026-09-29 T2).
+    expect(src).toMatch(/const price = placePrice\(i\)/);
+    expect(src).not.toMatch(/i\.depositAmount/);
   });
 });
 

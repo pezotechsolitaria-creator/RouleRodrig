@@ -24,8 +24,9 @@
 // WhatsApp. og:description and twitter:description are the same string.
 //
 // NOT A REWRITE. Every word is the owner's. This removes invisible characters,
-// collapses the literal newlines his copy contains (they end up inside an HTML
-// attribute), and cuts on a sentence boundary instead of mid-word.
+// the opening emoji and list markers, turns his line breaks into sentence
+// breaks (they end up inside an HTML attribute), and cuts on a sentence
+// boundary instead of mid-word.
 
 /** Zero-width space, ZWNJ, ZWJ and the BOM — all invisible, all real characters
  *  that survive a trim(). Written as escapes: pasting the literals into source
@@ -34,6 +35,43 @@ const INVISIBLE = /[​-‍﻿]/g;
 
 const MAX = 155;
 
+// ── LINES THAT WERE NEVER SENTENCES (SEO audit 2026-09-29 T5/T6) ───────────
+//
+// Collapsing every newline to a space welded a heading onto the sentence under
+// it: the Hilux served "…Ready for Adventure Explore Rodrigues…". The
+// experience listings are worse — "* Transport en bateau" bullets and a "📍"
+// before every line of the Sunrise hike's itinerary. So each line is read on
+// its own first: its bullet or pin goes, and a line that ends without
+// punctuation ends with a full stop, unless the next one plainly continues it.
+
+/** A list marker at the start of a line: "* ", "- ", "• ", or the 📍 pin. */
+const BULLET = /^(?:[*\-•]\s+|\u{1F4CD}️?\s*)/u;
+
+/** Emoji at the very start of the copy, with any variation selector or skin
+ *  tone. "🏝️ Excursion à l'Île aux Coco" is what the snippet opened with. */
+const LEADING_EMOJI = /^(?:\p{Extended_Pictographic}[️\u{1F3FB}-\u{1F3FF}]*\s*)+/u;
+
+/** A line that already ends a sentence, or hands on to the next line (":"). */
+const ENDS_CLAUSE = /[.!?…:;,—–-]["'”’)»]*$/;
+
+function joinLines(text: string): string {
+  const lines = text
+    .split(/\r?\n/)
+    .map((l) => l.trim().replace(BULLET, "").trim())
+    .filter(Boolean);
+  let out = "";
+  lines.forEach((line, i) => {
+    if (i === 0) {
+      out = line;
+      return;
+    }
+    // "…every corner\nof the island" is one sentence the owner wrapped by hand.
+    const continues = /^\p{Ll}/u.test(line);
+    out += ENDS_CLAUSE.test(out) || continues ? ` ${line}` : `. ${line}`;
+  });
+  return out;
+}
+
 /**
  * The owner's copy, fit to a meta description without altering his words.
  *
@@ -41,11 +79,12 @@ const MAX = 155;
  * the caller's existing fallback still fires.
  */
 export function metaDescription(copy: string | null | undefined, max = MAX): string {
-  const clean = (copy ?? "")
-    .replace(INVISIBLE, "")
-    // His descriptions contain real newlines, which land inside an HTML
-    // attribute as literal line breaks.
+  const clean = joinLines((copy ?? "").replace(INVISIBLE, ""))
+    // Whatever whitespace is left (tabs, doubled spaces) lands inside an HTML
+    // attribute.
     .replace(/\s+/g, " ")
+    .trim()
+    .replace(LEADING_EMOJI, "")
     .trim();
   if (!clean) return "";
 

@@ -110,7 +110,13 @@ export default async function EventDetailPage({ params }: { params: Promise<{ sl
         ? { geo: { "@type": "GeoCoordinates", latitude: event.lat, longitude: event.lng } }
         : {}),
     },
-    organizer: { "@type": "Organization", name: "Roulé Rodrigues", url: SITE_URL },
+    // No `organizer`, on purpose (SEO audit 2026-09-29 T9). It named this
+    // business, accented, as an anonymous second Organization — and it was
+    // false: an event's organiser is never this business (see
+    // lib/events/platform-merchant.ts; they take the ticket money
+    // themselves). Their name is not in the public event read, so there is
+    // nothing true to put here yet. organizer is recommended, not required;
+    // a wrong one is worse than none.
     ...(event.fromPrice !== null && !cancelled && !ended
       ? {
           offers: {

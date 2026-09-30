@@ -1,18 +1,22 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { SITE_URL } from "@/lib/site";
 import AppPageHeader from "@/components/AppPageHeader";
 import BookRide from "@/app/taxi/book/BookRide";
 import BookingHeading from "@/app/taxi/book/BookingHeading";
 import JsonLd from "@/components/JsonLd";
 import { readTransferFares } from "@/lib/rides/fares";
+import type { ZonedPlace } from "@/lib/rides/transfer";
+import { sellerLd } from "@/lib/schema";
+import { FR_PAGES } from "@/lib/nav/hubs";
 import {
-  effectiveEveningLabel,
-  nightWindowLabel,
-  returnDifference,
-  type TransferPricing,
-  type ZonedPlace,
-} from "@/lib/rides/transfer";
-import { centsToShortString } from "@/lib/money";
+  money,
+  passengersCovered,
+  returnSentence,
+  timeSentences,
+  transferFaq,
+  zoneRange,
+} from "@/lib/transfers-faq";
 
 // /transfers — the "planning ahead" half of getting around.
 //
@@ -52,108 +56,29 @@ import { centsToShortString } from "@/lib/money";
 // night rule he chooses. Every number below comes from transfer_price_sheet()
 // — the same price list and the same zone function that charge the booking —
 // so the page cannot quote Port Mathurin in a zone the booking disagrees with.
+//
+// The sentences that say those numbers (money, zoneRange, the evening/night
+// bands, the return package, the FAQ) live in lib/transfers-faq.ts since the
+// SEO audit of 2026-09-29 (C2): /taxi, /fr/taxi-rodrigues and /llms.txt state
+// the same fares, and they must say them the way this page does.
 
 export const revalidate = 600;
 
-// Grouped, because the rest of the site writes "Rs 1,499". centsToShortString
-// already drops a trailing .00, so this only adds the separator to the whole
-// part and leaves real cents alone.
-function money(cents: number): string {
-  const [whole, frac] = centsToShortString(cents).split(".");
-  return `Rs ${Number(whole).toLocaleString("en-US")}${frac ? `.${frac}` : ""}`;
-}
-
-/** "up to 7 km" / "over 7 and under 15 km" / "15 km and over", from the sheet. */
-function zoneRange(p: TransferPricing, zone: 1 | 2 | 3): string {
-  if (zone === 1) return `up to ${p.zone1MaxKm} km`;
-  if (zone === 2) return `over ${p.zone1MaxKm} and under ${p.zone2MaxKm} km`;
-  return `${p.zone2MaxKm} km and over`;
-}
-
-/** One band's rule, in the sentence a visitor needs. Null when it has none. */
-function bandSentence(
-  name: "Evening" | "Night",
-  mode: TransferPricing["nightMode"] | undefined,
-  w: string | null,
-  surcharge: number | undefined,
-  multiplier: number | undefined,
-): string | null {
-  if (!mode || mode === "none" || !w) return null;
-  switch (mode) {
-    case "manual":
-      return `${name} transfers (${w}) are priced by hand: the fare is agreed with you, not fixed in advance.`;
-    case "fixed":
-      return `${name} transfers (${w}) add ${money(surcharge ?? 0)} per trip, included in the fare you are shown.`;
-    case "multiplier":
-      return `${name} transfers (${w}) are charged at ${multiplier}× the day fare.`;
-    default:
-      return null;
-  }
-}
-
-/**
- * M221 · the evening band, then the night band, each in its own sentence.
- * "Evening and night transfers (17:00–04:59)" was one clumsy line for what are
- * now two different rules.
- */
-function timeSentences(p: TransferPricing): string[] {
-  // The evening window as it really applies: minus any hours the night band
-  // also claims, because night wins those in the engine. Null when night covers
-  // it entirely — then the evening rule is never used and is not advertised.
-  const evening =
-    p.eveningFromHour != null && p.eveningToHour != null
-      ? effectiveEveningLabel(
-          { from: p.eveningFromHour, to: p.eveningToHour },
-          { from: p.nightFromHour, to: p.nightToHour, mode: p.nightMode },
-        )
-      : null;
-  return [
-    bandSentence("Evening", p.eveningMode, evening, p.eveningSurcharge, p.eveningMultiplier),
-    bandSentence("Night", p.nightMode, nightWindowLabel(p.nightFromHour, p.nightToHour), p.nightSurcharge, p.nightMultiplier),
-  ].filter((s): s is string => !!s);
-}
-
-/**
- * The owner's decision on the return package, said plainly: it saves money
- * only where the price list makes it cheaper per trip (Zone 3 at launch) and
- * is otherwise the convenience of booking both trips at once. Computed from
- * the sheet, so it stays true if the fares change.
- */
-function returnSentence(p: TransferPricing): string {
-  // SIGNED: a return fare above the one-way fare must read as "more", never
-  // as "the same" (refused at publish, but the page must not lie if it slips).
-  const diff = returnDifference(p);
-  const saving = ([1, 2, 3] as const).filter((z) => diff[z - 1] > 0);
-  const same = ([1, 2, 3] as const).filter((z) => diff[z - 1] === 0);
-  const more = ([1, 2, 3] as const).filter((z) => diff[z - 1] < 0);
-  const list = (zs: readonly number[]) =>
-    zs.length === 1 ? `Zone ${zs[0]}` : `Zones ${zs.slice(0, -1).join(", ")} and ${zs[zs.length - 1]}`;
-  const parts: string[] = [];
-  if (saving.length) {
-    parts.push(
-      `In ${list(saving)} it saves ${saving
-        .map((z) => `${money(diff[z - 1])} per trip (${money(p.returnEach[z - 1])} instead of ${money(p.oneWay[z - 1])})`)
-        .join("; ")}.`,
-    );
-  }
-  if (same.length) {
-    parts.push(
-      `In ${list(same)} it costs the same as two one-way trips — the package simply books both at once.`,
-    );
-  }
-  if (more.length) {
-    parts.push(
-      `In ${list(more)} it costs ${more.map((z) => `${money(-diff[z - 1])} more per trip`).join("; ")} than booking one way each time.`,
-    );
-  }
-  return parts.join(" ");
-}
-
-// Places a visitor has heard of, used to illustrate the zones in words. Ids,
-// not fares: which zone each lands in still comes from the database.
-const LANDMARKS = [
-  "port-mathurin", "mourouk", "graviers", "trou-dargent", "st-francois", "oyster-bay",
-  "riviere-cocos", "mont-lubin", "baie-du-nord", "la-ferme", "anse-quitor", "francois-leguat",
+// Where somebody who has sorted their arrival goes next (C5). The French twin
+// of /taxi is the French page that answers the same arrival.
+//
+// It is labelled with what it IS, not a bare "En français" (C13): under
+// "Related", that reads as this page in French, and /fr/taxi-rodrigues is the
+// hreflang twin of /taxi, not of /transfers — the rule already applied on
+// /browse/getting-around. The title is the one the /fr hub gives it, so the
+// two cannot name one page differently; the anchor also carries its subject.
+const FR_TAXI_TITLE =
+  FR_PAGES.find((p) => p.href === "/fr/taxi-rodrigues")?.title ?? "Taxi et transfert aéroport";
+const RELATED: { href: string; label: string; lang?: string }[] = [
+  { href: "/taxi", label: "Taxis on Rodrigues" },
+  { href: "/browse/car", label: "Car delivered to the airport" },
+  { href: "/fr/taxi-rodrigues", label: `${FR_TAXI_TITLE}, en français`, lang: "fr" },
+  { href: "/blog/how-to-get-around-rodrigues", label: "How to get around Rodrigues" },
 ];
 
 const FALLBACK_DESCRIPTION =
@@ -188,61 +113,11 @@ export default async function TransfersPage() {
   const ferry = fares.ferry != null ? money(fares.ferry) : null;
 
   const byZone = (z: 1 | 2 | 3): ZonedPlace[] => (airport?.places ?? []).filter((p) => p.zone === z);
-  const landmark = (id: string) => airport?.places.find((p) => p.id === id) ?? null;
-  const portMathurin = landmark("port-mathurin");
-  const famous = (z: 1 | 2 | 3) =>
-    LANDMARKS.map(landmark).filter((p): p is ZonedPlace => !!p && p.zone === z).slice(0, 3).map((p) => p.label);
   const bands = airport ? timeSentences(airport) : [];
-  const night = bands.length ? bands.join(" ") : null;
 
-  // Built here so the visible <dl> below and the FAQPage markup are ONE list.
-  // Two lists maintained separately is how a site ends up publishing a question
-  // nobody can read — the exact fault the category pages were fixed for.
-  const airportFaq: { q: string; a: string }[] = [
-    ...(airport
-      ? [
-          {
-            q: "How much is a transfer from Plaine Corail airport?",
-            a: `It depends on how far you are going by road from the airport, in three zones. One way: ${money(airport.oneWay[0])} ${zoneRange(airport, 1)}, ${money(airport.oneWay[1])} ${zoneRange(airport, 2)}, and ${money(airport.oneWay[2])} ${zoneRange(airport, 3)}${famous(3).length ? ` — which includes ${famous(3).join(", ")}` : ""}. The fare covers one passenger and is fixed before you book rather than a meter.${ferry ? ` The ferry terminal at Port Mathurin is ${ferry}.` : ""}`,
-          },
-          ...(portMathurin
-            ? [
-                {
-                  q: "How much is a taxi from Rodrigues airport to Port Mathurin?",
-                  a: `${money(airport.oneWay[portMathurin.zone - 1])} one way. Port Mathurin is ${portMathurin.roadKm} km from Plaine Corail by road, which puts it in Zone ${portMathurin.zone}. Booked as a return package, it is ${money(airport.returnEach[portMathurin.zone - 1])} each way.`,
-                },
-              ]
-            : []),
-          {
-            q: "Is there a return package?",
-            a: `Yes. Book the arrival and the ride back for your flight home together, and each trip is priced per direction: ${money(airport.returnEach[0])} each way in Zone 1, ${money(airport.returnEach[1])} in Zone 2 and ${money(airport.returnEach[2])} in Zone 3. ${returnSentence(airport)} Each trip is sent to a driver on its own day.`,
-          },
-          {
-            q: "Do more passengers cost more?",
-            a: `The fare includes ${airport.includedPassengers === 1 ? "one passenger" : `${airport.includedPassengers} passengers`}. Each additional passenger adds ${money(airport.extraPassengerFee)} per trip, one way or return. For a group of more than ${airport.maxPricedPassengers} the fare is agreed with you, not fixed in advance.`,
-          },
-          ...(night
-            ? [{ q: "What about evening and night arrivals?", a: night }]
-            : []),
-        ]
-      : []),
-    {
-      q: "Can I book an airport transfer before I arrive in Rodrigues?",
-      a: "Yes, and it is the point of this page. Give us your flight, how many passengers and how much luggage, and the driver is arranged before you land rather than found in the arrivals hall.",
-    },
-    {
-      q: "Will the driver meet me at arrivals?",
-      a: "Ask for it when you book and the driver waits inside the terminal with your name. Otherwise they meet you at the pick-up area outside.",
-    },
-    {
-      q: "What is the airport in Rodrigues called?",
-      a: "Plaine Corail, code RRG. It is officially Sir Gaétan Duval Airport and the operator still uses that name, so you will hear both — they are the same place.",
-    },
-    {
-      q: "Can I book the return trip to the airport as well?",
-      a: "Yes — choose Return package on the form and give the date of your flight home, and both trips are booked together. Or book it later the same way once your plans firm up.",
-    },
-  ];
+  // ONE list: the visible <dl> below, the FAQPage markup and /llms-full.txt
+  // all read what transferFaq() returns (lib/transfers-faq.ts).
+  const airportFaq = transferFaq(fares);
 
   const oneWayLow = airport ? Math.min(...airport.oneWay) : null;
   const oneWayHigh = airport ? Math.max(...airport.oneWay) : null;
@@ -261,44 +136,53 @@ export default async function TransfersPage() {
           paraphrase.
 
           Priced only when the price list was actually read. An Offer with no
-          price, or with a guessed one, is worse than no Offer. */}
+          price, or with a guessed one, is worse than no Offer.
+
+          The seller node rides along (SEO audit 2026-09-29 T9): the provider
+          is an @id pointer, and a pointer to a node the page never defines
+          is one a crawler cannot resolve. Same @id as the homepage graph, so
+          the two are one entity. */}
       <JsonLd
-        data={{
-          "@context": "https://schema.org",
-          "@type": "Service",
-          "@id": `${SITE_URL}/transfers#service`,
-          name: "Airport transfer in Rodrigues",
-          serviceType: "Airport transfer",
-          description: FALLBACK_DESCRIPTION,
-          url: `${SITE_URL}/transfers`,
-          areaServed: {
-            "@type": "Place",
-            name: "Rodrigues Island, Mauritius",
-          },
-          provider: { "@id": `${SITE_URL}/#business` },
-          ...(airport != null && oneWayLow != null && oneWayHigh != null
-            ? {
-                offers: {
-                  "@type": "AggregateOffer",
-                  priceCurrency: "MUR",
-                  lowPrice: (oneWayLow / 100).toFixed(2),
-                  highPrice: (oneWayHigh / 100).toFixed(2),
-                  offerCount: 3,
-                  availability: "https://schema.org/InStock",
-                  url: `${SITE_URL}/transfers`,
-                  offers: ([1, 2, 3] as const).map((z) => ({
-                    "@type": "Offer",
-                    name: `Zone ${z} airport transfer, one way`,
+        data={[
+          { "@context": "https://schema.org", ...sellerLd() },
+          {
+            "@context": "https://schema.org",
+            "@type": "Service",
+            "@id": `${SITE_URL}/transfers#service`,
+            name: "Airport transfer in Rodrigues",
+            serviceType: "Airport transfer",
+            description: FALLBACK_DESCRIPTION,
+            url: `${SITE_URL}/transfers`,
+            areaServed: {
+              "@type": "Place",
+              name: "Rodrigues Island, Mauritius",
+            },
+            provider: { "@id": `${SITE_URL}/#business` },
+            ...(airport != null && oneWayLow != null && oneWayHigh != null
+              ? {
+                  offers: {
+                    "@type": "AggregateOffer",
                     priceCurrency: "MUR",
-                    price: (airport.oneWay[z - 1] / 100).toFixed(2),
+                    lowPrice: (oneWayLow / 100).toFixed(2),
+                    highPrice: (oneWayHigh / 100).toFixed(2),
+                    offerCount: 3,
                     availability: "https://schema.org/InStock",
                     url: `${SITE_URL}/transfers`,
-                    description: `Plaine Corail airport to anywhere ${zoneRange(airport, z)} by road, one passenger, daytime. Each extra passenger ${money(airport.extraPassengerFee)}. Return package ${money(airport.returnEach[z - 1])} each way.${bands.length ? ` ${bands.join(" ")}` : ""}`,
-                  })),
-                },
-              }
-            : {}),
-        }}
+                    offers: ([1, 2, 3] as const).map((z) => ({
+                      "@type": "Offer",
+                      name: `Zone ${z} airport transfer, one way`,
+                      priceCurrency: "MUR",
+                      price: (airport.oneWay[z - 1] / 100).toFixed(2),
+                      availability: "https://schema.org/InStock",
+                      url: `${SITE_URL}/transfers`,
+                      // The passenger count is the sheet's, not typed (C2).
+                      description: `Plaine Corail airport to anywhere ${zoneRange(airport, z)} by road, ${passengersCovered(airport)}, daytime. Each extra passenger ${money(airport.extraPassengerFee)}. Return package ${money(airport.returnEach[z - 1])} each way.${bands.length ? ` ${bands.join(" ")}` : ""}`,
+                    })),
+                  },
+                }
+              : {}),
+          },
+        ]}
       />
 
       {/* FAQPage, from the SAME airportFaq array the <dl> below renders — so
@@ -376,7 +260,7 @@ export default async function TransfersPage() {
                 </tbody>
               </table>
               <p className="mt-3 font-dm text-sm leading-relaxed text-muted">
-                Fares include one passenger; each extra passenger adds{" "}
+                Fares include {passengersCovered(airport)}; each extra passenger adds{" "}
                 {money(airport.extraPassengerFee)} per trip. The fare is fixed before
                 you book &mdash; not a meter &mdash; and you pay the driver.
                 {ferry ? ` The ferry terminal at Port Mathurin is ${ferry}.` : ""}
@@ -446,6 +330,30 @@ export default async function TransfersPage() {
               ))}
             </dl>
           </section>
+
+          {/* ── RELATED (SEO audit 2026-09-29 C5) ───────────────────────────
+              The SSR HTML of this page had exactly two links, Back and
+              Account: the site's most citable price page passed no authority
+              on and led nowhere. One line, at the very foot, so nothing moves
+              between the header and the first field and the nav-scope
+              decision to hide the chrome here stands. min-h-11: each link is
+              a separate target, not a word in a sentence. */}
+          <nav aria-label="Related" className="mt-9 border-t border-white/10 pt-4">
+            <p className="font-dm text-xs uppercase tracking-wide text-muted">Related</p>
+            <ul className="mt-1 flex flex-wrap gap-x-5 font-dm text-sm">
+              {RELATED.map((l) => (
+                <li key={l.href} lang={l.lang}>
+                  <Link
+                    href={l.href}
+                    hrefLang={l.lang}
+                    className="inline-flex min-h-11 items-center text-yellow/80 transition-colors hover:text-yellow"
+                  >
+                    {l.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </nav>
         </div>
       </main>
     </>

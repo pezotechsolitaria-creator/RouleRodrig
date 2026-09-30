@@ -158,8 +158,10 @@ describe("the sibling browse categories got the same treatment", () => {
   // unlinked and absent from the sitemap, because restaurants live at /food.
   it("activities has a heading and intro in both languages", () => {
     const b = slugs("activities");
-    expect(b).toMatch(/heading: "Things to Do in Rodrigues"/);
-    expect(b).toMatch(/headingFr: "Que faire/);
+    // Retitled 29 Sep 2026 (SEO audit C19/T14): "Things to Do in Rodrigues"
+    // is /experiences' head term, and this page lists a subset of it.
+    expect(b).toMatch(/heading: "Activities in Rodrigues"/);
+    expect(b).toMatch(/headingFr: "Activités/);
     expect(b).toMatch(/introFr:/);
   });
 

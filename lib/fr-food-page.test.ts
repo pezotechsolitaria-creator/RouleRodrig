@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { buildLlmsTxt, unreadLlmsData } from "./llms-txt";
 
 // ── THE FRENCH FOOD PAGE (M155) ─────────────────────────────────────────────
 //
@@ -89,8 +90,10 @@ describe("it is paired, reachable and declared", () => {
     expect(readFileSync(join(ROOT, "app", "sitemap.ts"), "utf8")).toContain(
       "/fr/manger-a-rodrigues",
     );
-    expect(readFileSync(join(ROOT, "public", "llms.txt"), "utf8")).toContain(
-      "/fr/manger-a-rodrigues",
+    // llms.txt is generated now (SEO audit 2026-09-29 C8); even built from no
+    // data at all, it lists the French pages.
+    expect(buildLlmsTxt(unreadLlmsData("https://roulerodrig.com"))).toContain(
+      "https://roulerodrig.com/fr/manger-a-rodrigues",
     );
   });
 

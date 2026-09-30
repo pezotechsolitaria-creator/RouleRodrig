@@ -25,9 +25,22 @@ export type HubLink = {
   href: string;
   /** The page's own title, trimmed of the site suffix. Taken from the page. */
   title: string;
-  /** One line saying what is on it, in the page's own language. */
+  /** One line saying what is on it, in the page's own language. No price. */
   blurb: string;
+  /**
+   * The same line led by a live "from" price, for a caller that has read one.
+   * `from` names which: the cheapest sellable fleet unit of that category, or
+   * the cheapest stay by placePrice(). The figure is passed in already
+   * formatted; this file never holds one.
+   */
+  priced?: { from: "scooter" | "car" | "stays"; blurb: (price: string) => string };
 };
+
+// ── NO PRICE IS TYPED IN THIS FILE (SEO audit 2026-09-29 C1) ────────────────
+// The French blurbs said "Dès Rs 1 499 par jour" for a car while /browse/car
+// charged from Rs 1,899: a hand-typed figure that drifted the day the owner
+// repriced. The /fr hub now reads the fleet and the stays and fills the price
+// in; without a live figure it shows the blurb, which names none.
 
 /** The English island guide. */
 export const GUIDE_PAGES: HubLink[] = [
@@ -108,7 +121,8 @@ export const FR_PAGES: HubLink[] = [
   {
     href: "/fr/hebergement-rodrigues",
     title: "Hébergement à Rodrigues",
-    blurb: "Où dormir, dès Rs 1 000 la nuit.",
+    blurb: "Où dormir, en réservation directe avec le propriétaire.",
+    priced: { from: "stays", blurb: (price) => `Où dormir, dès ${price} la nuit.` },
   },
   {
     href: "/fr/se-deplacer-a-rodrigues",
@@ -118,16 +132,61 @@ export const FR_PAGES: HubLink[] = [
   {
     href: "/fr/location-scooter-rodrigues",
     title: "Location scooter",
-    blurb: "Dès Rs 699 par jour, casque et assistance compris.",
+    blurb: "Casque et assistance compris.",
+    priced: { from: "scooter", blurb: (price) => `Dès ${price} par jour, casque et assistance compris.` },
   },
   {
     href: "/fr/location-voiture-rodrigues",
     title: "Location voiture",
-    blurb: "Dès Rs 1 499 par jour, livrée où vous êtes.",
+    blurb: "Livrée où vous êtes.",
+    priced: { from: "car", blurb: (price) => `Dès ${price} par jour, livrée où vous êtes.` },
   },
   {
     href: "/fr/taxi-rodrigues",
     title: "Taxi et transfert aéroport",
-    blurb: "Prix fixes annoncés à l'avance, réservation en ligne.",
+    // Was "Prix fixes annoncés à l'avance": true of an airport transfer and
+    // not of a taxi, whose fare is the driver's (SEO audit 2026-09-29 C2).
+    // "avant tout engagement", the taxi FAQ's own words (lib/taxi-faq.ts): a
+    // bare "confirmé avant." read as a sentence cut off. Not "avant paiement":
+    // a ride is paid to the driver, and the site takes nothing for it.
+    blurb: "Transfert aéroport à tarif fixe par zone ; pour le reste, prix confirmé avant tout engagement.",
   },
 ];
+
+/** A compact footer link. */
+export type FooterLink = { href: string; label: string };
+
+/**
+ * The money pages, for the sitewide footer (SEO audit 2026-09-29 C3). The
+ * footer was on every page and linked only pages that refuse to be indexed
+ * (/kitchen, /driver, /partner are noindex, nofollow): the cheapest sitewide
+ * lever the site has, spent on nothing. Six links, in the order a visitor
+ * plans a trip.
+ */
+export const FOOTER_EN_LINKS: FooterLink[] = [
+  { href: "/browse/scooter", label: "Scooter rental" },
+  { href: "/browse/car", label: "Car rental" },
+  { href: "/transfers", label: "Airport transfers" },
+  { href: "/browse/stays", label: "Where to stay" },
+  { href: "/experiences", label: "Things to do" },
+  { href: "/guide/rodrigues", label: "Island guide" },
+];
+
+/** Short footer labels for French pages that FR_PAGES lists. */
+const FR_SHORT: [href: string, label: string][] = [
+  ["/fr/location-scooter-rodrigues", "Location scooter"],
+  ["/fr/location-voiture-rodrigues", "Location voiture"],
+  ["/fr/hebergement-rodrigues", "Hébergement"],
+  ["/fr/que-faire-a-rodrigues", "Que faire"],
+  ["/fr/guide-rodrigues", "Guide de Rodrigues"],
+];
+
+/**
+ * The French half of the footer: the EN→FR bridge was one link (/more to /fr),
+ * and every French page, the best-ranking writing on the site, had exactly one
+ * English inbound link. Drawn FROM FR_PAGES, so a label here can only ever
+ * point at a French page the hub also lists.
+ */
+export const FOOTER_FR_LINKS: FooterLink[] = FR_SHORT.flatMap(([href, label]) =>
+  FR_PAGES.some((p) => p.href === href) ? [{ href, label }] : [],
+);

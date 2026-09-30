@@ -121,6 +121,9 @@ export const EXPERIENCES: Record<ServiceType, ExperienceCopy> = {
     titleFr: "Guides de randonnée à Rodrigues",
     subtitle: "Walk the island with someone who grew up on it.",
     subtitleFr: "Parcourez l'île avec quelqu'un qui y a grandi.",
+    // Short enough that "From Rs … per person." still lands inside the 155 a
+    // snippet shows; at 185 the price was the part Google cut (SEO audit
+    // 2026-09-29 T7).
     description:
       "Hike Rodrigues with a local guide: coastal paths, ridges and sunrise walks. See who leads it and what it costs, then book.",
     emoji: "🥾",
@@ -149,6 +152,8 @@ export const EXPERIENCES: Record<ServiceType, ExperienceCopy> = {
     titleFr: "Chauffeur privé à Rodrigues",
     subtitle: "A car, a driver, and a day that is entirely yours.",
     subtitleFr: "Une voiture, un chauffeur, et une journée entièrement à vous.",
+    // Was 217 characters (SEO audit 2026-09-29 T7/T15). Short enough that a
+    // "From Rs … per person." still fits whole once a driver is listed.
     description:
       "Hire a private driver and car in Rodrigues by the half-day or the day, and stop wherever you like, with a local at the wheel.",
     emoji: "🚘",
@@ -160,8 +165,12 @@ export const EXPERIENCES: Record<ServiceType, ExperienceCopy> = {
       { key: "evening", label: "Evening & dinner", labelFr: "Soirée & dîner" },
     ],
     emptyTitle: "No chauffeurs listed yet",
+    // "A taxi ... for a fixed fare" was one of three contradictory taxi-price
+    // stories on the site (SEO audit 2026-09-29 C2). The truth has two parts:
+    // airport transfers are priced by zone (/transfers), every other ride is
+    // quoted by the driver and accepted before it is booked (/taxi).
     emptyBody:
-      "Drivers are being added one at a time. In the meantime a taxi will take you anywhere on the island for a fixed fare, and an airport transfer can be booked in advance.",
+      "Drivers are being added one at a time. In the meantime, airport transfers have fixed fares by zone, and for any other ride a taxi driver quotes a fare that you accept before anything is booked.",
     cta: "See the day",
     ctaFr: "Voir la journée",
     priceUnit: "per day",
@@ -256,6 +265,33 @@ export function fromPriceOf(places: Priced[]): number | null {
 /** One question and its answer, the shape both the page and the schema read. */
 export type ExperienceFaq = { q: string; a: string };
 
+// ── ASKING TO PAY IN PERSON (M220) ──────────────────────────────────────────
+// The booking form now lets a customer ask to pay in cash, and the owner then
+// either confirms it or asks for the price online. So it is a request, never a
+// promise — the same wording as the form's own note (placeBooking.inPersonNote).
+// One sentence, read by the FAQ below and by each experience page's "How
+// booking works", so the two cannot describe different flows (SEO audit
+// 2026-09-29 C4, C6).
+export const IN_PERSON_SENTENCE =
+  "You can also ask to pay in person, in cash: we tell you whether you can, or whether it needs paying online.";
+
+/**
+ * The request-first flow in the order it happens, for one listing's page.
+ *
+ * `paysOnline` is whether the listing has an amount to charge — the booking
+ * form offers a way to pay (online, or asking for cash) only then. Without
+ * one, nothing is taken on the site, and step three says only what is true.
+ */
+export function howBookingWorks(who: string, paysOnline: boolean): string[] {
+  return [
+    "You send a request for your date. Nothing is charged when you send it.",
+    `We check the date with ${who}. If it is not free that day, we say so and suggest an alternative.`,
+    paysOnline
+      ? `Once it is confirmed, you pay online to secure it. ${IN_PERSON_SENTENCE}`
+      : "Once it is confirmed, we tell you by email or on WhatsApp.",
+  ];
+}
+
 /**
  * The five questions somebody actually has before booking an experience.
  *
@@ -311,7 +347,10 @@ export function experienceFaq(
     q: "Do I pay before it is confirmed?",
     a: `No. You send a request, we check the date with the ${
       copy.slug === "massage" ? "therapist" : "operator"
-    }, and only once it is confirmed do you pay to secure it. If it is not free that day we say so and suggest an alternative — you are never charged for something we cannot provide.`,
+    }, and only once it is confirmed do you pay to secure it.${
+      // The cash option exists only where the form has an amount to charge.
+      places.some((p) => Number(p.depositAmount) > 0) ? ` ${IN_PERSON_SENTENCE}` : ""
+    } If it is not free that day we say so and suggest an alternative — you are never charged for something we cannot provide.`,
   });
 
   const named = places.filter((p) => p.providerName);
@@ -343,4 +382,57 @@ export function experienceFaq(
   });
 
   return faq;
+}
+
+// ── WHAT AN EXPERIENCE PAGE STATES ABOUT ITSELF (SEO audit 2026-09-29 C6) ────
+//
+// The detail pages rendered 800–1,100 characters because PlaceDetail ignored
+// fields every listing already holds: who runs it, where to meet, how long it
+// lasts, how many can go, which languages. Each line below is one field the
+// owner filled in, worded as a label and nothing more — no field, no line.
+
+type FactSource = Pick<
+  RecommendedPlace,
+  "providerName" | "meetingPoint" | "durationMinutes" | "maxGuests" | "capacity" | "languages"
+> & { serviceType?: RecommendedPlace["serviceType"] };
+
+/** Admin placeholder text typed into the field rather than left empty. */
+function isPlaceholder(value: string): boolean {
+  return /^(optional|n\/?a|none|tbc|tbd|-+|x+|\?+)$/i.test(value.replace(/[.\s]+$/, "").trim());
+}
+
+/** The operator's name as the owner typed it, or null when there is none. */
+export function providerOf(p: { providerName?: string | null }): string | null {
+  const name = p.providerName?.trim();
+  return name && !isPlaceholder(name) ? name : null;
+}
+
+/** "English", "English and French", "English, French and Kreol". */
+function listWords(words: string[]): string {
+  if (words.length < 2) return words.join("");
+  return `${words.slice(0, -1).join(", ")} and ${words[words.length - 1]}`;
+}
+
+export function placeFacts(p: FactSource): string[] {
+  const facts: string[] = [];
+  const provider = providerOf(p);
+  if (provider) facts.push(`With ${provider}`);
+
+  const meet = p.meetingPoint?.trim();
+  if (meet && !isPlaceholder(meet)) facts.push(`Meet at ${meet}`);
+
+  const duration = formatDuration(p.durationMinutes);
+  if (duration) facts.push(`Duration ${duration}`);
+
+  // maxGuests is the group size; capacity (spots per date) is the fallback the
+  // page already printed as "Up to N people" before maxGuests existed.
+  const people = [p.maxGuests, p.capacity].find((n) => typeof n === "number" && n > 0);
+  if (people) facts.push(people === 1 ? "For one person" : `Up to ${people} people`);
+
+  const langs = (p.languages ?? []).map((l) => l.trim()).filter(Boolean);
+  // "Guided in" is right for a walk or a boat and wrong for a massage.
+  if (langs.length) {
+    facts.push(`${p.serviceType === "massage" ? "Speaks" : "Guided in"} ${listWords(langs)}`);
+  }
+  return facts;
 }

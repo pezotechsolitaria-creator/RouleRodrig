@@ -20,7 +20,8 @@ import SiteFooter from "@/components/SiteFooter";
 import NavDepth from "@/components/NavDepth";
 import GlobalTiRoule from "@/components/GlobalTiRoule";
 import { getContent } from "@/lib/content";
-import { priceNumber, FLEET_PRICE_FALLBACK } from "@/lib/site-data";
+import { priceNumber } from "@/lib/site-data";
+import { cheapestDailyRate, defaultMetaDescription } from "@/lib/home-description";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { SITE_URL, CONTACT_EMAIL } from "@/lib/site";
@@ -81,18 +82,28 @@ const plexMono = IBM_Plex_Mono({
 // a way that a merely dated one does not.
 export async function generateMetadata(): Promise<Metadata> {
   let shareImage = `${SITE_URL}/og-image.jpg`;
+  // The same content read also prices the default description (SEO audit
+  // 2026-09-29 C4). getContent() does not throw on a failed read — it answers
+  // the seed, whose fleet says Rs 600 — so the catch below never sees that
+  // case; cheapestDailyRate() refuses a seed fleet and the line prints no
+  // figure rather than a price nobody is charged.
+  let description = defaultMetaDescription({});
   try {
     const { getContent } = await import("@/lib/content");
     const content = await getContent();
     if (content?.hero?.backgroundImage)
       shareImage = content.hero.backgroundImage;
+    description = defaultMetaDescription({
+      fromPrice: cheapestDailyRate(content),
+      conciergeEnabled: content?.foodConcierge?.enabled === true,
+    });
   } catch {
     /* keep the fallback — metadata must never be able to fail a page render */
   }
-  return buildMetadata(shareImage);
+  return buildMetadata(shareImage, description);
 }
 
-function buildMetadata(shareImage: string): Metadata {
+function buildMetadata(shareImage: string, description: string): Metadata {
   return {
     metadataBase: new URL(SITE_URL),
     // NO `alternates.canonical` here. Next MERGES metadata down the tree, so a
@@ -112,19 +123,14 @@ function buildMetadata(shareImage: string): Metadata {
     // planner, the island guide or the food concierge anywhere it could read.
     // Everything claimed here is real and reachable from the homepage hub.
     title: "Roule Rodrigues | Scooter & Car Rental, Rodrigues Island",
-    description:
-      // Rs 599 here for months while every page RENDERED Rs 699 — so the
-      // number a stranger decided on in Google was 100 rupees under the one
-      // they met on arrival. It reads as bait-and-switch and nobody on the
-      // team would ever see it, because the visible page was right.
-      //
-      // NOT derived from the fleet, deliberately: this is the root layout, so
-      // generateMetadata() runs for every route on the site, and getFleetView()
-      // is not memoised — deriving here would add a database round-trip to
-      // every page render to set a default that most pages override anyway.
-      // FLEET_PRICE_FALLBACK is the shared constant; the pages that actually
-      // advertise a price derive the real minimum with fleetFromPrice().
-      `Scooter and car rental in Rodrigues from Rs ${FLEET_PRICE_FALLBACK}/day, no minimum, booked direct with locals. Plus a free island guide, trip planner and food concierge.`,
+    // Rs 599 here for months while every page RENDERED Rs 699 — so the number
+    // a stranger decided on in Google was 100 rupees under the one they met on
+    // arrival. It then printed FLEET_PRICE_FALLBACK, a constant, because
+    // getFleetView() is not memoised. It no longer needs it: content.fleet
+    // arrives with the getContent() read generateMetadata already makes (a
+    // cached read, no extra round trip), so the figure is the live cheapest
+    // rate — and at most 155 characters, where it was 159 (lib/home-description.ts).
+    description,
     keywords: [
       "scooter rental Rodrigues",
       "car rental Rodrigues",
@@ -376,7 +382,16 @@ export default async function RootLayout({
         />
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var d=document.documentElement;var lang=null;try{lang=localStorage.getItem('rr_language');}catch(e){}var hasLang=lang==='en'||lang==='fr'||lang==='cr';if(!hasLang){var nl=(navigator.language||'').toLowerCase();lang=nl.indexOf('fr')===0?'fr':'en';try{localStorage.setItem('rr_language',lang);}catch(e){}}d.lang=lang==='cr'?'mfe':lang;var sa=window.matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;var force=location.search.indexOf('splash=1')>-1;var seen=false;try{seen=localStorage.getItem('rr-splash-seen')==='1';}catch(e){}var ss=false;try{ss=sessionStorage.getItem('rr-splash-ses')==='1';}catch(e){}var showSplash=force||(!ss&&(sa||!seen));if(showSplash&&!force){try{localStorage.setItem('rr-splash-seen','1');sessionStorage.setItem('rr-splash-ses','1');}catch(e){}}if(showSplash){d.setAttribute('data-splash','on');var pv=function(){try{document.querySelectorAll('video').forEach(function(v){try{if(!v.paused)v.pause();}catch(e){}});}catch(e){}};var iv=setInterval(pv,180);pv();var done=function(){clearInterval(iv);var el=document.getElementById('rr-splash');if(el)el.remove();d.removeAttribute('data-splash');try{document.querySelectorAll('video').forEach(function(v){if(v.autoplay||v.hasAttribute('autoplay')){try{var p=v.play();if(p&&p.catch)p.catch(function(){});}catch(e){}}});}catch(e){}};setTimeout(done,1800);document.addEventListener('DOMContentLoaded',function(){var el=document.getElementById('rr-splash');if(el)el.addEventListener('click',function(){el.classList.add('rr-skip');setTimeout(done,420);},{once:true});});}}catch(e){}})();`,
+            // A /fr page is French whatever the visitor chose (SEO audit
+            // 2026-09-29 T16): all twelve served <html lang="en">, and a
+            // crawler that runs this script has no stored choice and an
+            // English navigator, so it read "en" over French prose — Bing
+            // uses the attribute. Only the ATTRIBUTE is forced; the stored
+            // preference is untouched, as components/PageLanguage.tsx does.
+            // The server cannot do it: the path is only known through
+            // headers(), which would make every route dynamic (the same
+            // reason app/fr/layout.tsx wraps its pages in <div lang="fr">).
+            __html: `(function(){try{var d=document.documentElement;var lang=null;try{lang=localStorage.getItem('rr_language');}catch(e){}var hasLang=lang==='en'||lang==='fr'||lang==='cr';if(!hasLang){var nl=(navigator.language||'').toLowerCase();lang=nl.indexOf('fr')===0?'fr':'en';try{localStorage.setItem('rr_language',lang);}catch(e){}}var pn=location.pathname;d.lang=(pn==='/fr'||pn.indexOf('/fr/')===0)?'fr':(lang==='cr'?'mfe':lang);var sa=window.matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;var force=location.search.indexOf('splash=1')>-1;var seen=false;try{seen=localStorage.getItem('rr-splash-seen')==='1';}catch(e){}var ss=false;try{ss=sessionStorage.getItem('rr-splash-ses')==='1';}catch(e){}var showSplash=force||(!ss&&(sa||!seen));if(showSplash&&!force){try{localStorage.setItem('rr-splash-seen','1');sessionStorage.setItem('rr-splash-ses','1');}catch(e){}}if(showSplash){d.setAttribute('data-splash','on');var pv=function(){try{document.querySelectorAll('video').forEach(function(v){try{if(!v.paused)v.pause();}catch(e){}});}catch(e){}};var iv=setInterval(pv,180);pv();var done=function(){clearInterval(iv);var el=document.getElementById('rr-splash');if(el)el.remove();d.removeAttribute('data-splash');try{document.querySelectorAll('video').forEach(function(v){if(v.autoplay||v.hasAttribute('autoplay')){try{var p=v.play();if(p&&p.catch)p.catch(function(){});}catch(e){}}});}catch(e){}};setTimeout(done,1800);document.addEventListener('DOMContentLoaded',function(){var el=document.getElementById('rr-splash');if(el)el.addEventListener('click',function(){el.classList.add('rr-skip');setTimeout(done,420);},{once:true});});}}catch(e){}})();`,
           }}
         />
         <div id="rr-splash" aria-hidden="true">

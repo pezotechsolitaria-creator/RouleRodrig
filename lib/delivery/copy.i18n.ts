@@ -305,6 +305,25 @@ const EN = {
     whatsapp: "WhatsApp us",
   },
 
+  // ── The closed explainer under the form (SEO audit 2026-09-29 C14) ──────
+  // /deliver rendered 438 characters: a form shell that told nobody, crawler
+  // or person, what the service is. This is a <details> below the form, so it
+  // costs one closed row of scroll. The job types and the promises are NOT
+  // repeated here — app/deliver/HowItWorks.tsx reads `what.kind` and
+  // `review.promises`, so the explainer cannot drift from the form. Only the
+  // shopping-money rule is new, because no screen states it as a rule.
+  explainer: {
+    title: "How Deliver Anything works",
+    kindsTitle: "Three kinds of job",
+    promisesTitle: "What you can count on",
+    moneyTitle: "The shopping money",
+    money:
+      "On a shopping run, or an errand that costs money, the driver pays at the shop with their own cash. You repay what was actually spent, in cash at the door, up to the limit you set.",
+    /** `limit` is delivery_settings.cash_limit_cents, formatted — never a literal. */
+    cashLimit: (limit: string) =>
+      `Cash at the door covers up to ${limit}, counting the driver's fee and the shopping together. Above that we ask for the fee by bank transfer; the shopping money is still repaid in cash.`,
+  },
+
   // ── Coming back to something already posted ─────────────────────────────
   mine: {
     title: "Your requests",
@@ -755,6 +774,17 @@ const FR: DeliverCopy = {
     whatsapp: "Écrivez sur WhatsApp",
   },
 
+  explainer: {
+    title: "Comment ça marche",
+    kindsTitle: "Trois types de demande",
+    promisesTitle: "Ce sur quoi vous pouvez compter",
+    moneyTitle: "L’argent des achats",
+    money:
+      "Pour un achat, ou une course qui coûte de l’argent, le chauffeur paie en magasin avec son propre argent. Vous remboursez ce qui a été réellement dépensé, en espèces à la porte, jusqu’à la limite que vous avez fixée.",
+    cashLimit: (limit: string) =>
+      `Les espèces à la porte couvrent jusqu’à ${limit}, frais du chauffeur et achats compris. Au-delà, nous demandons les frais par virement ; les achats sont toujours remboursés en espèces.`,
+  },
+
   mine: {
     title: "Vos demandes",
     fromPrice: (fee: string) => `à partir de ${fee}`,
@@ -1125,6 +1155,17 @@ const CR: DeliverCopy = {
     body: "Apel nou ou ekrir nou, ek nou pou avoy demann la pou ou.",
     call: "Apel nou",
     whatsapp: "Ekrir lor WhatsApp",
+  },
+
+  explainer: {
+    title: "Kouma sa marse",
+    kindsTitle: "Trwa kalite demann",
+    promisesTitle: "Seki ou kapav kont lor la",
+    moneyTitle: "Kas pou bann aste",
+    money:
+      "Kan enn dimounn aste pou ou, ouswa enn komision ki kout kas, sofer la paye dan boutik la ar so prop kas. Ou rambours seki finn vremem depanse, kas kot laport, ziska limit ki ou finn fixe.",
+    cashLimit: (limit: string) =>
+      `Kas kot laport kouver ziska ${limit}, fre sofer ek bann aste ansam. Plis ki sa nou demann fre la par vireman; bann aste touzour rambourse kas.`,
   },
 
   mine: {

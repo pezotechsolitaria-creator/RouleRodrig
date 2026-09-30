@@ -78,7 +78,12 @@ const SLOT_COLOR: Record<string, string> = {
 
 const STORE_KEY = "rr-trip-planner-v1";
 
-export default function TripPlanner() {
+export default function TripPlanner({
+  afterForm,
+}: {
+  /** Server-rendered, under the Plan button — see app/trip-planner/page.tsx. */
+  afterForm?: React.ReactNode;
+} = {}) {
   const { t, language } = useLanguage();
   const [days, setDays] = useState(3);
   const [interests, setInterests] = useState<string[]>(["beach", "culture", "adventure", "food"]);
@@ -344,6 +349,8 @@ export default function TripPlanner() {
                   {t.common.startOver}
                 </button>
               )}
+
+              {afterForm}
             </div>
           </motion.div>
 

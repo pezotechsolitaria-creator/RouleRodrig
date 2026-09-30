@@ -128,7 +128,11 @@ export const BLOG_POSTS: BlogPost[] = [
       "Buses, taxis, scooters and cars in Rodrigues — what each costs, what it actually reaches, and the airport bus timetable almost nobody publishes.",
     keyword: "how to get around Rodrigues",
     published: "2026-08-27",
-    updated: "2026-08-27",
+    // The taxi row and the two taxi paragraphs said there was no fare table;
+    // airport transfers booked here have had fixed zone fares since M220 (SEO
+    // audit 2026-09-29 C5). A static post cannot read the price sheet, so it
+    // names the page that does and prints no figure of its own.
+    updated: "2026-09-29",
     readMinutes: 6,
     intro:
       "Rodrigues is about 18 km long and you can drive its length in well under an hour. That makes it tempting to assume getting around will sort itself out. It will not: there are buses, but they were built for Rodriguans going to work, not for visitors going to beaches, and the last one leaves earlier than you think.",
@@ -154,9 +158,9 @@ export const BLOG_POSTS: BlogPost[] = [
             ],
             [
               "Taxi",
-              "No official fare table — agree the price before you get in",
+              "Airport transfers booked on our site: fixed fares by zone. Any other ride: agree the price before you get in",
               "Flight arrivals and door-to-door trips",
-              "Every driver sets their own fare",
+              "Outside those airport fares, every driver sets their own fare",
             ],
             [
               "Scooter",
@@ -178,15 +182,15 @@ export const BLOG_POSTS: BlogPost[] = [
         paragraphs: [
           "There is a real network: about twenty licensed routes, almost all radiating from the traffic centre at Port Mathurin, regulated by the National Land Transport Authority. It is a proper public service and Rodriguans use it every day.",
           "Two of those routes serve the airport. The stop is a three-minute walk from the terminal, opposite the Plaine Corail police station, running from 06:00 to 16:30, at a fare of about Rs 29 — figures published by the airport operator itself, which is the only place we could find them stated.",
-          "That 16:30 is the fact worth carrying. If your flight lands late afternoon, the airport bus is not an option and you will be taking a taxi whether you planned to or not.",
+          "That 16:30 is the fact worth carrying. If your flight lands late afternoon, the airport bus is not an option and you will be taking a taxi whether you planned to or not. You can book it before you fly: airport transfers on this site have fixed fares by zone, by road distance from Plaine Corail, and the prices are on our airport transfers page.",
         ],
       },
       {
         heading: "Taxis, and the thing nobody tells you",
         paragraphs: [
           "Taxis meet every scheduled flight from the airport car park. They carry yellow roof signage and a sticker on the front doors, and they may be a car, an SUV or a pick-up. A door-to-door shuttle also meets each flight.",
-          "No official fare table is published anywhere in Rodrigues. So agree the price before you get in. That is not haggling and nobody will take it badly — it is simply how it works here, and asking is what a local does.",
-          "We deliberately do not print a price list on this site. Any number we invented would end up quoted at a driver who never agreed to it, and the person who loses that argument is a Rodriguan taxi driver rather than a website.",
+          "No official fare table is published anywhere in Rodrigues. So for a taxi you find on the spot, agree the price before you get in. That is not haggling and nobody will take it badly — it is simply how it works here, and asking is what a local does.",
+          "The one exception on this site is the airport. Airport transfers booked here have fixed fares by zone, measured by road from Plaine Corail and paid to the driver; the current prices, and the evening and night rules, are on our airport transfers page. For every other ride we deliberately print no price list. Any number we invented would end up quoted at a driver who never agreed to it, and the person who loses that argument is a Rodriguan taxi driver rather than a website.",
         ],
       },
       {
@@ -221,6 +225,9 @@ export const BLOG_POSTS: BlogPost[] = [
       },
       { href: "/browse/car", label: "Cars for families and longer stays" },
       { href: "/taxi", label: "Local taxi drivers" },
+      // The page both taxi paragraphs above point at (C5): the blog never
+      // linked it, and it had three inbound links on the whole site.
+      { href: "/transfers", label: "Airport transfer prices, by zone" },
       {
         href: "/fr/se-deplacer-a-rodrigues",
         label: "Lire cette page en français",

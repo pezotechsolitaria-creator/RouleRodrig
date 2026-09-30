@@ -1,6 +1,8 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { createElement, type ReactNode } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { describe, expect, it, vi } from "vitest";
 import {
   CONDITION_IDS,
   CONDITION_LABELS,
@@ -8,6 +10,12 @@ import {
   pickConditions,
 } from "@/lib/rental-conditions";
 import { DEFAULT_CONTENT } from "@/lib/defaults";
+
+// The panel's two footer links, as plain anchors: next/link wants a router.
+vi.mock("next/link", () => ({
+  default: (p: { href: string; children?: ReactNode; className?: string }) =>
+    createElement("a", { href: p.href, className: p.className }, p.children),
+}));
 
 // The invariant worth protecting: the visible "Before you book" panel and the
 // FAQPage structured data on the same page are BOTH built from pickConditions.
@@ -237,6 +245,47 @@ describe("conditionPreview", () => {
   it("returns nothing for an empty answer instead of throwing", () => {
     expect(conditionPreview("")).toBe("");
     expect(conditionPreview("   ")).toBe("");
+  });
+});
+
+// ── THE WHOLE ANSWER, IN THE HTML (SEO audit 2026-09-29 T18) ───────────────
+//
+// The panel expanded with useState, so the server rendered the preview only:
+// "Basic third-party insurance is included with every rental." while the
+// FAQPage markup, from the same item, carried the full answer. Three or four
+// answers per page were longer in JSON-LD than on the page, on /browse/car,
+// /browse/scooter and all six vehicle pages.
+// The pages' FAQPage-against-visible-text check, on /browse/car, /browse/scooter
+// and a vehicle page, is in app/browse/browse-pages-render.test.ts. This
+// renders the panel alone.
+describe("the panel shows the same answer the FAQPage markup claims", async () => {
+  const { default: RentalConditions } = await import("@/components/RentalConditions");
+  const items = pickConditions(DEFAULT_CONTENT.faq?.items, "car");
+  const html = renderToStaticMarkup(createElement(RentalConditions, { items }));
+  const text = (s: string) =>
+    s.replace(/<!-- -->/g, "").replace(/<[^>]+>/g, " ").replace(/&#x27;/g, "'").replace(/&amp;/g, "&").replace(/\s+/g, " ");
+
+  it("serves every whole answer in the HTML, with no script needed to reveal it", () => {
+    expect(items.length).toBeGreaterThanOrEqual(5);
+    for (const i of items) expect(text(html)).toContain(i.answer.replace(/\s+/g, " ").trim());
+    // A native disclosure, not a button whose state lives in React.
+    expect(html).not.toContain("<button");
+  });
+
+  it("puts each long answer, whole, inside a row that is served collapsed", () => {
+    const rows = [...html.matchAll(/<details[\s\S]*?<\/details>/g)].map((m) => m[0]);
+    const long = items.filter((i) => conditionPreview(i.answer).length < i.answer.trim().length);
+    expect(rows.length).toBe(long.length);
+    for (const i of long) expect(rows.some((r) => text(r).includes(i.answer.trim()))).toBe(true);
+    expect(html).not.toMatch(/<details[^>]* open/);
+  });
+
+  it("only collapses answers that have more than their preview", () => {
+    // The live insurance answer is exactly the case the audit measured.
+    const insurance = (DEFAULT_CONTENT.faq?.items ?? []).find((f) => f.id === "insurance");
+    const a = insurance?.answer ?? "";
+    expect(conditionPreview(a).length).toBeLessThan(a.trim().length);
+    expect(a.startsWith(conditionPreview(a))).toBe(true);
   });
 });
 

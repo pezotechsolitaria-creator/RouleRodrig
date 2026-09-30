@@ -30,6 +30,7 @@ import {
   productsByIds,
 } from "@/lib/marketplace/catalog";
 import { sellerPitch, type MonetizationModel } from "@/lib/marketplace/fees";
+import { robotsWhileEmpty } from "@/lib/listing-gates";
 
 // ── /shop — the shelf, not the shopfront speech ─────────────────────────────
 //
@@ -49,21 +50,35 @@ import { sellerPitch, type MonetizationModel } from "@/lib/marketplace/fees";
 // exactly the minutes it matters. Same call as /food, for the same reason.
 export const dynamic = "force-dynamic";
 
+// ≤155 characters (SEO audit 2026-09-29 T15; it was 172). "Island-wide" came
+// off with the length: whether a shop delivers, and where, is each shop's own
+// setting, and the snippet should not promise more than any one of them does.
 const DESCRIPTION =
   "Rodrigues marketplace, opening shop by shop: honey, lemon and chilli, hand-woven baskets, embroidery. Run a shop on the island? List it and sell online.";
 
-export const metadata: Metadata = {
-  title: "Rodrigues Marketplace — Buy Local Online | Roule Rodrigues",
-  description: DESCRIPTION,
-  alternates: { canonical: `${SITE_URL}/shop` },
-  openGraph: {
-    title: "Rodrigues Marketplace | Roule Rodrigues",
+// `noindex, follow` while no shop is listable (SEO audit 2026-09-29 C16/T4):
+// "The island's shops are coming online" was 200, indexable and at priority
+// 0.9 in the sitemap. sitemap_stores() is the predicate the sitemap submits
+// shops by, so this page and its sitemap entry come and go together — see
+// lib/listing-gates.ts. A failed read is unknown, and stays indexable.
+export async function generateMetadata(): Promise<Metadata> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("sitemap_stores");
+  const shops = error ? null : Array.isArray(data) ? data.length : 0;
+  return {
+    title: "Rodrigues Marketplace — Buy Local Online | Roule Rodrigues",
     description: DESCRIPTION,
-    url: `${SITE_URL}/shop`,
-    type: "website",
-    images: [`${SITE_URL}/og-image.jpg`],
-  },
-};
+    alternates: { canonical: `${SITE_URL}/shop` },
+    ...robotsWhileEmpty(shops),
+    openGraph: {
+      title: "Rodrigues Marketplace | Roule Rodrigues",
+      description: DESCRIPTION,
+      url: `${SITE_URL}/shop`,
+      type: "website",
+      images: [`${SITE_URL}/og-image.jpg`],
+    },
+  };
+}
 
 /**
  * Below this, rails are noise.

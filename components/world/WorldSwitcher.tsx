@@ -30,7 +30,26 @@ export default function WorldSwitcher({
   // gateway was removed. The null branch stays as a type guard rather than as
   // a behaviour: this control is now the ONLY way to reach Curated, so it
   // hiding itself would strand the whole world behind nothing.
-  if (!ready || world === null) return null;
+  //
+  // ── A PLACEHOLDER, NOT NOTHING, UNTIL IT KNOWS (SEO audit 2026-09-29 T10) ─
+  // `ready` is false in the server HTML and on the first client paint, and
+  // this used to return null there. The pill then arrived after hydration and
+  // grew the header row from 59 to 65px, pushing the whole homepage down: the
+  // one layout shift PageSpeed measured, CLS 0.19. So until it knows, it
+  // renders the same min-h-11 box — invisible, hidden from assistive tech, not
+  // focusable — carrying the caller's positioning class, so it sits where the
+  // pill will. The strip form still renders nothing: its border must not
+  // appear before a world exists (see the note at the end), and no caller
+  // uses it.
+  if (!ready || world === null) {
+    if (strip) return null;
+    return (
+      <span
+        aria-hidden
+        className={`invisible inline-flex min-h-11 items-center rounded-full px-3.5 py-2 ${className}`}
+      />
+    );
+  }
 
   const next = otherWorld(world);
   const copy = WORLD_COPY[next];

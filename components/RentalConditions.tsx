@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { loc } from "@/lib/localize";
 import { ChevronDown, ShieldCheck } from "lucide-react";
 import Link from "next/link";
@@ -24,6 +23,14 @@ import { CONDITION_LABELS, conditionPreview, type ConditionItem } from "@/lib/re
 // Deliberately not a wall of text: label plus first sentence, expandable.
 // Somebody deciding whether they are allowed to rent needs eight short answers,
 // not eight paragraphs.
+//
+// ── THE WHOLE ANSWER IS IN THE HTML (SEO audit 2026-09-29 T18) ─────────────
+// This expanded with useState, so the server rendered only the preview:
+// "Basic third-party insurance is included with every rental." while the
+// FAQPage markup built from the same item said that AND "Please drive
+// responsibly… full terms are shared at pickup." A native <details> holds the
+// full answer in the served HTML, collapsed, with no script: what a crawler
+// reads is word for word what the markup claims, and it costs no scroll.
 
 const COPY = {
   en: { title: "BEFORE YOU BOOK", more: "All questions", terms: "Full terms" },
@@ -34,7 +41,6 @@ const COPY = {
 export default function RentalConditions({ items }: { items: ConditionItem[] }) {
   const { language } = useLanguage();
   const L = COPY[language as keyof typeof COPY] ?? COPY.en;
-  const [open, setOpen] = useState<string | null>(null);
 
   // Nothing rather than an empty panel: an owner who has cleared the FAQ should
   // not get a heading with a blank box under it.
@@ -50,55 +56,70 @@ export default function RentalConditions({ items }: { items: ConditionItem[] }) 
       </h2>
       <ul className="divide-y divide-white/5">
         {items.map((item) => {
-          const isOpen = open === item.id;
           const answer = loc(language, item.answer, item.answerFr, item.answerCr);
           const question = loc(language, item.question, item.questionFr, item.questionCr);
           const short = conditionPreview(answer);
           const hasMore = short.length < answer.trim().length;
           const label = CONDITION_LABELS[item.id];
+          const head = (
+            <>
+              <span className="font-bebas text-[10px] tracking-[0.2em] text-muted shrink-0 w-28 pt-0.5">
+                {label?.[language as keyof typeof label] ?? label?.en ?? question}
+              </span>
+              <span className="flex-1">
+                {/* ── THE QUESTION HAS TO BE ON THE PAGE ──────────────────
+                    This row rendered a short LABEL ("Minimum age") and the
+                    first sentence of the answer. The question itself — "What
+                    is the minimum age to rent?" — was nowhere in the DOM at
+                    all, while /browse/car and /browse/scooter both carried
+                    FAQPage markup claiming eight of them.
+
+                    Google's structured-data policy is that the Q&A must be
+                    present on the page carrying the markup. Measured on the
+                    live car page before this: the question text matched
+                    neither innerText NOR innerHTML. Invalid markup earns
+                    nothing at best, and a manual action at worst.
+
+                    Kept small and secondary so the panel still reads as a
+                    terms strip rather than turning into an FAQ page: the
+                    label is still the thing the eye lands on. */}
+                <span className="block font-dm text-[11px] leading-snug text-offwhite/55">
+                  {question}
+                </span>
+                {/* Closed: the preview. Open: hidden, and the full answer
+                    below takes its place — so the answer is never shown
+                    twice on screen, and is always whole in the HTML. */}
+                <span
+                  className={`mt-0.5 block font-dm text-xs leading-relaxed text-offwhite/80 ${hasMore ? "group-open:hidden" : ""}`}
+                >
+                  {hasMore ? short : answer}
+                </span>
+              </span>
+              {hasMore && (
+                <ChevronDown
+                  size={13}
+                  aria-hidden
+                  className="shrink-0 mt-0.5 text-muted transition-transform group-hover:text-yellow group-open:rotate-180"
+                />
+              )}
+            </>
+          );
           return (
             <li key={item.id} className="py-2.5 first:pt-0 last:pb-0">
-              <button
-                type="button"
-                onClick={() => setOpen(isOpen ? null : item.id)}
-                aria-expanded={isOpen}
-                className="w-full text-left flex items-start gap-3 group"
-              >
-                <span className="font-bebas text-[10px] tracking-[0.2em] text-muted shrink-0 w-28 pt-0.5">
-                  {label?.[language as keyof typeof label] ?? label?.en ?? question}
-                </span>
-                <span className="flex-1">
-                  {/* ── THE QUESTION HAS TO BE ON THE PAGE ──────────────────
-                      This row rendered a short LABEL ("Minimum age") and the
-                      first sentence of the answer. The question itself — "What
-                      is the minimum age to rent?" — was nowhere in the DOM at
-                      all, while /browse/car and /browse/scooter both carried
-                      FAQPage markup claiming eight of them.
-
-                      Google's structured-data policy is that the Q&A must be
-                      present on the page carrying the markup. Measured on the
-                      live car page before this: the question text matched
-                      neither innerText NOR innerHTML. Invalid markup earns
-                      nothing at best, and a manual action at worst.
-
-                      Kept small and secondary so the panel still reads as a
-                      terms strip rather than turning into an FAQ page: the
-                      label is still the thing the eye lands on. */}
-                  <span className="block font-dm text-[11px] leading-snug text-offwhite/55">
-                    {question}
-                  </span>
-                  <span className="mt-0.5 block font-dm text-xs leading-relaxed text-offwhite/80">
-                    {isOpen ? answer : short}
-                  </span>
-                </span>
-                {hasMore && (
-                  <ChevronDown
-                    size={13}
-                    aria-hidden
-                    className={`shrink-0 mt-0.5 text-muted transition-transform group-hover:text-yellow ${isOpen ? "rotate-180" : ""}`}
-                  />
-                )}
-              </button>
+              {hasMore ? (
+                <details className="group">
+                  <summary className="flex cursor-pointer list-none items-start gap-3 text-left [&::-webkit-details-marker]:hidden">
+                    {head}
+                  </summary>
+                  {/* Indented past the 7rem label and its gap, under the
+                      question it answers. */}
+                  <p className="mt-0.5 pl-[7.75rem] pr-5 font-dm text-xs leading-relaxed text-offwhite/80">
+                    {answer}
+                  </p>
+                </details>
+              ) : (
+                <div className="flex items-start gap-3 group">{head}</div>
+              )}
             </li>
           );
         })}

@@ -1,12 +1,15 @@
 import type { Metadata } from "next";
-import { SITE_URL, OPENING_HOURS } from "@/lib/site";
+import { SITE_URL, OPENING_HOURS, CONTACT_EMAIL } from "@/lib/site";
+import { getFleetView, buildBrowseCategories, priceNumber } from "@/lib/site-data";
 import {
-  getFleetView,
-  buildBrowseCategories,
-  priceNumber,
-  fleetFromPrice,
-} from "@/lib/site-data";
-import { organizationLd, touristDestinationLd, websiteLd } from "@/lib/schema";
+  organizationLd,
+  touristDestinationLd,
+  websiteLd,
+  BRAND_ALTERNATE,
+  PAYMENT_ACCEPTED,
+} from "@/lib/schema";
+import { homeDescription, rentalFromPrices } from "@/lib/home-description";
+import { isSeedContent } from "@/lib/llms-txt";
 import { placeHref } from "@/lib/place-href";
 import JsonLd from "@/components/JsonLd";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
@@ -35,12 +38,22 @@ export const revalidate = 60;
 const SERVICE_NAME: Record<string, string> = {
   scooter: "Scooter rental",
   car: "Car rental",
-  food: "WhatsApp food concierge",
+  // The food tile links /food, which is ordering now (M50); the concierge
+  // lives at /food/concierge. The name has to describe the URL beside it.
+  food: "Local food to order",
   stays: "Places to stay",
   activities: "Activities & experiences",
   tours: "Guided island tours",
   "getting-around": "Taxis & island transport",
   events: "Local events guide",
+};
+
+// Where a catalogue entry points when that is not its tile's own /browse page.
+// "Activities & experiences" pointed at /browse/activities — two listings, and
+// a duplicate "Things to Do" title — while /experiences lists all of them and
+// is the page with the French twin (SEO audit 2026-09-29 C19).
+const SERVICE_URL: Record<string, string> = {
+  activities: "/experiences",
 };
 
 // The free tools that live on this page but aren't hub tiles, so they'd
@@ -267,23 +280,42 @@ export default async function Home() {
   const dayRates = fleet
     .map((f) => priceNumber(f.price))
     .filter((n): n is number => n != null && n > 0);
-  // The number the JSON-LD description quotes. Derived from the same fleet the
-  // page renders, because the hardcoded "Rs 599" here was 100 rupees under the
-  // real minimum and this sentence is what an AI Overview paraphrases.
-  const fromPrice = fleetFromPrice(fleet);
-
-  // This sentence is what Google's AI Overview paraphrases when someone asks
-  // "what is Roule Rodrigues" — and now also what a visitor reads at the end
-  // of the page. ONE constant feeding both the JSON-LD description and the
-  // visible `about` block, so the claim a machine reads and the text a human
-  // sees cannot drift apart.
-  const businessDescription = `Roule Rodrigues rents scooters and cars on Rodrigues Island, direct from local owners, from Rs ${fromPrice} a day with no minimum rental. It is also a free island guide: a trip planner, an interactive map of beaches and viewpoints, recommended places to stay and things to do, a WhatsApp food concierge that books your table, and Ti Roulé — an AI island guide answering in English, French and Creole.`;
 
   // The locality the PAGE shows, so the structured data cannot contradict it.
   // content.contact.location is a free-text line like "Baie Aux Huîtres,Rodrigues";
   // the first part is the village.
   const addressLocality =
     (content.contact.location ?? "").split(",")[0].trim() || "Rodrigues";
+
+  // The cheapest priced vehicle per category, over the categories the hub
+  // tiles show — the same numbers those tiles print. Null, not a fallback,
+  // when a category has nothing priced: the description then prints no figure.
+  // Null too on a seed read (getContent() answers DEFAULT_CONTENT when the
+  // read fails): the seed's Rs 600 is nobody's price. One helper with the
+  // layout's default description, so the two cannot disagree (C4).
+  const { scooterFrom, carFrom } = rentalFromPrices(content);
+  // The seed's hours ("7:00 AM – 8:00 PM") are not the owner's either — the
+  // business is open 24 hours (lib/site.ts) — so a seed read prints none.
+  const seedRead = isSeedContent(content);
+
+  // This sentence is what Google's AI Overview paraphrases when someone asks
+  // "what is Roule Rodrigues" — and now also what a visitor reads at the end
+  // of the page. ONE constant feeding both the JSON-LD description and the
+  // visible `about` block, so the claim a machine reads and the text a human
+  // sees cannot drift apart.
+  //
+  // It said who and nothing else: no village, no car price, no way to book or
+  // pay (SEO audit 2026-09-29 C4). Built by lib/home-description.ts from live
+  // values only — the village and hours from the contact block, the prices
+  // from the fleet, the food clauses from whether each food product exists.
+  const businessDescription = homeDescription({
+    locality: addressLocality,
+    scooterFrom,
+    carFrom,
+    hours: seedRead ? null : content.contact.hours,
+    foodOnSale: cardImages.food.length > 0,
+    conciergeEnabled: content.foodConcierge?.enabled === true,
+  });
 
   const priceRange = dayRates.length
     ? `Rs ${Math.min(...dayRates).toLocaleString("en-US")}–${Math.max(...dayRates).toLocaleString("en-US")} per day`
@@ -310,6 +342,8 @@ export default async function Home() {
         // stated rather than left for a crawler to infer from a shared name.
         parentOrganization: { "@id": `${SITE_URL}/#organization` },
         name: "Roule Rodrigues",
+        // How the island writes it; the visible text is unaccented (C17).
+        alternateName: BRAND_ALTERNATE,
         // Defined once above, rendered twice: here for machines, and visibly
         // in AppHome's `about` block for people — see businessDescription.
         description: businessDescription,
@@ -318,6 +352,13 @@ export default async function Home() {
         image: `${SITE_URL}/og-image.jpg`,
         ...(priceRange ? { priceRange } : {}),
         currenciesAccepted: "MUR",
+        // SEO audit 2026-09-29 T8: "can I pay cash?" is asked before anyone
+        // books, and no node said. The list is derived from the methods a
+        // booking can actually be paid with (lib/schema.ts). The address is
+        // the verified routed one (lib/site.ts), which is also what the
+        // contact block's mailto prints from content today.
+        paymentAccepted: PAYMENT_ACCEPTED,
+        email: CONTACT_EMAIL,
         ...(content.contact.phone ? { telephone: content.contact.phone } : {}),
         // ── THE VISIBLE ADDRESS AND THE STRUCTURED ONE DISAGREED ───────────
         // This said "Port Mathurin" while the page rendered
@@ -410,7 +451,7 @@ export default async function Home() {
               itemOffered: {
                 "@type": "Service",
                 name: SERVICE_NAME[c.slug] ?? c.label,
-                url: `${SITE_URL}${c.href ?? `/browse/${c.slug}`}`,
+                url: `${SITE_URL}${SERVICE_URL[c.slug] ?? c.href ?? `/browse/${c.slug}`}`,
                 areaServed: {
                   "@type": "Place",
                   name: "Rodrigues Island, Mauritius",

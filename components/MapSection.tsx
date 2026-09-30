@@ -18,6 +18,7 @@ import { loc as localize } from "@/lib/localize";
 import { speakText, stopSpeaking, primeVoices } from "@/lib/speak";
 import type { Language } from "@/lib/i18n";
 import { TAXI_HERE_LABEL, taxiToPlaceHref } from "@/lib/rides/deep-link";
+import { mapSummary } from "@/lib/map-summary";
 
 // Load Leaflet map only on client (no SSR — window required)
 const IslandMap = dynamic(() => import("./IslandMap"), { ssr: false });
@@ -208,6 +209,13 @@ export default function MapSection({
           </h1>
           <p className="text-muted font-dm text-sm md:text-base mt-4 max-w-lg">
             {t.map.subtitle}
+          </p>
+          {/* What the page is, counted from the same `locs` the chips count
+              (SEO audit 2026-09-29 C10) — see lib/map-summary.ts. In the
+              server HTML: this component renders on the server too, and
+              .rr-reveal is forced visible without JavaScript. */}
+          <p className="text-muted/80 font-dm text-sm mt-2 max-w-lg">
+            {mapSummary(locs, language)}
           </p>
         </motion.div>
 

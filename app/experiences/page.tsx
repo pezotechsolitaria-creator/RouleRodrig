@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { getContent } from "@/lib/content";
 import { SITE_URL } from "@/lib/site";
 import { breadcrumbLd, itemListLd } from "@/lib/schema";
+import { placeHref } from "@/lib/place-href";
 import JsonLd from "@/components/JsonLd";
 import AppPageHeader from "@/components/AppPageHeader";
 import ExperiencesHub from "@/components/experiences/ExperiencesHub";
@@ -10,6 +11,9 @@ import FrenchTwinLink from "@/components/FrenchTwinLink";
 export const revalidate = 300;
 
 const TITLE = "Things to Do in Rodrigues — Day & Night | Roule Rodrigues";
+// 161 characters, and it sold "sunset sailings and night fishing" that no
+// listing offers — every activity is by day or unmarked. Now 148, naming only
+// what is listed (SEO audit 2026-09-29 T15).
 const DESCRIPTION =
   "Every experience on Rodrigues Island in one place: lagoon and boat trips, snorkelling, fishing, hiking guides and massage, booked direct with locals.";
 
@@ -58,9 +62,12 @@ export default async function ExperiencesHubPage() {
             { name: "Home", url: SITE_URL },
             { name: "Experiences", url: `${SITE_URL}/experiences` },
           ]),
+          // Each name at its own address: a list of names with no route to
+          // the priced detail pages gave crawlers nothing to follow (SEO audit
+          // 2026-09-29 T13). itemListLd() drops a repeated url.
           itemListLd(
             "Experiences in Rodrigues Island",
-            places.map((p) => ({ name: p.name.trim() })),
+            places.map((p) => ({ name: p.name.trim(), url: `${SITE_URL}${placeHref(p)}` })),
           ),
         ]}
       />

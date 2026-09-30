@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
+import { categoryTitle } from "./browse-copy";
 
 // ── THE THIRD FRENCH COMMERCIAL PAGE (M138) ─────────────────────────────────
 //
@@ -102,7 +103,13 @@ describe("the English stays page prices itself too", () => {
   const src = stripComments(read("app/browse/[category]/page.tsx"));
 
   it("appends a real from-price to place-category titles", () => {
-    expect(src).toMatch(/from Rs \$\{from\.toLocaleString/);
+    // Built by categoryTitle() since SEO audit 2026-09-29 T7, which also keeps
+    // the title inside 60 characters. The old template literal would still
+    // match the car intro's "from Rs ${from.toLocaleString", so assert the call.
+    expect(src).toContain("categoryTitle(m.title, from)");
+    expect(categoryTitle("Where to Stay in Rodrigues", 1000)).toBe(
+      "Where to Stay in Rodrigues from Rs 1,000 | Roule Rodrigues",
+    );
   });
 
   it("falls back to the plain title when the listings cannot be read", () => {

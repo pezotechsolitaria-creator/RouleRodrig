@@ -19,6 +19,8 @@
 --     (lookup_booking, guest_report_booking_payment), which grants do not gate.
 --
 -- APPLY ONLY AFTER the route change is live: the old route inserts as anon.
+-- Applied 29 Sept 2026, once 83ba127f was serving production; rehearsed first
+-- in a rolled-back block (service_role inserted both kinds, anon was refused).
 
 begin;
 

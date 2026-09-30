@@ -1,6 +1,8 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { buildLlmsTxt, unreadLlmsData } from "./llms-txt";
+import { taxiPriceAnswer } from "./taxi-faq";
 
 // ── THE FRENCH ARRIVAL PAGE (M154) ──────────────────────────────────────────
 //
@@ -20,19 +22,23 @@ const SRC = readFileSync(
 /** Prose in comments must never be what satisfies a test. */
 const CODE = SRC.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
 
-describe("it never publishes a fare", () => {
-  it("quotes no price, because no price is ours to quote", () => {
+describe("it never publishes a driver's fare", () => {
+  it("types no price, because no driver's price is ours to quote", () => {
     // taxi_drivers.rate_from holds 1500 and M96 decided it must never reach a
     // customer surface: every driver charges differently, so a number here is
     // a quote Roule Rodrigues cannot honour. lib/i18n.ts says so on every
     // other taxi surface; a French page is not the place to make an exception.
+    // The AIRPORT zone fares are the platform's own (SEO audit 2026-09-29 C2)
+    // and the page prints them — read from the price sheet, never typed here.
     expect(CODE).not.toMatch(/Rs\s?\d/);
     expect(CODE).not.toMatch(/rate_from|rateFrom/);
   });
 
   it("says instead what is true — the price is agreed first", () => {
+    // The price answer is the two-part one every taxi surface gives.
     expect(CODE).toContain("confirmé avant tout");
-    expect(CODE).toContain("ne prend jamais de paiement");
+    expect(CODE).toContain('taxiPriceAnswer("fr", airport)');
+    expect(taxiPriceAnswer("fr", null)).toContain("ne prend jamais de paiement");
   });
 });
 
@@ -61,8 +67,9 @@ describe("it is paired, reachable and declared", () => {
   });
 
   it("is linked from the English taxi page, not only annotated", () => {
+    // The English page's body is its directory component since C23.
     const page = readFileSync(
-      join(__dirname, "..", "app", "taxi", "page.tsx"),
+      join(__dirname, "..", "app", "taxi", "TaxiDirectory.tsx"),
       "utf8",
     );
     expect(page).toContain('href="/fr/taxi-rodrigues"');
@@ -72,9 +79,10 @@ describe("it is paired, reachable and declared", () => {
     expect(
       readFileSync(join(__dirname, "..", "app", "sitemap.ts"), "utf8"),
     ).toContain("/fr/taxi-rodrigues");
-    expect(
-      readFileSync(join(__dirname, "..", "public", "llms.txt"), "utf8"),
-    ).toContain("/fr/taxi-rodrigues");
+    // llms.txt is generated now (C8); even built from no data it lists it.
+    expect(buildLlmsTxt(unreadLlmsData("https://roulerodrig.com"))).toContain(
+      "https://roulerodrig.com/fr/taxi-rodrigues",
+    );
   });
 });
 

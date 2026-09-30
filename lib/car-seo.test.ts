@@ -56,12 +56,13 @@ describe("the page does not promise things that are not true", () => {
     // Cars carry Rs 600 (content.vehicleCategories); scooters carry 0. The
     // fleet card already prints "+ Rs 600 delivery".
     expect(BROWSE).toMatch(/deliveryFee \? `, plus Rs \$\{deliveryFee/);
-    expect(BROWSE).toMatch(/intro: \(from, deliveryFee\)/);
+    // The intro takes an object since C4/C20 (29 Sep 2026): fee, free-or-not, pay.
+    expect(BROWSE).toMatch(/intro: \(\{ from, deliveryFee, pay \}\)/);
   });
 
   it("takes the fee from the CMS rather than hardcoding it", () => {
     // The owner can change it in /admin; a literal 600 here would drift.
-    expect(BROWSE).toContain("vcopy.intro(vFrom, vcat.deliveryFee)");
+    expect(BROWSE).toContain("deliveryFee: vcat.deliveryFee,");
   });
 
   it("does not tell a car customer a helmet is included", () => {

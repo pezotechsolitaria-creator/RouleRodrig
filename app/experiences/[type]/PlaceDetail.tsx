@@ -1,12 +1,13 @@
 import Image from "next/image";
 import Link from "next/link";
-import { Clock, Users, ChevronRight } from "lucide-react";
+import { Clock, CheckCircle, ChevronRight } from "lucide-react";
 import type { RecommendedPlace } from "@/lib/defaults";
 import { SITE_URL } from "@/lib/site";
 import { breadcrumbLd, experienceLd, sellerLd } from "@/lib/schema";
 import { placeListingHref } from "@/lib/place-href";
 import { placeSlug } from "@/lib/place-slug";
 import { placePrice, placeDeposit, GUIDE_FOR_PLACE } from "@/lib/place-detail";
+import { howBookingWorks, placeFacts, providerOf } from "@/lib/experiences";
 import JsonLd from "@/components/JsonLd";
 import AppPageHeader from "@/components/AppPageHeader";
 import PlaceBookingButton from "@/components/experiences/PlaceBookingButton";
@@ -47,6 +48,15 @@ export default function PlaceDetail({
   // rental desk is how an enquiry dies.
   const whatsapp = place.whatsapp || businessWhatsApp;
   const desc = (place.description ?? "").trim();
+  const provider = providerOf(place);
+  const facts = placeFacts(place);
+  const included = (place.included ?? []).map((i) => i.trim()).filter(Boolean);
+  // "Paying" exists only when the listing has an amount to charge — the same
+  // test the booking form uses before it offers online or cash.
+  const steps = howBookingWorks(
+    provider ?? (place.serviceType === "massage" ? "the therapist" : "the operator"),
+    Number(place.depositAmount) > 0,
+  );
 
   return (
     <>
@@ -71,6 +81,12 @@ export default function PlaceDetail({
               description: desc || undefined,
               image: hero,
               url,
+              // The same two fields the category page passes, so the one trip
+              // is not "Skipper Arnaud, 90 minutes" there and an anonymous
+              // #business Service here (SEO audit 2026-09-29 T1, C6).
+              providerName: provider,
+              durationMinutes:
+                typeof place.durationMinutes === "number" ? place.durationMinutes : null,
             }),
           },
         ]}
@@ -84,9 +100,9 @@ export default function PlaceDetail({
             {place.name}
           </h1>
 
-          {/* Price, deposit, departure and capacity — the four things somebody
-              asks before they ask anything else, and all four are already in
-              the listing. */}
+          {/* Price and departure — the first things somebody asks, both
+              already in the listing. Group size moved into the facts below,
+              which read maxGuests first and fall back to this capacity. */}
           <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
             {place.priceNote ? (
               <span className="font-mono text-lg font-semibold tabular-nums text-yellow">
@@ -98,12 +114,21 @@ export default function PlaceDetail({
                 <Clock size={14} /> Departs {place.timeSlots.join(", ")}
               </span>
             ) : null}
-            {place.capacity ? (
-              <span className="inline-flex items-center gap-1.5 font-dm text-sm text-muted">
-                <Users size={14} /> Up to {place.capacity} people
-              </span>
-            ) : null}
           </div>
+
+          {/* Who, where, how long, how many, which languages — one line per
+              field the owner filled in, and no line for one he did not (SEO
+              audit 2026-09-29 C6). Server-rendered, so a crawler reads it. */}
+          {facts.length ? (
+            <ul className="mt-4 grid gap-x-6 gap-y-1.5 font-dm text-sm text-offwhite/85 sm:grid-cols-2">
+              {facts.map((f) => (
+                <li key={f} className="flex items-start gap-2">
+                  <span aria-hidden className="mt-2 h-1 w-1 shrink-0 rounded-full bg-yellow/80" />
+                  <span>{f}</span>
+                </li>
+              ))}
+            </ul>
+          ) : null}
 
           {deposit && price && deposit < price ? (
             <p className="mt-2 font-dm text-sm text-muted">
@@ -131,9 +156,28 @@ export default function PlaceDetail({
             </p>
           ) : null}
 
+          {/* What the price covers, from `included`. The highlights below were
+              headed "What it includes" and hold what to BRING — so the sunrise
+              hike "included" a hat and a water bottle while its real inclusions
+              (the transfer, the food) were never shown (SEO audit 2026-09-29
+              C6). */}
+          {included.length ? (
+            <>
+              <h2 className="mt-7 font-syne text-lg font-bold">What&apos;s included</h2>
+              <ul className="mt-3 space-y-1.5 font-dm text-sm text-offwhite/90">
+                {included.map((item) => (
+                  <li key={item} className="flex items-start gap-2">
+                    <CheckCircle size={15} className="mt-0.5 shrink-0 text-green-400" aria-hidden />
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
+            </>
+          ) : null}
+
           {place.highlights?.length ? (
             <>
-              <h2 className="mt-7 font-syne text-lg font-bold">What it includes</h2>
+              <h2 className="mt-7 font-syne text-lg font-bold">Good to know</h2>
               <ul className="mt-3 flex flex-wrap gap-2">
                 {place.highlights.filter(Boolean).map((h) => (
                   <li
@@ -162,6 +206,30 @@ export default function PlaceDetail({
               />
             ) : null}
           </div>
+
+          {/* The same request-first flow the FAQ describes, in the order it
+              happens, including asking to pay in cash (M220) — worded as the
+              request it is. Only where the booking button exists; a
+              WhatsApp-only listing has no flow to explain. */}
+          {place.bookable ? (
+            <section className="mt-8 rounded-2xl border border-dark-border bg-dark-card/60 px-4 py-4">
+              <h2 className="font-syne text-lg font-bold">How booking works</h2>
+              <ol className="mt-3 space-y-2 font-dm text-sm leading-relaxed text-offwhite/85">
+                {steps.map((s, i) => (
+                  <li key={s} className="flex gap-2.5">
+                    <span className="font-bebas text-yellow">{i + 1}</span>
+                    <span>{s}</span>
+                  </li>
+                ))}
+              </ol>
+              <Link
+                href="/legal/refunds"
+                className="mt-3 inline-flex items-center gap-1 font-dm text-sm text-muted hover:text-yellow"
+              >
+                Cancellations and refunds <ChevronRight size={14} />
+              </Link>
+            </section>
+          ) : null}
 
           {/* The guide page, where one exists. Île aux Cocos already has 4,000
               characters of real writing at /guide/ile-aux-cocos, and the answer

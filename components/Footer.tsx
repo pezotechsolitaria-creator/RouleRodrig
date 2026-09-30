@@ -15,7 +15,14 @@ import type {
 } from "@/lib/defaults";
 import { useLanguage } from "@/context/LanguageContext";
 import { resolveLegal, isMissing } from "@/lib/legal";
+import { FOOTER_EN_LINKS, FOOTER_FR_LINKS } from "@/lib/nav/hubs";
 import TourismOffice from "@/components/TourismOffice";
+
+// The two link rows' shared shape: the look of the rows below them, with a
+// 44px box around each link (the repo's floor, lib/tap-targets.test.ts) so a
+// row of six on a phone is six targets, not one smudge.
+const PAGE_LINK =
+  "inline-flex min-h-11 items-center text-muted hover:text-yellow transition-colors text-xs font-dm";
 
 const SOCIAL_CONFIG = [
   { key: "instagram" as const, Icon: InstagramIcon, label: "Instagram" },
@@ -152,6 +159,37 @@ export default function Footer({
                 : "We love a plastic-free Rodrigues — please take your litter home."}
           </span>
         </div>
+
+        {/* ── WHAT THE SITE SELLS, ON EVERY PAGE (SEO audit 2026-09-29 C3) ──
+            The footer is the one element on all ~77 pages, and it linked the
+            three that are noindex, nofollow and no money page at all:
+            /browse/car had 17 inbound links, /transfers 3, and every French
+            page exactly one English one. These two rows are the cheapest
+            sitewide authority the site has. Each row carries the language of
+            the pages it names, whatever the page around it is written in. */}
+        <nav
+          aria-label="Rent, stay and explore"
+          className="pt-4 border-t border-dark-border flex flex-wrap items-center justify-center gap-x-5"
+          lang="en"
+        >
+          {FOOTER_EN_LINKS.map((l) => (
+            <Link key={l.href} href={l.href} className={PAGE_LINK}>
+              {l.label}
+            </Link>
+          ))}
+        </nav>
+        <nav
+          aria-label="En français"
+          className="flex flex-wrap items-center justify-center gap-x-5 mb-4"
+          lang="fr"
+        >
+          <span className="text-muted/70 text-xs font-dm">En français :</span>
+          {FOOTER_FR_LINKS.map((l) => (
+            <Link key={l.href} href={l.href} hrefLang="fr" className={PAGE_LINK}>
+              {l.label}
+            </Link>
+          ))}
+        </nav>
 
         {/* Working with us. The driver dashboard was reachable ONLY by typing
             the URL — an approved driver had no way back to their own jobs, and

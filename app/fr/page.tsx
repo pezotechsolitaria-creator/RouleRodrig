@@ -10,6 +10,7 @@ import { SITE_URL } from "@/lib/site";
 import { getContent } from "@/lib/content";
 import { FR_PAGES } from "@/lib/nav/hubs";
 import { ogImages } from "@/lib/share-image";
+import { hubBlurb } from "@/lib/live-prices";
 
 export const revalidate = 3600;
 
@@ -32,6 +33,12 @@ export const revalidate = 3600;
 
 const DESCRIPTION =
   "Rodrigues en français, par des gens qui y vivent : 11 guides sur les plages, les activités, où dormir, le taxi et la location de scooter ou de voiture.";
+
+// The "dès Rs …" in a blurb is read from the same content the landing page it
+// links reads (hubBlurb, SEO audit 2026-09-29 C1): the car line said Rs 1 499
+// while /browse/car charged from Rs 1,899. French grouping, as every French
+// page writes a price.
+const rs = (n: number) => `Rs ${n.toLocaleString("fr-FR")}`;
 
 export const metadata: Metadata = {
   title: "Rodrigues en français — le guide | Roule Rodrigues",
@@ -106,7 +113,7 @@ export default async function FrHubPage() {
                   <span className="min-w-0 flex-1">
                     <span className="block font-syne text-sm font-bold text-offwhite">{p.title}</span>
                     <span className="mt-0.5 block font-dm text-xs leading-relaxed text-muted">
-                      {p.blurb}
+                      {hubBlurb(content, p, rs)}
                     </span>
                   </span>
                   <ChevronRight size={16} className="mt-0.5 shrink-0 text-muted" />

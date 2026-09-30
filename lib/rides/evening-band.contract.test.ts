@@ -25,7 +25,9 @@ const code = (s: string) =>
 
 const M221 = read("supabase", "migrations", "20260929120000_m221_evening_and_night_bands.sql");
 const BOOK = read("app", "taxi", "book", "BookRide.tsx");
-const PAGE = read("app", "transfers", "page.tsx");
+// The page and the sentences it prints, which live in lib/transfers-faq.ts so
+// /taxi and /llms.txt state the bands the same way (SEO audit 2026-09-29 C2).
+const PAGE = `${read("app", "transfers", "page.tsx")}\n${read("lib", "transfers-faq.ts")}`;
 const BOOK_ROUTE = read("app", "api", "rides", "route.ts");
 const OFFER_SCREEN = read("app", "r", "[token]", "RideOfferScreen.tsx");
 const DESK = read("app", "admin", "rides", "RidesDesk.tsx");

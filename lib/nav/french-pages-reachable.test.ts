@@ -93,6 +93,25 @@ describe("the doors point where hreflang says they should", () => {
     }
   });
 
+  // SEO audit 2026-09-29 C13. The door runs both ways: /fr/plages-rodrigues and
+  // /fr/se-deplacer-a-rodrigues named their English twins in hreflang and
+  // linked neither, while the other nine did. The twin is read from the page's
+  // own alternates, so a twin that changes moves the assertion with it; and
+  // comments are stripped, because the note explaining a fix names the path.
+  it.each(FRENCH_ROUTES)("/fr/%s links the English twin its hreflang names", (slug) => {
+    const src = readFileSync(join(ROOT, "app", "fr", slug, "page.tsx"), "utf8");
+    const twin = src.match(/["']?en(?:-US)?["']?\s*:\s*`\$\{SITE_URL\}(\/[^`]*)`/)?.[1];
+    expect(twin, `/fr/${slug}: no English alternate of the form \`\${SITE_URL}/path\``).toBeTruthy();
+    const code = src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+    const path = twin!.replace(/[/.-]/g, "\\$&");
+    const linked = new RegExp(`href(?:=|:\\s*)\\{?["'\`]${path}["'\`]`);
+    expect(
+      code,
+      `/fr/${slug} names ${twin} as its English twin but never links it. ` +
+        `hreflang is an annotation, not a crawl path — add a FrenchTwinLink with lang="en".`,
+    ).toMatch(linked);
+  });
+
   it("no English page claims a French twin that does not exist", () => {
     // A one-way or dangling hreflang is silently ignored by Google, which is
     // the worst kind of broken: nothing reports it.

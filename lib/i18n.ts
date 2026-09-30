@@ -364,7 +364,11 @@ const translations = {
     // Trip planner
     planner: {
       eyebrow: "PERSONALISED FOR YOU",
-      title: "TRIP PLANNER",
+      // The /trip-planner h1. It said "TRIP PLANNER" — no "Rodrigues" on the
+      // page that should rank for "Rodrigues trip planner" (SEO audit
+      // 2026-09-29 C22/T19). Sentence case: the h1 is `uppercase` in CSS, so
+      // it looks the same and the DOM text reads as words, not shouting.
+      title: "Rodrigues trip planner",
       subtitle:
         "Tell us how long you have and what you love — we'll build your perfect Rodrigues itinerary, day by day.",
       daysLabel: "DAYS IN RODRIGUES",
@@ -405,7 +409,10 @@ const translations = {
     // Map
     map: {
       eyebrow: "EXPLORE THE ISLAND",
-      title: "ISLAND GUIDE",
+      // The /map h1 (and the map's loading caption — MapSection's only other
+      // use). "ISLAND GUIDE" on the page that ranks for "rodrigues island
+      // map" (SEO audit 2026-09-29 C10/T19). The CSS uppercases it.
+      title: "Rodrigues island map",
       subtitle:
         "Discover Rodrigues' hidden gems. Tap any photo to zoom, or tap directions for live distance from where you are.",
       directions: "Directions & distance",
@@ -611,8 +618,11 @@ const translations = {
     // Taxi & Transport page
     taxi: {
       eyebrow: "RODRIGUES ISLAND · TRANSPORT",
-      title1: "Taxi &",
-      title2: "Transport",
+      // The /taxi h1 is `${title1} ${title2}`. "Taxi & Transport" had no
+      // "Rodrigues" on the page that ranks for "taxi rodrigues" (SEO audit
+      // 2026-09-29 C23). Short on purpose: it shares a row in the header.
+      title1: "Taxis in",
+      title2: "Rodrigues",
       subtitle:
         "Trusted local drivers for airport transfers, island tours and point-to-point rides. Tap WhatsApp or call directly to agree your fare — and leave a review to help other travellers.",
       loading: "Loading drivers…",
@@ -628,7 +638,7 @@ const translations = {
       bookRide: "Book a ride",
       airportTransfer: "Airport transfer",
       followRide: "Already booked? Follow your ride",
-      // M96: Roulé Rodrigues does not set taxi fares. Every driver charges
+      // M96: Roule Rodrigues does not set taxi fares. Every driver charges
       // differently, so a number here would be a quote the platform cannot
       // honour — priceNote replaces it on every taxi surface.
       from: "From",
@@ -639,7 +649,7 @@ const translations = {
       reviewsRate: "Reviews & rate",
       rate: "Rate this driver",
       fareNote:
-        "We will confirm the price with you — no charge until you agree. Every driver sets their own fare; Roulé Rodrigues never takes payment for a ride.",
+        "We will confirm the price with you — no charge until you agree. Every driver sets their own fare; Roule Rodrigues never takes payment for a ride.",
       disclaimer:
         "Taxi drivers are independent third parties listed for your convenience — Roule Rodrigues is not a transport operator and is not responsible for their service.",
       feedback: "DRIVER FEEDBACK",
@@ -905,7 +915,7 @@ const translations = {
       drivingForUs: "Driving for us?",
       driverCode: "Driver code",
       yourDriverCode: "Your driver code",
-      driverCodeHint: "Enter the code Roulé Rodrigues gave you to open your driver page. No account needed.",
+      driverCodeHint: "Enter the code Roule Rodrigues gave you to open your driver page. No account needed.",
       openDriverPage: "Open my driver page",
     },
     resetPassword: {
@@ -923,7 +933,7 @@ const translations = {
     ordersPage: {
       myAccount: "MY ACCOUNT",
       yourActivity: "Your activity",
-      everythingBooked: "Everything you’ve booked or ordered on Roulé Rodrigues.",
+      everythingBooked: "Everything you’ve booked or ordered on Roule Rodrigues.",
       happeningNow: "Happening now",
       comingUp: "Coming up",
       noOrders: "No orders found",
@@ -970,7 +980,7 @@ const translations = {
       yourDriver: "Your driver:",
       givePin: "Give this to your driver when your order arrives",
       onlyShare: "Only share it once you have your order in your hands.",
-      confirmedPin: "Confirmed with your PIN. Thanks for using Roulé Rodrigues.",
+      confirmedPin: "Confirmed with your PIN. Thanks for using Roule Rodrigues.",
     },
     buyAgain: {
       buyItAgain: "Buy it again",
@@ -1060,8 +1070,8 @@ const translations = {
       title: "MANAGED TICKETING",
       yourSales: "Your ticket sales",
       paidDirectly: "Paid directly to you",
-      serviceFee: "Roulé Rodrigues service fee",
-      quoted: "Roulé Rodrigues has quoted:",
+      serviceFee: "Roule Rodrigues service fee",
+      quoted: "Roule Rodrigues has quoted:",
       notes: "Anything we should know? (optional)",
       askAgain: "Ask again",
       withdraw: "Withdraw the request",
@@ -1380,7 +1390,11 @@ const translations = {
     },
     planner: {
       eyebrow: "PERSONNALISÉ POUR VOUS",
-      title: "PLANIFICATEUR",
+      // The /trip-planner h1 (SEO audit 2026-09-29 C22/T19). French needs the
+      // preposition the English stacks away: "Planificateur Rodrigues" read as
+      // a product name. "Planificateur de séjour" is the site's own French
+      // term for it (common.aiTripPlanner).
+      title: "Planificateur de séjour à Rodrigues",
       subtitle:
         "Dites-nous combien de jours vous avez et ce que vous aimez — nous créerons votre itinéraire idéal à Rodrigues.",
       daysLabel: "JOURS À RODRIGUES",
@@ -1420,7 +1434,7 @@ const translations = {
     },
     map: {
       eyebrow: "EXPLORER L'ÎLE",
-      title: "GUIDE DE L'ÎLE",
+      title: "Carte de l'île Rodrigues",
       subtitle:
         "Découvrez les trésors cachés de Rodrigues. Touchez une photo pour l'agrandir, ou « itinéraire » pour la distance depuis votre position.",
       directions: "Itinéraire & distance",
@@ -1600,8 +1614,8 @@ const translations = {
     // Page Taxi & Transport
     taxi: {
       eyebrow: "ÎLE RODRIGUES · TRANSPORT",
-      title1: "Taxi &",
-      title2: "Transport",
+      title1: "Taxis à",
+      title2: "Rodrigues",
       subtitle:
         "Des chauffeurs locaux de confiance pour les transferts aéroport, les tours de l'île et les trajets ponctuels. Touchez WhatsApp ou appelez directement pour convenir du tarif — et laissez un avis pour aider les autres voyageurs.",
       loading: "Chargement des chauffeurs…",
@@ -1619,7 +1633,7 @@ const translations = {
       reviewsRate: "Avis & noter",
       rate: "Noter ce chauffeur",
       fareNote:
-        "Nous confirmerons le prix avec vous — rien n’est débité avant votre accord. Chaque chauffeur fixe son tarif ; Roulé Rodrigues n’encaisse jamais une course.",
+        "Nous confirmerons le prix avec vous — rien n’est débité avant votre accord. Chaque chauffeur fixe son tarif ; Roule Rodrigues n’encaisse jamais une course.",
       disclaimer:
         "Les chauffeurs de taxi sont des tiers indépendants listés pour votre commodité — Roule Rodrigues n'est pas un opérateur de transport et n'est pas responsable de leur service.",
       feedback: "AVIS CHAUFFEUR",
@@ -1870,7 +1884,7 @@ const translations = {
       drivingForUs: "Vous conduisez pour nous ?",
       driverCode: "Code chauffeur",
       yourDriverCode: "Votre code chauffeur",
-      driverCodeHint: "Entrez le code que Roulé Rodrigues vous a donné pour ouvrir votre page chauffeur. Pas besoin de compte.",
+      driverCodeHint: "Entrez le code que Roule Rodrigues vous a donné pour ouvrir votre page chauffeur. Pas besoin de compte.",
       openDriverPage: "Ouvrir ma page chauffeur",
     },
     resetPassword: {
@@ -1888,7 +1902,7 @@ const translations = {
     ordersPage: {
       myAccount: "MON COMPTE",
       yourActivity: "Votre activité",
-      everythingBooked: "Tout ce que vous avez réservé ou commandé sur Roulé Rodrigues.",
+      everythingBooked: "Tout ce que vous avez réservé ou commandé sur Roule Rodrigues.",
       happeningNow: "En cours",
       comingUp: "À venir",
       noOrders: "Aucune commande trouvée",
@@ -1933,7 +1947,7 @@ const translations = {
       yourDriver: "Votre livreur :",
       givePin: "Donnez ceci à votre livreur à l’arrivée de votre commande",
       onlyShare: "Ne le partagez qu’une fois votre commande entre vos mains.",
-      confirmedPin: "Confirmé avec votre code. Merci d’avoir utilisé Roulé Rodrigues.",
+      confirmedPin: "Confirmé avec votre code. Merci d’avoir utilisé Roule Rodrigues.",
     },
     buyAgain: {
       buyItAgain: "Racheter",
@@ -2023,8 +2037,8 @@ const translations = {
       title: "BILLETTERIE GÉRÉE",
       yourSales: "Vos ventes de billets",
       paidDirectly: "Versé directement à vous",
-      serviceFee: "Frais de service Roulé Rodrigues",
-      quoted: "Roulé Rodrigues a proposé :",
+      serviceFee: "Frais de service Roule Rodrigues",
+      quoted: "Roule Rodrigues a proposé :",
       notes: "Quelque chose à nous signaler ? (facultatif)",
       askAgain: "Redemander",
       withdraw: "Retirer la demande",
@@ -2332,7 +2346,7 @@ const translations = {
     },
     planner: {
       eyebrow: "PERSONALIZE POU OU",
-      title: "PLANN VWAYAZ",
+      title: "Plann vwayaz Rodrig",
       subtitle:
         "Dir nou konbien zour ou ena ek sa ki ou kontan — nou pou kree ou itinerèr parfe dan Rodrig.",
       daysLabel: "ZOUR DAN RODRIG",
@@ -2370,7 +2384,7 @@ const translations = {
     },
     map: {
       eyebrow: "EXPLOR ZIL LA",
-      title: "GID ZIL",
+      title: "Kart zil Rodrig",
       subtitle:
         "Dekouvr kaset Rodrig. Tous enn foto pou agrandi li, ouswa « direksion » pou distans depi kot ou ete.",
       directions: "Direksion & distans",
@@ -2548,8 +2562,8 @@ const translations = {
     // Paz Taksi & Transpor
     taxi: {
       eyebrow: "ZIL RODRIG · TRANSPOR",
-      title1: "Taksi &",
-      title2: "Transpor",
+      title1: "Taksi dan",
+      title2: "Rodrig",
       subtitle:
         "Bann chofer lokal fiab pou transfer erport, tour zil ek trazet dirèk. Tous WhatsApp ouswa apel direk pou met dakor lor pri — ek les enn lavi pou ed lezot vwayazer.",
       loading: "Pe sarz bann chofer…",
@@ -2567,7 +2581,7 @@ const translations = {
       reviewsRate: "Lavi & note",
       rate: "Note sa chofer la",
       fareNote:
-        "Nou pou konfirm pri-la ar ou — nanye pa debite avan ou dakor. Sak chofer fixe so prop pri; Roulé Rodrigues zame pran kas pou enn kours.",
+        "Nou pou konfirm pri-la ar ou — nanye pa debite avan ou dakor. Sak chofer fixe so prop pri; Roule Rodrigues zame pran kas pou enn kours.",
       disclaimer:
         "Bann chofer taksi zot bann tiers indepandan liste pou ou konvenians — Roule Rodrigues pa enn operater transpor ek nou pa responsab pou zot servis.",
       feedback: "LAVI CHOFER",
@@ -2814,7 +2828,7 @@ const translations = {
       drivingForUs: "Ou kondir pou nou ?",
       driverCode: "Kod sofer",
       yourDriverCode: "Ou kod sofer",
-      driverCodeHint: "Met kod ki Roulé Rodrigues finn donn ou pou ouver ou paz sofer. Pa bizin kont.",
+      driverCodeHint: "Met kod ki Roule Rodrigues finn donn ou pou ouver ou paz sofer. Pa bizin kont.",
       openDriverPage: "Ouver mo paz sofer",
     },
     resetPassword: {
@@ -2832,7 +2846,7 @@ const translations = {
     ordersPage: {
       myAccount: "MO KONT",
       yourActivity: "Ou bann aktivite",
-      everythingBooked: "Tou seki ou finn rezerve ouswa komande lor Roulé Rodrigues.",
+      everythingBooked: "Tou seki ou finn rezerve ouswa komande lor Roule Rodrigues.",
       happeningNow: "Pe pase asterla",
       comingUp: "Pe vini",
       noOrders: "Pa finn trouv okenn komand",
@@ -2877,7 +2891,7 @@ const translations = {
       yourDriver: "Ou livrer :",
       givePin: "Donn sa ou livrer kan ou komand arive",
       onlyShare: "Partaz li zis kan ou ena ou komand dan ou lame.",
-      confirmedPin: "Konfirme avek ou kod. Mersi ki ou finn servi Roulé Rodrigues.",
+      confirmedPin: "Konfirme avek ou kod. Mersi ki ou finn servi Roule Rodrigues.",
     },
     buyAgain: {
       buyItAgain: "Aste ankor",
@@ -2967,8 +2981,8 @@ const translations = {
       title: "BILETRI ZERE",
       yourSales: "Ou bann vant bile",
       paidDirectly: "Peye direk ar ou",
-      serviceFee: "Fre servis Roulé Rodrigues",
-      quoted: "Roulé Rodrigues finn propoze :",
+      serviceFee: "Fre servis Roule Rodrigues",
+      quoted: "Roule Rodrigues finn propoze :",
       notes: "Ena kiksoz nou bizin kone ? (si ou anvi)",
       askAgain: "Redemande",
       withdraw: "Tir demann la",

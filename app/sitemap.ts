@@ -1,5 +1,11 @@
 import type { MetadataRoute } from "next";
-import { EXPERIENCES } from "@/lib/experiences";
+import { EXPERIENCES, experiencesOfType } from "@/lib/experiences";
+import {
+  contentWasRead,
+  eventsPageItemCount,
+  knownPublicEventCount,
+  recommendedCount,
+} from "@/lib/listing-gates";
 import { placeSlug, placesWithOwnPage } from "@/lib/place-slug";
 import { SITE_URL } from "@/lib/site";
 import {
@@ -97,10 +103,17 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // self-canonical and still carry Event JSON-LD, and the rule this file
   // follows is to list every page that is all three.
   let events: MetadataRoute.Sitemap = [];
+  // How many public events exist, for the /events gate below (SEO audit
+  // 2026-09-29 C16/T4). listPublicEvents() answers [] on a failed read as well
+  // as on an empty table, so an empty answer is re-checked before it may drop
+  // /events (knownPublicEventCount); null — unknown — keeps it listed.
+  let publicEventCount: number | null = null;
   try {
     const { createAnonClient } = await import("@/lib/supabase/anon");
     const { listPublicEvents } = await import("@/lib/events/queries");
-    const published = await listPublicEvents(createAnonClient());
+    const anon = createAnonClient();
+    const published = await listPublicEvents(anon);
+    publicEventCount = await knownPublicEventCount(anon, published.length);
     events = published.map((e) => ({
       url: `${SITE_URL}/events/${e.slug}`,
       changeFrequency: "weekly" as const,
@@ -111,8 +124,40 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     console.error("sitemap: events failed", err);
   }
 
+  // ── EMPTY LISTINGS ARE NOT SUBMITTED (SEO audit 2026-09-29 C16/T4) ────────
+  // /events, /shop, /marketplace/wash and /experiences/chauffeur were all
+  // listed unconditionally while each rendered an empty state — what Google
+  // classes as a soft 404. Each is now listed while it has something on it,
+  // by the same counts its page uses to send `noindex, follow` while it does
+  // not (lib/listing-gates.ts), so an entry and its robots tag cannot
+  // disagree, and the page re-enters by itself when the first item goes live.
+  //
+  // Where a read FAILS the page keeps its old, listed behaviour: an unknown
+  // count is not an empty shelf. The defaults below are that fallback — and
+  // getContent() "fails" by answering its defaults, so the content-backed
+  // gates only apply once contentWasRead() says the real row arrived.
+  let eventNotices: { title?: string | null }[] | null = null;
+  let experienceTypes = Object.keys(EXPERIENCES) as (keyof typeof EXPERIENCES)[];
+  let washListed = true;
+
+  try {
+    const { createAnonClient } = await import("@/lib/supabase/anon");
+    const { listVehicleProviders } = await import("@/lib/marketplace/vehicle-providers");
+    const listed = await listVehicleProviders(createAnonClient());
+    if (listed) washListed = listed.length > 0;
+  } catch (err) {
+    console.error("sitemap: vehicle providers failed", err);
+  }
+
   try {
     const { content, fleet, recentBookings } = await getFleetView();
+    if (contentWasRead(content)) eventNotices = content.events;
+    // A service vertical is listed while it has a provider — the same
+    // experiencesOfType() its page renders from. Today that drops chauffeur.
+    experienceTypes = experienceTypes.filter(
+      (type) =>
+        recommendedCount(content, experiencesOfType(content.recommended.items, type)) !== 0,
+    );
     browse = buildBrowseCategories(content, fleet, recentBookings).map((c) => ({
       url: `${SITE_URL}${c.href ?? `/browse/${c.slug}`}`,
       lastModified: contentAt,
@@ -181,6 +226,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // same reason it 404s on the site. Listing a URL Google then cannot fetch is
   // worse than omitting it.
   let shops: MetadataRoute.Sitemap = [];
+  // Whether sitemap_stores() actually answered. /shop is gated on it below,
+  // and a failed call must not read as "no shops".
+  let shopsKnown = false;
   try {
     // Cookieless, for the reason spelled out above the dish block and proved
     // again by the product block below: the session-carrying client turns this
@@ -197,7 +245,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // twice in one afternoon. Keeping the predicate in SQL means the sitemap
     // and the directory cannot disagree, and the migration's post-conditions
     // prove it rather than trusting this call site.
-    const { data } = await supabase.rpc("sitemap_stores");
+    const { data, error } = await supabase.rpc("sitemap_stores");
+    shopsKnown = !error;
     shops = (data ?? []).map(
       (s: { slug: string; updated_at: string | null }) => ({
         url: `${SITE_URL}/shop/${s.slug}`,
@@ -285,13 +334,18 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 1,
     },
     ...browse,
-    // Marketplace directory — always exists (its empty state recruits
-    // merchants), so it is not data-gated like /guide/shops below.
-    {
-      url: `${SITE_URL}/shop`,
-      changeFrequency: "daily",
-      priority: 0.9,
-    },
+    // Marketplace directory. It always EXISTS — its empty state recruits
+    // merchants — but it is submitted only while sitemap_stores() lists a shop
+    // (or could not be read), for the reason in the block above `eventNotices`.
+    ...(!shopsKnown || shops.length > 0
+      ? [
+          {
+            url: `${SITE_URL}/shop`,
+            changeFrequency: "daily" as const,
+            priority: 0.9,
+          },
+        ]
+      : []),
     // ── THE THREE HUBS THAT WERE NEVER LISTED ─────────────────────────────
     //
     // All three are indexable, linked from the site's own navigation, and
@@ -301,18 +355,24 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     //
     // /marketplace answers "what can this site actually do for me" for
     // somebody who does not already know which of eight routes they wanted;
-    // /marketplace/wash is a service vertical with its own booking flow; and
-    // /order is the hub the food, shop and ticket paths all start from.
+    // /marketplace/wash is a service vertical with its own booking flow —
+    // submitted only while it lists a business (it rendered "No car washes
+    // listed yet"); and /order is the hub the food, shop and ticket paths all
+    // start from.
     {
       url: `${SITE_URL}/marketplace`,
       changeFrequency: "weekly",
       priority: 0.8,
     },
-    {
-      url: `${SITE_URL}/marketplace/wash`,
-      changeFrequency: "weekly",
-      priority: 0.7,
-    },
+    ...(washListed
+      ? [
+          {
+            url: `${SITE_URL}/marketplace/wash`,
+            changeFrequency: "weekly" as const,
+            priority: 0.7,
+          },
+        ]
+      : []),
     {
       url: `${SITE_URL}/order`,
       changeFrequency: "weekly",
@@ -340,12 +400,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: "monthly",
       priority: 0.7,
     },
-    // The service marketplaces. Listed unconditionally, like /shop and /food
-    // above and for the same reason: each has a real empty state that recruits
-    // the providers, and "massage rodrigues" is a search someone makes whether
-    // or not a therapist has signed up yet. Driven off EXPERIENCES, so adding a
-    // vertical there lists it here too — hiking arrived this way.
-    ...(Object.keys(EXPERIENCES) as (keyof typeof EXPERIENCES)[]).map(
+    // The service marketplaces. These WERE listed unconditionally, on the
+    // argument that an empty state recruits providers. The audit measured
+    // what Google saw instead: /experiences/chauffeur, "No chauffeurs listed
+    // yet", submitted as a page. So a vertical is listed while it has a
+    // provider (`experienceTypes` above). Still driven off EXPERIENCES, so
+    // adding a vertical there lists it here too — hiking arrived this way.
+    ...experienceTypes.map(
       (type) => ({
         url: `${SITE_URL}/experiences/${type}`,
         lastModified: contentAt,
@@ -525,11 +586,17 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.8,
     },
     // Real search targets: "what's on in Rodrigues", "airport transfer Rodrigues".
-    {
-      url: `${SITE_URL}/events`,
-      changeFrequency: "daily",
-      priority: 0.8,
-    },
+    // /events only while it has an event or a notice on it — it rendered
+    // "Nothing on sale right now" at priority 0.8. Unknown (null) stays listed.
+    ...(eventsPageItemCount(publicEventCount, eventNotices) !== 0
+      ? [
+          {
+            url: `${SITE_URL}/events`,
+            changeFrequency: "daily" as const,
+            priority: 0.8,
+          },
+        ]
+      : []),
     {
       url: `${SITE_URL}/transfers`,
       changeFrequency: "weekly",

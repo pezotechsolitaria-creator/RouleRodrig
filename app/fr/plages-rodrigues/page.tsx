@@ -9,6 +9,7 @@ import PageLanguage from "@/components/PageLanguage";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import HubBacklink from "@/components/nav/HubBacklink";
+import FrenchTwinLink from "@/components/FrenchTwinLink";
 
 export const revalidate = 3600;
 
@@ -233,6 +234,13 @@ export default async function PlagesPage() {
           >
             Taxi et transfert depuis l&apos;aéroport <ArrowRight size={14} />
           </Link>
+          {/* The English twin hreflang names, as a link a crawler can follow
+              (SEO audit 2026-09-29 C13) — the other French pages all had one. */}
+          <FrenchTwinLink
+            href="/guide/beaches"
+            label="Read this page in English"
+            lang="en"
+          />
         </div>
       </section>
       <HubBacklink href="/fr" label="Tous nos guides en français" />

@@ -3,9 +3,13 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const read = (...p: string[]) => readFileSync(join(process.cwd(), ...p), "utf8");
-const TRANSFERS = read("app", "transfers", "page.tsx");
+// The page and the sentences it prints: money(), zoneRange() and the FAQ moved
+// to lib/transfers-faq.ts so /taxi and /llms.txt say the fares the same way
+// (SEO audit 2026-09-29 C2). Every rule below holds for both.
+const TRANSFERS = `${read("app", "transfers", "page.tsx")}\n${read("lib", "transfers-faq.ts")}`;
 const BROWSE = read("app", "browse", "[category]", "page.tsx");
-const TAXI = read("app", "taxi", "page.tsx");
+// The /taxi hub's links live in its directory component since C23.
+const TAXI = read("app", "taxi", "TaxiDirectory.tsx");
 const FARES = read("lib", "rides", "fares.ts");
 const COPY = read("lib", "rides", "copy.i18n.ts");
 const strip = (s: string) => s.replace(/^\s*\/\/.*$/gm, "");
@@ -136,8 +140,9 @@ describe("the rental FAQ is only claimed where it is shown", () => {
 
   it("is claimed by the branch that renders it visibly", () => {
     // <RentalConditions conditions={conditionItems}> lives in the vehicle
-    // branch, and only there.
-    expect(BROWSE).toMatch(/items\.map\(\(i\) => \(\{ name: i\.name \}\)\),\s*\n\s*\/\/[^\n]*\n\s*true,/);
+    // branch, and only there. (Its ListItems carry each vehicle's url since
+    // SEO audit 2026-09-29 T13, hence the looser match on the map itself.)
+    expect(BROWSE).toMatch(/items\.map\(\(i\) => \(\{ name: [^\n]*vehicleHref\(i\)[^\n]*\}\)\),\s*\n\s*\/\/[^\n]*\n\s*true,/);
     expect(BROWSE).toContain("conditions={conditionItems}");
   });
 });

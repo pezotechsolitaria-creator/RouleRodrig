@@ -8,10 +8,13 @@ import AppPageHeader from "@/components/AppPageHeader";
 import DeliverTitle from "./DeliverTitle";
 import DeliverForm from "./DeliverForm";
 import MyRequests from "./MyRequests";
+import HowItWorks from "./HowItWorks";
 
 export const dynamic = "force-dynamic";
 
 const TITLE = "Get Anything Delivered in Rodrigues | Roule Rodrigues";
+// ≤155 characters (SEO audit 2026-09-29 T15): it was 167, and the part Google
+// cut was "large items" — one of the three things the page offers.
 const DESCRIPTION =
   "Delivery on Rodrigues: post what you need collected or bought, local drivers send their price and you choose. Free to ask, pay only when you accept.";
 
@@ -55,9 +58,20 @@ export const metadata: Metadata = {
 export default async function DeliverPage() {
   const content = await getContent();
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const [
+    {
+      data: { user },
+    },
+    { data: settings },
+  ] = await Promise.all([
+    supabase.auth.getUser(),
+    // The cash limit the explainer quotes, from the row accept_delivery_quote()
+    // enforces (anon-readable: delivery_settings_public_read). A failed read is
+    // null, and the explainer then states the rule without a figure.
+    supabase.from("delivery_settings").select("cash_limit_cents").eq("id", "main").maybeSingle(),
+  ]);
+  const cashLimitCents =
+    typeof settings?.cash_limit_cents === "number" ? settings.cash_limit_cents : null;
 
   const phone = content.contact.phone ?? "";
   const whatsapp = content.contact.whatsappNumbers?.[0]?.number ?? phone;
@@ -152,6 +166,13 @@ export default async function DeliverPage() {
               helpWhatsapp={whatsapp}
             />
           </div>
+
+          {/* One CLOSED row, not the cards that used to be here: the facts a
+              crawler needs to say what this is, in 50px (4px margin, 44px
+              summary, 2px border) on every step. 58px measured 6px of scroll
+              at 375×812 on a production build; 50 fits. See HowItWorks.tsx
+              (SEO audit 2026-09-29 C14). */}
+          <HowItWorks cashLimitCents={cashLimitCents} />
 
           {/* ── WHAT USED TO BE HERE, AND WHY IT IS NOT ────────────────────
               MEASURED: below a form that fits a phone sat 821px of other page

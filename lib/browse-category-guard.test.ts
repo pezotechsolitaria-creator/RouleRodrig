@@ -80,7 +80,8 @@ describe("an empty fleet in a live category", () => {
 // owner can change it.
 describe("the delivery fee the copy quotes is the fee that is charged", () => {
   it("comes from the category, not a literal", () => {
-    expect(CODE).toContain("vcopy.intro(vFrom, vcat.deliveryFee)");
+    // Passed by name since the intro became an object (SEO audit 2026-09-29 C4).
+    expect(CODE).toContain("deliveryFee: vcat.deliveryFee,");
   });
 
   it("says nothing about delivery when the fee is zero", () => {

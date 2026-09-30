@@ -1,7 +1,13 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { experiencesFaq, experiencesFaqHeading, FALLBACK_RANGE } from "./experiences-faq";
+import {
+  experiencesFaq,
+  experiencesFaqHeading,
+  FALLBACK_RANGE,
+  priceRangeOf,
+} from "./experiences-faq";
+import { IN_PERSON_SENTENCE } from "./experiences";
 import { faqPageLd } from "./schema";
 
 // ── /experiences HAD STRUCTURE AND NOTHING TO SAY (M151) ────────────────────
@@ -87,6 +93,61 @@ describe("every claim traces to a live listing", () => {
 
   it("does not claim Roulé Rodrigues runs the trips", () => {
     expect(en).toContain("Independent Rodriguan skippers");
+  });
+});
+
+// ── SEO audit 2026-09-29: C1 (4), C4 (4), C17 ──────────────────────────────
+
+describe("the ends of the price range are named, never described", () => {
+  const cost = (lang: "en" | "fr", range = FALLBACK_RANGE) =>
+    experiencesFaq(lang, range)[1].answer;
+
+  it("no longer calls the dearest listing 'a full day out'", () => {
+    // Rs 2,500 was the sunrise hike, about four hours; the real full day
+    // (Île aux Cocos) costs less. The same for the cheap end's "an hour".
+    for (const lang of ["en", "fr"] as const) {
+      expect(cost(lang)).not.toMatch(/full day|journée complète|an hour|une heure/);
+    }
+  });
+
+  it("names the listing at each end when it is given", () => {
+    const range = { min: 700, max: 2500, minName: "Balade en mer", maxName: "Sunrise hike from Anse aux Anglais" };
+    expect(cost("en", range)).toContain("from Rs 700 (Balade en mer) to Rs 2,500 (Sunrise hike from Anse aux Anglais)");
+    expect(cost("fr", range)).toContain("(Sunrise hike from Anse aux Anglais)");
+  });
+
+  it("priceRangeOf finds both ends and their names from the card prices", () => {
+    expect(
+      priceRangeOf([
+        { name: "Balade en mer", price: 700 },
+        { name: "Sunrise hike from Anse aux Anglais ", price: 2500 },
+        { name: "Unpriced", price: null },
+        { name: "Île aux Cocos Excursion with Les Inséparables", price: 1999 },
+      ]),
+    ).toEqual({ min: 700, max: 2500, minName: "Balade en mer", maxName: "Sunrise hike from Anse aux Anglais" });
+    expect(priceRangeOf([{ name: "x", price: null }])).toBeNull();
+  });
+});
+
+describe("paying in person is offered as the request it is (M220)", () => {
+  it("in English, with the form's own wording", () => {
+    const pay = EN.find((f) => /pay straight away/i.test(f.question))!.answer;
+    expect(pay).toContain(IN_PERSON_SENTENCE);
+    expect(pay).toMatch(/^No\./);
+  });
+
+  it("in French", () => {
+    const pay = FR.find((f) => /payer immédiatement/i.test(f.question))!.answer;
+    expect(pay).toContain("payer sur place, en espèces");
+    expect(pay).toContain("si c'est possible");
+  });
+});
+
+describe("one spelling of the brand in the text (C17)", () => {
+  it("says Roule Rodrigues in both languages", () => {
+    const all = [...EN, ...FR].map((f) => `${f.question} ${f.answer}`).join(" ");
+    expect(all).toContain("Roule Rodrigues");
+    expect(all).not.toContain("Roulé Rodrigues");
   });
 });
 

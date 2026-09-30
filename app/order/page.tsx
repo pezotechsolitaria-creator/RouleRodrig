@@ -64,7 +64,10 @@ const DOORS = [
     icon: Ticket,
     title: "Tickets",
     line: "Concerts, séga nights, festivals",
-    detail: "Pay by bank transfer, then show the code at the gate.",
+    // Each organiser chooses cash or a transfer to their own account, and
+    // confirms the payment themselves (lib/events/copy.i18n.ts `cashDetail`,
+    // `transferDetail`) — so no method is promised here (audit C9).
+    detail: "Pay the organiser the way the event shows, then show your code at the gate.",
     accent: "from-purple-500/20",
   },
 ];
@@ -105,9 +108,13 @@ export default function OrderHubPage() {
           <h1 className="font-syne text-3xl font-extrabold leading-tight sm:text-4xl">
             What would you like to order?
           </h1>
+          {/* This said "you pay by bank transfer" on a page linked from every
+              screen, while the one kitchen takes cash only (M201). Each door
+              leads to a seller who states its own method before the order is
+              placed, so the hub promises no method (SEO audit 2026-09-29 C9). */}
           <p className="mt-2 font-dm text-sm text-muted">
-            Three ways to buy from Rodrigues. Pick one — you pay by bank
-            transfer, and the seller confirms before your order is prepared.
+            Three ways to buy from Rodrigues. Pick one — each shows how its
+            seller takes payment before you order.
           </p>
 
           <OrderHubBaskets />

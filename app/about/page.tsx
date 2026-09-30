@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import {
-  Bike, ChevronRight, Compass, Mail, MapPin, Phone, ShoppingBag,
+  Bike, ChevronRight, Compass, Mail, MapPin, Phone, PlaneTakeoff, ShoppingBag,
   Store, UtensilsCrossed,
 } from "lucide-react";
 import BackLink from "@/components/BackLink";
@@ -49,9 +49,14 @@ export const metadata: Metadata = {
   },
 };
 
+// Taxis and airport transfers are two cards (SEO audit 2026-09-29 C2, C5).
+// "The fare shown before you book" described neither honestly — a taxi's fare
+// is the driver's, confirmed before anything is agreed; a transfer's is a
+// fixed zone fare — and the one card sent /transfers' visitors to /taxi.
 const WHAT_WE_DO = [
   { icon: Bike, href: "/browse/scooter", label: "Scooter & car rental", note: "Delivered where you are, helmets and support included." },
-  { icon: Compass, href: "/taxi", label: "Taxis & airport transfers", note: "The fare shown before you book, no account needed." },
+  { icon: Compass, href: "/taxi", label: "Taxis", note: "Local drivers; the price is confirmed with you before anything is agreed." },
+  { icon: PlaneTakeoff, href: "/transfers", label: "Airport transfers", note: "Fixed fares by zone from Plaine Corail, booked before you land." },
   { icon: UtensilsCrossed, href: "/food", label: "Home-cooked Rodriguan food", note: "Ordered from kitchens on the island, not a chain." },
   { icon: Store, href: "/shop", label: "The island marketplace", note: "Honey, piment, crafts — sold by the people who make them." },
   { icon: ShoppingBag, href: "/deliver", label: "Deliveries and errands", note: "Anything moved across the island by local drivers." },
@@ -75,7 +80,7 @@ export default async function AboutPage() {
             "@type": "AboutPage",
             "@id": `${SITE_URL}/about#page`,
             url: `${SITE_URL}/about`,
-            name: "About Roulé Rodrigues",
+            name: "About Roule Rodrigues",
             description: DESCRIPTION,
             // REFERENCED, NOT REDEFINED. #organization is declared once, on the
             // homepage. Defining a second Organization here would give the same
@@ -111,7 +116,7 @@ export default async function AboutPage() {
 
           <div className="mt-5 max-w-xl space-y-4 font-dm text-sm leading-relaxed text-muted">
             <p>
-              Roulé Rodrigues started with scooters. Rent one, get it delivered wherever you are
+              Roule Rodrigues started with scooters. Rent one, get it delivered wherever you are
               staying, and go and see the island properly — which on Rodrigues means the roads that
               do not appear on a hotel map.
             </p>

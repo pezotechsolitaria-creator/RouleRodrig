@@ -2,10 +2,11 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import LangLink from "@/components/nav/LangLink";
 import { ArrowRight, Check, MessageCircle } from "lucide-react";
-import { getFleetView, fleetFromPrice } from "@/lib/site-data";
+import { getFleetView, fleetFromPrice, isSellableFleetItem } from "@/lib/site-data";
 import { resolveTerms, isMissing } from "@/lib/legal";
 import { SITE_URL } from "@/lib/site";
-import { breadcrumbLd, rentalCategoryLd } from "@/lib/schema";
+import { breadcrumbLd, rentalCategoryLd, sellerLd } from "@/lib/schema";
+import { deliveryIsFree } from "@/lib/browse-copy";
 import JsonLd from "@/components/JsonLd";
 import Navbar from "@/components/Navbar";
 import PageLanguage from "@/components/PageLanguage";
@@ -78,7 +79,14 @@ const metadataFor = (from: number): Metadata => ({
   },
 });
 
-const FAQ = (from: number, minAge: string | null) => [
+// `freeDelivery`: "sans supplément de livraison" was unconditional, while the
+// Swift's own price note says delivery is free only beyond two days. Said now
+// only when deliveryIsFree() allows it — the car fee checkout charges is 0
+// AND no car's own note puts a condition on delivery — the same answer
+// /browse/car and its metadata give (SEO audit 2026-09-29, C20). With the
+// live fee at 0 and the Swift note as it stands, that is "not said": the
+// owner settling the note in /admin is what turns it back on.
+const FAQ = (from: number, minAge: string | null, freeDelivery: boolean) => [
   {
     q: "Combien coûte la location d'une voiture à Rodrigues ?",
     a: `Nos voitures sont proposées à partir de Rs ${rs(from)} par jour. Le prix affiché est le prix final : aucun frais de réservation, aucune commission. Assurance et assistance routière comprises.`,
@@ -116,7 +124,9 @@ const FAQ = (from: number, minAge: string | null) => [
     // opening hours, because none of that is written down anywhere and a page
     // that invents it is how somebody lands at 6am expecting a counter.
     q: "Puis-je récupérer la voiture à l'aéroport de Plaine Corail ?",
-    a: "Oui. Nous livrons la voiture à l'aéroport de Plaine Corail à votre arrivée, comme nous la livrons à votre hôtel — sans supplément de livraison. Donnez-nous votre numéro de vol au moment de réserver : nous suivons l'avion, donc un retard ne vous laisse pas sans voiture. Si vous préférez ne pas conduire le jour même, nous assurons aussi le transfert depuis l'aéroport, et la voiture vous est livrée le lendemain à votre hébergement.",
+    a: `Oui. Nous livrons la voiture à l'aéroport de Plaine Corail à votre arrivée, comme nous la livrons à votre hôtel${
+      freeDelivery ? " — sans supplément de livraison" : ""
+    }. Donnez-nous votre numéro de vol au moment de réserver : nous suivons l'avion, donc un retard ne vous laisse pas sans voiture. Si vous préférez ne pas conduire le jour même, nous assurons aussi le transfert depuis l'aéroport, et la voiture vous est livrée le lendemain à votre hébergement.`,
   },
   {
     q: "Voiture ou scooter à Rodrigues ?",
@@ -132,12 +142,16 @@ export default async function LocationVoiturePage() {
   // stated. offerCount is a claim about inventory and inventing one on a page
   // that takes bookings is how a customer is told "available" about a car that
   // is not there.
-  const carCount = fleet.filter((f) => (f.category ?? "scooter") === "car").length;
+  // Sellable rows only: an unpriced "New Cars" draft is not a car anybody can
+  // rent, and /browse/car does not list it (isSellableFleetItem).
+  const carCount = fleet.filter(
+    (f) => (f.category ?? "scooter") === "car" && isSellableFleetItem(f),
+  ).length;
   // The published clause, not an invented number. `isMissing` means the owner
   // has not set it yet, and the FAQ answer changes shape rather than guessing.
   const terms = resolveTerms(content.terms);
   const minAge = isMissing(terms.vehicleMinAge) ? null : terms.vehicleMinAge;
-  const faq = FAQ(from, minAge);
+  const faq = FAQ(from, minAge, deliveryIsFree(fleet, "car", content.vehicleCategories));
 
   const wa = (businessWhatsApp ?? "").replace(/\D/g, "");
   const waHref = wa
@@ -180,6 +194,10 @@ export default async function LocationVoiturePage() {
             description: DESCRIPTION(from),
             inLanguage: "fr",
           }),
+          // The seller the AggregateOffer above points at ({"@id": #business}),
+          // defined on this page: it was a bare pointer here (SEO audit
+          // 2026-09-29 T9, which names this page).
+          { "@context": "https://schema.org", ...sellerLd() },
           breadcrumbLd([
             { name: "Accueil", url: SITE_URL },
             {
@@ -272,7 +290,7 @@ export default async function LocationVoiturePage() {
               the single most common visitor to either. */}
           <nav className="mt-14 rounded-3xl border border-dark-border bg-white/[0.02] p-8">
             <p className="font-syne text-lg font-bold text-offwhite">
-              Aussi sur Roulé Rodrigues
+              Aussi sur Roule Rodrigues
             </p>
             <ul className="mt-4 space-y-3">
               {/* Somebody who has just sorted out transport still needs a bed,

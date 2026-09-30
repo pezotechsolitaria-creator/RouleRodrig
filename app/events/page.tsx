@@ -1,5 +1,12 @@
 import type { Metadata } from "next";
+import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
+import {
+  contentWasRead,
+  eventsPageItemCount,
+  knownPublicEventCount,
+  robotsWhileEmpty,
+} from "@/lib/listing-gates";
 import { SITE_URL } from "@/lib/site";
 import { breadcrumbLd, itemListLd } from "@/lib/schema";
 import JsonLd from "@/components/JsonLd";
@@ -16,22 +23,40 @@ export const dynamic = "force-dynamic";
 const DESCRIPTION =
   "Concerts, sega nights, markets and festivals in Rodrigues Island. Reserve your ticket online in seconds — your QR code is your ticket at the gate.";
 
-export const metadata: Metadata = {
-  title: "What's On in Rodrigues | Events & Tickets | Roule Rodrigues",
-  description: DESCRIPTION,
-  alternates: { canonical: `${SITE_URL}/events` },
-  openGraph: {
-    title: "What's On in Rodrigues — Events & Tickets",
+// One read for both the metadata and the page — cache() is per request.
+const loadEvents = cache(async () => {
+  const supabase = await createClient();
+  return Promise.all([listPublicEvents(supabase), getContent()]);
+});
+
+// `noindex, follow` while there is nothing on it at all — no public event and
+// no titled notice (SEO audit 2026-09-29 C16/T4). "Nothing on sale right now"
+// was 200, indexable and at priority 0.8 in the sitemap. The same count gates
+// the sitemap entry, so the two cannot disagree; see lib/listing-gates.ts.
+// Both reads answer "empty" when they fail — listPublicEvents() with [],
+// getContent() with its defaults — so neither may noindex the page on its own
+// say-so: see knownPublicEventCount and contentWasRead.
+export async function generateMetadata(): Promise<Metadata> {
+  const [all, content] = await loadEvents();
+  const events = await knownPublicEventCount(await createClient(), all.length);
+  const notices = contentWasRead(content) ? content.events : null;
+  return {
+    title: "What's On in Rodrigues | Events & Tickets | Roule Rodrigues",
     description: DESCRIPTION,
-    url: `${SITE_URL}/events`,
-    type: "website",
-    images: [`${SITE_URL}/og-image.jpg`],
-  },
-};
+    alternates: { canonical: `${SITE_URL}/events` },
+    ...robotsWhileEmpty(eventsPageItemCount(events, notices)),
+    openGraph: {
+      title: "What's On in Rodrigues — Events & Tickets",
+      description: DESCRIPTION,
+      url: `${SITE_URL}/events`,
+      type: "website",
+      images: [`${SITE_URL}/og-image.jpg`],
+    },
+  };
+}
 
 export default async function EventsPage() {
-  const supabase = await createClient();
-  const [all, content] = await Promise.all([listPublicEvents(supabase), getContent()]);
+  const [all, content] = await loadEvents();
   const { upcoming, past } = splitByTime(all);
   // The owner's free-text noticeboard, which used to be a second page called
   // Events. A blank title is a half-created row, not a listing.

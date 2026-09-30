@@ -2,7 +2,9 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
-const SRC = readFileSync(join(process.cwd(), "app", "taxi", "page.tsx"), "utf8");
+// The dialog lives in the directory component since /taxi became a server
+// page that renders it (SEO audit 2026-09-29 C23).
+const SRC = readFileSync(join(process.cwd(), "app", "taxi", "TaxiDirectory.tsx"), "utf8");
 const REFERENCE = readFileSync(
   join(process.cwd(), "app", "deliver", "[id]", "RequestTracker.tsx"),
   "utf8",

@@ -1,16 +1,21 @@
 import type { Metadata } from "next";
 import { getContent } from "@/lib/content";
 import { SITE_URL } from "@/lib/site";
+import { breadcrumbLd } from "@/lib/schema";
+import JsonLd from "@/components/JsonLd";
 import UsefulNumbers from "@/components/UsefulNumbers";
 import AppPageHeader from "@/components/AppPageHeader";
 import TourismOffice from "@/components/TourismOffice";
 
 export const revalidate = 3600;
 
+// No coastguard: site_content.usefulContacts has no coastguard number, and the
+// description and subtitle both promised one (SEO audit 2026-09-29 C7/T3). Put
+// it back the day the owner adds the number.
 export const metadata: Metadata = {
   title: "Emergency Numbers — Rodrigues | Roule Rodrigues",
   description:
-    "Emergency and useful phone numbers for Rodrigues Island — police, hospital, coastguard and local contacts, kept handy for your trip.",
+    "Emergency and useful phone numbers for Rodrigues Island — police, hospital, fire and local contacts, kept handy for your trip.",
   alternates: { canonical: `${SITE_URL}/emergency` },
 };
 
@@ -18,6 +23,14 @@ export default async function EmergencyPage() {
   const content = await getContent();
   return (
     <main className="min-h-screen bg-dark pb-24">
+      <JsonLd
+        data={[
+          breadcrumbLd([
+            { name: "Home", url: SITE_URL },
+            { name: "Emergency numbers", url: `${SITE_URL}/emergency` },
+          ]),
+        ]}
+      />
       {/* Was a 15px arrow and the words "Roule Rodrigues", inside the scroll.
           Same control every other redesigned page now carries: it stays on
           screen, and its tap target is 52px. */}
@@ -34,11 +47,13 @@ export default async function EmergencyPage() {
           Emergency &amp; useful numbers
         </h1>
         <p className="mt-2 font-dm text-sm text-muted">
-          Police, hospital, fire, the coastguard and the tourism office — every number tap-to-call.
+          Police, hospital, fire and the tourism office — every number tap-to-call.
         </p>
       </div>
 
-      <UsefulNumbers contacts={content.usefulContacts} />
+      {/* Open, not an accordion: on this page the numbers ARE the page, and a
+          collapsed list shipped none of them in the HTML (audit C7/T3). */}
+      <UsefulNumbers contacts={content.usefulContacts} alwaysOpen />
 
       {/* The strongest placement on the site for this. Somebody on the
           emergency page is already looking for a number and for somebody

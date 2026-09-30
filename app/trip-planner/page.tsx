@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import BackLink from "@/components/BackLink";
 import { getContent } from "@/lib/content";
 import { SITE_URL } from "@/lib/site";
@@ -61,7 +62,45 @@ export default async function TripPlannerPage() {
             {" "}Back
           </BackLink>
         </div>
-        <TripPlanner />
+        {/* The written plans that answer the same question, which this page
+            never linked (SEO audit 2026-09-29 C22). Rendered here, on the
+            server, and handed to the planner so it sits under the form.
+
+            It stays English — translating it into client copy would take the
+            C22 links out of the server HTML — so it says so: lang="en" on the
+            sentence, because <html lang> follows the reader's chosen language
+            (LanguageContext), and lang="fr" on the French link, as
+            FrenchTwinLink does, so a screen reader reads each in its own. */}
+        <TripPlanner
+          afterForm={
+            <p lang="en" className="font-dm text-sm leading-relaxed text-muted">
+              Not sure how many days?{" "}
+              <Link
+                href="/blog/how-many-days-in-rodrigues"
+                className="text-yellow underline underline-offset-2"
+              >
+                How many days you need
+              </Link>
+              ,{" "}
+              <Link
+                href="/blog/rodrigues-itinerary"
+                className="text-yellow underline underline-offset-2"
+              >
+                a 3, 5 or 7-day itinerary
+              </Link>
+              , or{" "}
+              <Link
+                href="/fr/itineraire-rodrigues"
+                hrefLang="fr"
+                lang="fr"
+                className="text-yellow underline underline-offset-2"
+              >
+                l&apos;itinéraire en français
+              </Link>
+              .
+            </p>
+          }
+        />
       </main>
     </>
   );

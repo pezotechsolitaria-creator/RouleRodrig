@@ -4,7 +4,7 @@ import LangLink from "@/components/nav/LangLink";
 import { ArrowRight, Check, MessageCircle } from "lucide-react";
 import { getFleetView } from "@/lib/site-data";
 import { SITE_URL } from "@/lib/site";
-import { breadcrumbLd } from "@/lib/schema";
+import { breadcrumbLd, sellerLd } from "@/lib/schema";
 import JsonLd from "@/components/JsonLd";
 import Navbar from "@/components/Navbar";
 import PageLanguage from "@/components/PageLanguage";
@@ -81,7 +81,9 @@ export const metadata: Metadata = {
 const FAQ = [
   {
     q: "Peut-on commander à manger en ligne à Rodrigues ?",
-    a: "Oui. Les plats des cuisines de l’île sont proposés avec leur prix, et vous commandez depuis le site sans passer un appel. Chaque plat indique combien de temps à l’avance le commander : une cuisine qui cuisine à la commande demande un jour de préavis — Chez Banane, au moins 24 heures. Au moment de commander, vous choisissez le jour et l’heure qui vous conviennent.",
+    // No "des cuisines de l'île": there is one kitchen (SEO audit 2026-09-29
+    // C8, line 5) — the same edit as the first answer in lib/food-faq.ts.
+    a: "Oui. Les plats sont proposés avec leur prix, et vous commandez depuis le site sans passer un appel. Chaque plat indique combien de temps à l’avance le commander : une cuisine qui cuisine à la commande demande un jour de préavis — Chez Banane, au moins 24 heures. Au moment de commander, vous choisissez le jour et l’heure qui vous conviennent.",
   },
   {
     q: "Combien coûte un repas à Rodrigues ?",
@@ -129,7 +131,7 @@ export default async function MangerARodriguesPage() {
             })),
           },
           {
-            // An ordering service. Deliberately not a Restaurant: Roulé
+            // An ordering service. Deliberately not a Restaurant: Roule
             // Rodrigues does not cook, the kitchens do, and claiming to be the
             // restaurant would contradict every other surface on this site.
             "@context": "https://schema.org",
@@ -138,11 +140,11 @@ export default async function MangerARodriguesPage() {
             name: "Commande de repas à Rodrigues",
             serviceType: "Commande de repas en ligne",
             inLanguage: "fr",
-            provider: {
-              "@type": "Organization",
-              name: "Roulé Rodrigues",
-              url: SITE_URL,
-            },
+            // THE business, by reference (SEO audit 2026-09-29 T9). This was
+            // an anonymous, accented "Roulé Rodrigues" Organization — a second
+            // entity beside the one sameAs and hasMap consolidate. The node
+            // it points at is defined below by sellerLd().
+            provider: { "@id": `${SITE_URL}/#business` },
             areaServed: {
               "@type": "Place",
               name: "Rodrigues, Maurice",
@@ -168,6 +170,9 @@ export default async function MangerARodriguesPage() {
               url: `${SITE_URL}/fr/manger-a-rodrigues`,
             },
           ]),
+          // The node `provider` points at, so the reference resolves on this
+          // page and not only on the homepage.
+          { "@context": "https://schema.org", ...sellerLd() },
         ]}
       />
       <Navbar
@@ -255,7 +260,7 @@ export default async function MangerARodriguesPage() {
               trip too, and these are the French pages that already rank. */}
           <nav className="mt-14 rounded-3xl border border-dark-border bg-white/[0.02] p-8">
             <p className="font-syne text-lg font-bold text-offwhite">
-              Aussi sur Roulé Rodrigues
+              Aussi sur Roule Rodrigues
             </p>
             <ul className="mt-4 space-y-2.5">
               {[

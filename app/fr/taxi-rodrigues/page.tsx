@@ -4,7 +4,10 @@ import LangLink from "@/components/nav/LangLink";
 import { ArrowRight, Check, MessageCircle } from "lucide-react";
 import { getFleetView } from "@/lib/site-data";
 import { SITE_URL } from "@/lib/site";
-import { breadcrumbLd } from "@/lib/schema";
+import { breadcrumbLd, sellerLd } from "@/lib/schema";
+import { readTransferFares } from "@/lib/rides/fares";
+import type { TransferPricing } from "@/lib/rides/transfer";
+import { taxiPriceAnswer, TRANSFERS_LINK } from "@/lib/taxi-faq";
 import JsonLd from "@/components/JsonLd";
 import Navbar from "@/components/Navbar";
 import PageLanguage from "@/components/PageLanguage";
@@ -30,10 +33,18 @@ export const revalidate = 3600;
 //
 // ── WHAT IS DELIBERATELY NOT SAID ───────────────────────────────────────────
 //
-// No fare. taxi_drivers.rate_from exists in the database and M96 decided it
-// must never be published: every driver charges differently, so a number here
-// would be a quote Roulé Rodrigues cannot honour. lib/i18n.ts states that on
-// every taxi surface, and this page does not become the exception.
+// No driver's fare. taxi_drivers.rate_from exists in the database and M96
+// decided it must never be published: every driver charges differently, so a
+// number here would be a quote Roule Rodrigues cannot honour. lib/i18n.ts
+// states that on every taxi surface, and this page does not become the
+// exception.
+//
+// The AIRPORT fares are another matter (SEO audit 2026-09-29 C2): since M220
+// they are the platform's own zone fares, published on /transfers and charged
+// by the booking. This page said "il n'existe pas de grille de prix" while
+// they existed, so the price answer is now the two-part one every taxi surface
+// gives (lib/taxi-faq.ts taxiPriceAnswer), with the zone fares read from the
+// price sheet at render time and never typed here.
 //
 // No claim to be a transport operator. The disclaimer this site publishes says
 // plainly that it is not one, and a French page implying otherwise would
@@ -72,14 +83,25 @@ export const metadata: Metadata = {
 // Five questions somebody has before landing on an island they do not know.
 // Every answer restates its subject and ends on a concrete fact, so it still
 // reads as a complete thought when an assistant lifts it out with no context.
-const FAQ = [
+//
+// Built from the price sheet, so the price answer can say the zone fares. The
+// `link` renders under its answer; it is not part of the FAQPage text. The
+// airport answer links /transfers because that page, with the best airport
+// fare table on the web, had three inbound links (SEO audit 2026-09-29 C5).
+type FaqEntry = { q: string; a: string; link?: { href: string; label: string } };
+
+const FAQ = (airport: TransferPricing | null): FaqEntry[] => [
   {
     q: "Comment aller de l'aéroport de Plaine Corail à son logement ?",
-    a: "En taxi : il n'y a pas de navette régulière depuis l'aéroport de Plaine Corail. Réservez un transfert à l'avance en indiquant votre numéro de vol — il figure sur la fiche du chauffeur, qui sait donc quelle arrivée attendre et peut tenir compte d'un retard.",
+    a: "En taxi : il n'y a pas de navette régulière depuis l'aéroport de Plaine Corail. Réservez un transfert à l'avance en indiquant votre numéro de vol — il figure sur la fiche du chauffeur, qui sait donc quelle arrivée attendre et peut tenir compte d'un retard. Les transferts aéroport sont à tarifs fixes par zone, selon la distance par la route.",
+    // One French label for /transfers, shared with lib/taxi-faq.ts — the old one
+    // read as English typography ("Tarifs fixes par zone : Transferts …").
+    link: TRANSFERS_LINK.fr,
   },
   {
+    // No second link here: the answer directly above already carries one.
     q: "Combien coûte un taxi à Rodrigues ?",
-    a: "Chaque chauffeur fixe son propre tarif : il n'existe pas de grille de prix sur l'île. Dites-nous votre trajet et le prix vous est confirmé avant tout engagement — rien ne vous est facturé tant que vous n'avez pas accepté, et Roulé Rodrigues ne prend jamais de paiement pour une course.",
+    a: taxiPriceAnswer("fr", airport),
   },
   {
     q: "Faut-il réserver son taxi à l'avance à Rodrigues ?",
@@ -96,7 +118,12 @@ const FAQ = [
 ];
 
 export default async function TaxiRodriguesPage() {
-  const { content, businessWhatsApp } = await getFleetView();
+  const [{ content, businessWhatsApp }, fares] = await Promise.all([
+    getFleetView(),
+    readTransferFares(),
+  ]);
+  // One list: the visible answers and the FAQPage markup below.
+  const faq = FAQ(fares.airport);
 
   const wa = (businessWhatsApp ?? "").replace(/\D/g, "");
   const waHref = wa
@@ -116,7 +143,7 @@ export default async function TaxiRodriguesPage() {
             "@context": "https://schema.org",
             "@type": "FAQPage",
             inLanguage: "fr",
-            mainEntity: FAQ.map((f) => ({
+            mainEntity: faq.map((f) => ({
               "@type": "Question",
               name: f.q,
               acceptedAnswer: { "@type": "Answer", text: f.a },
@@ -132,11 +159,10 @@ export default async function TaxiRodriguesPage() {
             name: "Réservation de taxi et de transfert à Rodrigues",
             serviceType: "Réservation de taxi",
             inLanguage: "fr",
-            provider: {
-              "@type": "Organization",
-              name: "Roulé Rodrigues",
-              url: SITE_URL,
-            },
+            // The one business entity (SEO audit 2026-09-29 T9). It was a
+            // second, accented, anonymous Organization; the seller node below
+            // makes the pointer resolve on this page.
+            provider: { "@id": `${SITE_URL}/#business` },
             areaServed: {
               "@type": "Place",
               name: "Rodrigues, Maurice",
@@ -153,8 +179,9 @@ export default async function TaxiRodriguesPage() {
               availableLanguage: ["fr", "en", "mfe"],
             },
             description:
-              "Demandez une course à Rodrigues et elle part aux chauffeurs disponibles, y compris les transferts depuis l'aéroport de Plaine Corail. Les chauffeurs sont indépendants, fixent leur tarif et confirment le prix avant tout engagement.",
+              "Demandez une course à Rodrigues et elle part aux chauffeurs disponibles. Les transferts depuis l'aéroport de Plaine Corail ont des tarifs fixes par zone ; pour les autres courses, les chauffeurs indépendants fixent leur tarif et confirment le prix avant tout engagement.",
           },
+          { "@context": "https://schema.org", ...sellerLd() },
           breadcrumbLd([
             { name: "Accueil", url: SITE_URL },
             { name: "Taxi à Rodrigues", url: `${SITE_URL}/fr/taxi-rodrigues` },
@@ -192,7 +219,7 @@ export default async function TaxiRodriguesPage() {
             <ul className="mt-7 space-y-2.5">
               {[
                 "Prix confirmé avant tout paiement — rien ne vous est facturé tant que vous n'avez pas accepté",
-                "Transfert aéroport avec votre numéro de vol, transmis au chauffeur",
+                "Transfert aéroport à tarif fixe par zone, avec votre numéro de vol transmis au chauffeur",
                 "Chauffeurs rodriguais indépendants, parlant créole et français",
                 "Mise à disposition à la journée : le chauffeur reste avec vous",
                 "Suivi de votre course en ligne une fois la réservation confirmée",
@@ -236,12 +263,24 @@ export default async function TaxiRodriguesPage() {
             Questions fréquentes
           </h2>
           <div className="mt-6 space-y-7">
-            {FAQ.map((f) => (
+            {faq.map((f) => (
               <section key={f.q}>
                 <h3 className="font-syne text-lg font-bold text-offwhite">
                   {f.q}
                 </h3>
                 <p className="mt-2 font-dm text-muted leading-relaxed">{f.a}</p>
+                {/* LangLink: /transfers holds the booking form, which reads
+                    the site language — a French reader must land on it in
+                    French (lib/nav/french-ctas-stay-french.test.ts). */}
+                {f.link && (
+                  <LangLink
+                    lang="fr"
+                    href={f.link.href}
+                    className="mt-1 inline-flex min-h-11 items-center gap-1.5 font-dm text-sm text-yellow/80 transition-colors hover:text-yellow"
+                  >
+                    {f.link.label} <ArrowRight size={14} />
+                  </LangLink>
+                )}
               </section>
             ))}
           </div>
@@ -250,7 +289,7 @@ export default async function TaxiRodriguesPage() {
               trip next, and these are the French pages that already rank. */}
           <nav className="mt-14 rounded-3xl border border-dark-border bg-white/[0.02] p-8">
             <p className="font-syne text-lg font-bold text-offwhite">
-              Aussi sur Roulé Rodrigues
+              Aussi sur Roule Rodrigues
             </p>
             <ul className="mt-4 space-y-2.5">
               {[

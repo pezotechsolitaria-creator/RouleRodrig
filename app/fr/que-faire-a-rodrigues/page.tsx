@@ -41,6 +41,8 @@ export const revalidate = 3600;
 const NB = " "; // narrow no-break space — French sets one before ? ! ; :
 
 const TITLE = `Que faire à Rodrigues${NB}? Le guide | Roule Rodrigues`;
+// 162 → 153 characters, so the closing clause (the prices) is not the part a
+// snippet cuts (SEO audit 2026-09-29 T15).
 const DESCRIPTION =
   "Que faire à Rodrigues : balade en mer, plongée en apnée à Rivière Banane, île aux Cocos, pêche, randonnées et plages, avec les prix, à réserver en direct.";
 
@@ -195,7 +197,7 @@ export default async function QueFaireRodriguesPage() {
                 Ce qui se réserve directement
               </h2>
               <p className="mt-2 font-dm text-sm text-muted">
-                Les activités proposées sur Roulé Rodrigues, avec le prix
+                Les activités proposées sur Roule Rodrigues, avec le prix
                 annoncé par le prestataire.
               </p>
               <ul className="mt-6 space-y-5">

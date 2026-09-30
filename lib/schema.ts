@@ -6,8 +6,25 @@
 // visible on the page. Marking up content a visitor can't see is a spam
 // signal and gets structured data ignored (or the site penalised).
 import { SITE_URL } from "./site";
+import { METHOD_LABEL, PAYMENT_METHODS } from "./bookings/in-person";
 
 const BRAND = "Roule Rodrigues";
+
+// The accented spelling is how the island writes the name and how people type
+// it, so the entity nodes claim it as an alias rather than leaving an engine to
+// guess the two are one business. Visible text uses BRAND (SEO audit
+// 2026-09-29 C17).
+export const BRAND_ALTERNATE = "Roulé Rodrigues";
+
+/**
+ * How a rental or booking can be paid — the methods the owner records a
+ * payment as (lib/bookings/in-person.ts), which are the ones a customer is
+ * actually offered: PayPal (cards go through it) and MCB Juice / bank transfer
+ * on the manage-booking page, and cash in person when the owner agrees it
+ * (M220). Derived rather than typed, so a method added there appears here and
+ * one removed there cannot linger (SEO audit 2026-09-29 T8).
+ */
+export const PAYMENT_ACCEPTED = PAYMENT_METHODS.map((m) => METHOD_LABEL[m]).join(", ");
 
 // Google picks the site name shown above a search result from WebSite schema.
 // Without it, it falls back to the domain — which is why results read "Vercel"
@@ -72,16 +89,28 @@ export function breadcrumbLd(trail: { name: string; url: string }[]) {
 
 // A collection page listing N items (fleet, stays, activities). Helps Google
 // treat the page as a real listing rather than thin content.
+//
+// An item whose url repeats an earlier one is dropped (SEO audit 2026-09-29
+// T13): two fleet units or two listings that share a slug share one page, and
+// a list naming the same address twice claims two things where there is one.
+// Items with no url are all kept — a name alone is not evidence of a repeat.
 export function itemListLd(
   name: string,
   items: { name: string; url?: string }[],
 ) {
+  const seen = new Set<string>();
+  const unique = items.filter((it) => {
+    if (!it.url) return true;
+    if (seen.has(it.url)) return false;
+    seen.add(it.url);
+    return true;
+  });
   return {
     "@context": "https://schema.org",
     "@type": "ItemList",
     name,
-    numberOfItems: items.length,
-    itemListElement: items.map((it, i) => ({
+    numberOfItems: unique.length,
+    itemListElement: unique.map((it, i) => ({
       "@type": "ListItem",
       position: i + 1,
       name: it.name,
@@ -179,6 +208,9 @@ const BRAND_BY_MODEL: [RegExp, string][] = [
   [/yamaha/i, "Yamaha"],
   [/kia/i, "Kia"],
   [/toyota/i, "Toyota"],
+  // The Hyundai Venue's Car node went out with no brand (SEO audit 2026-09-29
+  // T5): the model name says Hyundai, the table did not.
+  [/hyundai/i, "Hyundai"],
 ];
 
 function brandOf(name: string): string | null {
@@ -641,6 +673,7 @@ export function organizationLd(
     "@type": "Organization",
     "@id": `${SITE_URL}/#organization`,
     name: BRAND,
+    alternateName: BRAND_ALTERNATE,
     url: SITE_URL,
     ...(opts.logo ? { logo: opts.logo } : {}),
     ...(opts.sameAs?.length ? { sameAs: opts.sameAs } : {}),
@@ -669,6 +702,7 @@ export function sellerLd(): Record<string, unknown> {
     "@type": "AutoRental",
     "@id": `${SITE_URL}/#business`,
     name: "Roule Rodrigues",
+    alternateName: BRAND_ALTERNATE,
     url: SITE_URL,
     // The one explicit edge between the site's two identity nodes. Without
     // it #organization and #business were two disconnected entities claiming
@@ -676,6 +710,10 @@ export function sellerLd(): Record<string, unknown> {
     // entity resolution is precisely where guessing goes wrong.
     parentOrganization: { "@id": `${SITE_URL}/#organization` },
     areaServed: { "@type": "Place", name: "Rodrigues Island, Mauritius" },
+    // "Can I pay cash?" is asked on the pages that sell, and those are the
+    // pages that carry this stub rather than the homepage graph (SEO audit
+    // 2026-09-29 T8).
+    paymentAccepted: PAYMENT_ACCEPTED,
   };
 }
 

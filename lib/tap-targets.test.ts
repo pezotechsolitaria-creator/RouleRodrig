@@ -224,7 +224,9 @@ describe("the home page", () => {
 });
 
 describe("reaching a taxi driver", () => {
-  const src = tsx("app/taxi/page.tsx");
+  // The driver cards moved into TaxiDirectory.tsx when /taxi became a server
+  // page that renders the list for crawlers (SEO audit 2026-09-29 C23).
+  const src = tsx("app/taxi/TaxiDirectory.tsx");
 
   it("WhatsApp, Call and Rate all clear the floor", () => {
     // Measured at 375px: 222x36, 71x38 and 301x34. The first two are how a

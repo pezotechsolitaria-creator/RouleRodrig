@@ -241,9 +241,15 @@ export default async function RodriguanFoodPage() {
             </dl>
           </section>
 
+          {/* "Where to eat it", and the word "restaurant" in the section:
+              the page had 7,000 characters and not one occurrence of it, for
+              a site that ranks on "restaurants in rodrigues" (SEO audit
+              2026-09-29 C21). The links are the two ways this site actually
+              feeds somebody; no restaurant is named that the owner has not
+              listed. */}
           <section className="mt-8">
             <h2 className="font-syne text-xl font-extrabold">
-              Where to actually eat
+              Where to eat it
             </h2>
             <p className="mt-3 font-dm leading-relaxed text-muted">
               The best food on Rodrigues is served in people&apos;s houses. A{" "}
@@ -257,6 +263,20 @@ export default async function RodriguanFoodPage() {
               through the week, but Saturday is when the island turns out:
               achards, piment, honey, salted and dried fish, red kidney beans,
               and tourte in coconut, papaya, honey, chocolate and lime.
+            </p>
+            <p className="mt-3 font-dm leading-relaxed text-muted">
+              Two ways to eat it through this site:{" "}
+              <Link href="/food" className="text-yellow underline underline-offset-2">
+                order dishes from an island kitchen
+              </Link>
+              , or have{" "}
+              <Link
+                href="/food/concierge"
+                className="text-yellow underline underline-offset-2"
+              >
+                our food concierge
+              </Link>{" "}
+              book you a table at a restaurant.
             </p>
           </section>
 
@@ -281,7 +301,7 @@ export default async function RodriguanFoodPage() {
           <section className="mt-8 rounded-2xl border border-white/10 bg-dark-card p-5">
             <h2 className="font-syne text-lg font-extrabold">Order some</h2>
             <p className="mt-2 font-dm text-sm leading-relaxed text-muted">
-              Several of these are cooked to order on Roulé Rodrigues, and the
+              Several of these are cooked to order on Roule Rodrigues, and the
               food concierge will book you a table where they are not.
             </p>
             <div className="mt-4 flex flex-wrap gap-2">

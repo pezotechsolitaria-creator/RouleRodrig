@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import type { ReactNode } from "react";
 import { notFound, redirect } from "next/navigation";
 import { SITE_URL } from "@/lib/site";
 import { fromPriceOf } from "@/lib/experiences";
@@ -18,13 +19,30 @@ import Fleet from "@/components/Fleet";
 import TrustBar from "@/components/TrustBar";
 import BookingSection from "@/components/BookingSection";
 import { pickConditions } from "@/lib/rental-conditions";
-import { vehicleHref } from "@/lib/vehicle-slug";
+import { vehicleHref, vehicleName } from "@/lib/vehicle-slug";
 import RecommendedPlaces from "@/components/RecommendedPlaces";
 import { placeHref } from "@/lib/place-href";
+import { placePrice } from "@/lib/place-detail";
 import GettingAround from "@/components/GettingAround";
 import CategoryNotes, { type CategoryNote } from "@/components/browse/CategoryNotes";
 import WhatsAppButton from "@/components/WhatsAppButton";
 import ScrollToTop from "@/components/ScrollToTop";
+import { readTransferFares } from "@/lib/rides/fares";
+import { modelCostTable } from "@/lib/vehicle-cost";
+import {
+  AIRPORT_TRANSFER_PHRASE,
+  carAirportPassage,
+  categoryFrom,
+  categoryMetaDescription,
+  categoryTitle,
+  deliveryIsFree,
+  gettingAroundNotes,
+  rentalWhoWherePay,
+  STAY_PAY,
+  stayCostNote,
+  tripCostNote,
+  withFreeDelivery,
+} from "@/lib/browse-copy";
 
 // ISR (see app/page.tsx). The per-vehicle booking calendar is client-fetched,
 // so availability there stays live; card badges can be up to ~60s behind.
@@ -36,36 +54,36 @@ type Place = { category: string; isTour?: boolean };
 // ── /browse/getting-around ─────────────────────────────────────────────────
 // Not in PLACE_SLUGS: that branch reads content.gettingAround, whose three
 // options ship with EMPTY descriptions, so there was nothing on the page to
-// section. These are the facts the site already publishes elsewhere — the two
-// "from" prices are the ones live on /browse/car and /browse/scooter today, and
-// the taxi paragraph is the answer already given on /taxi ("every driver sets
-// their own fare, so there is no fixed price list").
-const GETTING_AROUND_NOTES: CategoryNote[] = [
-  {
-    h2: "Driving yourself",
-    h2Fr: "Conduire vous-même",
-    body:
-      "A car is from Rs 1,999 a day and a scooter from Rs 699, both booked direct with local owners. On Rodrigues you drive on the left, the same as Mauritius.",
-    bodyFr:
-      "Une voiture à partir de Rs 1 999 par jour, un scooter à partir de Rs 699, réservés directement auprès de propriétaires de l’île. À Rodrigues, on roule à gauche, comme à Maurice.",
-  },
-  {
-    h2: "Taking a taxi",
-    h2Fr: "Prendre un taxi",
-    body:
-      "There is no fixed price list on Rodrigues — every driver sets their own fare. Tell us where you are going and the price is confirmed with you before anything is agreed.",
-    bodyFr:
-      "Il n’y a pas de tarif fixe à Rodrigues : chaque chauffeur fixe son propre prix. Dites-nous où vous allez et le prix vous est confirmé avant tout engagement.",
-  },
-  {
-    h2: "Which one suits your trip",
-    h2Fr: "Lequel choisir",
-    body:
-      "A scooter is the cheapest way to cover the island in dry weather. A car earns its cost with a family, a longer stay or the rainy season. A taxi suits an airport run or an evening out.",
-    bodyFr:
-      "Le scooter est le moyen le moins cher de parcourir l’île par beau temps. La voiture se justifie en famille, pour un long séjour ou en saison des pluies. Le taxi convient pour un transfert à l’aéroport ou une sortie le soir.",
-  },
-];
+// section. The notes are built by gettingAroundNotes() in lib/browse-copy.ts
+// from the fleet and the transfer price list at render time. They used to be
+// typed here, and said "A car is from Rs 1,999" beside a /browse/car that said
+// Rs 1,899, and "no fixed price list" beside a /transfers that publishes one
+// (SEO audit 2026-09-29 C1, C2).
+
+/** A nameless row renders nowhere (RecommendedPlaces drops it), so it must not
+ *  be priced, listed or described in markup either — the same predicate
+ *  placesWithOwnPage uses (SEO audit 2026-09-29 T2). */
+const isNamed = (p: { name?: string | null }) => Boolean(p.name?.trim());
+
+/**
+ * `text` with its first `phrase` as a link. The copy stays a plain string —
+ * what the paused page prints and what the tests read — and the page decides
+ * which words carry the link (SEO audit 2026-09-29 C5: /transfers had three
+ * inbound links).
+ */
+function linkPhrase(text: string, link?: { phrase: string; href: string }): ReactNode {
+  const at = link ? text.indexOf(link.phrase) : -1;
+  if (!link || at < 0) return text;
+  return (
+    <>
+      {text.slice(0, at)}
+      <Link href={link.href} className="underline underline-offset-2 hover:text-yellow">
+        {link.phrase}
+      </Link>
+      {text.slice(at + link.phrase.length)}
+    </>
+  );
+}
 
 const PLACE_SLUGS: Record<
   string,
@@ -91,6 +109,12 @@ const PLACE_SLUGS: Record<
      * publishes; see components/browse/CategoryNotes.tsx.
      */
     notes?: CategoryNote[];
+    /**
+     * The first section, "what it costs", built from the prices on the cards
+     * it sits under (lib/browse-copy.ts). A typed range went stale on
+     * /browse/tours the day Île aux Cocos was listed at Rs 1,999.
+     */
+    costNote?: (prices: (number | null)[]) => CategoryNote;
     /** French versions of both. The FR pages outrank everything else here. */
     headingFr?: string;
     introFr?: string;
@@ -126,13 +150,18 @@ const PLACE_SLUGS: Record<
     filter: (p) => p.category === "activity" && !p.isTour,
     hubHref: "/experiences",
     hubLabel: "See every experience on Rodrigues — boat, fishing, hiking and more",
-    heading: "Things to Do in Rodrigues",
+    // The <h1>, so it matches the <title> META.activities was retitled to:
+    // "Things to Do in Rodrigues" is /experiences' head term, and a title and
+    // h1 that disagree invite Google to rebuild the title from the h1 (SEO
+    // audit 2026-09-29 C19/T14). "Que faire à Rodrigues" is the head term of
+    // /fr/que-faire-a-rodrigues, /experiences' French twin.
+    heading: "Activities in Rodrigues",
     // Deliberately says nothing about how many or what kind: this list is one
     // item some weeks and several others, and an intro that promises variety
     // reads as a lie on the day it holds a single spa treatment.
     intro:
       "Activities on Rodrigues you can book directly with the person who runs them. The price per person and, where the provider has set one, how long the session lasts are shown on each card.",
-    headingFr: "Que faire à Rodrigues",
+    headingFr: "Activités à Rodrigues",
     introFr:
       "Des activités à Rodrigues que vous réservez directement auprès de la personne qui les propose. Le prix par personne et, lorsqu’elle est indiquée, la durée de la séance figurent sur chaque fiche.",
   },
@@ -151,18 +180,11 @@ const PLACE_SLUGS: Record<
     headingFr: "Excursions et sorties en mer à Rodrigues",
     introFr:
       "Sorties en mer et excursions guidées menées par des skippers et des guides de l’île — l’Île aux Cocos et sa réserve d’oiseaux, la plongée en apnée sur le corail à Rivière Banane, la pêche traditionnelle, et une balade dans le lagon. Les prix sont par personne et figurent sur chaque fiche, plusieurs sorties durant environ une heure.",
-    // Grounded the same way the intro below is: Rs 700 to Rs 1,000 is the real
-    // spread on the cards, three of the four are set at 60 minutes, and the
-    // Ile aux Cocos sentence is the operator's own description of the reserve.
+    // Grounded the same way the intro below is: three of the four are set at
+    // 60 minutes, and the Ile aux Cocos sentence is the operator's own
+    // description of the reserve. The price spread is read from the cards.
+    costNote: tripCostNote,
     notes: [
-      {
-        h2: "What a boat trip costs",
-        h2Fr: "Combien coûte une sortie en mer",
-        body:
-          "Trips on this page run from about Rs 700 to Rs 1,000 per person, and most last around an hour. The price and, where the skipper has set one, the duration are on each card.",
-        bodyFr:
-          "Les sorties de cette page vont d’environ Rs 700 à Rs 1 000 par personne, et durent le plus souvent une heure. Le prix et, lorsqu’elle est indiquée, la durée figurent sur chaque fiche.",
-      },
       {
         h2: "Île aux Cocos",
         h2Fr: "L’Île aux Cocos",
@@ -198,18 +220,10 @@ const PLACE_SLUGS: Record<
     headingFr: "Où loger à Rodrigues",
     introFr:
       "Chambres d’hôtes, villas avec cuisine et petits hôtels à Rodrigues — vue sur mer, petit-déjeuner, climatisation et piscine selon les adresses. Chaque hébergement est tenu par un propriétaire local indépendant : le prix par nuit est indiqué sur la fiche, puis vous réservez ou vous vous renseignez directement auprès de lui.",
-    // Every figure below is on a card on this page today: Lakaze Mama at
-    // Rs 1,000, Les Mangliers at Rs 7,000, and two places that quote
-    // self-catering per person rather than per room.
+    // The nightly range is read from the cards (stayCostNote); two places
+    // quote self-catering per person rather than per room.
+    costNote: stayCostNote,
     notes: [
-      {
-        h2: "What a room costs on Rodrigues",
-        h2Fr: "Combien coûte une chambre à Rodrigues",
-        body:
-          "Nightly prices on this page start around Rs 1,000 and run to about Rs 7,000, depending on whether you want a room or a whole house to yourself. A few places quote self-catering per person instead of per room — the card tells you which.",
-        bodyFr:
-          "Les prix par nuit sur cette page vont d’environ Rs 1 000 à Rs 7 000, selon que vous cherchez une chambre ou une maison entière. Certaines adresses affichent un tarif par personne en formule cuisine plutôt qu’un prix par chambre : c’est indiqué sur la fiche.",
-      },
       {
         h2: "Self-catering, or breakfast included",
         h2Fr: "Avec cuisine, ou petit-déjeuner compris",
@@ -221,10 +235,12 @@ const PLACE_SLUGS: Record<
       {
         h2: "Booking direct with the owner",
         h2Fr: "Réserver directement auprès du propriétaire",
-        body:
-          "Every place here is run by an independent local owner. You book or enquire with them directly and agree the details with the person who actually runs it, rather than through a desk that has never seen the room.",
-        bodyFr:
-          "Chaque hébergement est tenu par un propriétaire local indépendant. Vous réservez ou vous vous renseignez directement auprès de lui et vous convenez des détails avec la personne qui tient les lieux, pas avec une agence qui n’a jamais vu la chambre.",
+        // How it is paid, cash included, from lib/browse-copy.ts STAY_PAY:
+        // this page said nothing about paying (SEO audit 2026-09-29 C4). Kept
+        // in this note rather than a fourth section, so the page keeps its
+        // three h2s.
+        body: `Every place here is run by an independent local owner. You book or enquire with them directly and agree the details with the person who actually runs it, rather than through a desk that has never seen the room. ${STAY_PAY.en}`,
+        bodyFr: `Chaque hébergement est tenu par un propriétaire local indépendant. Vous réservez ou vous vous renseignez directement auprès de lui et vous convenez des détails avec la personne qui tient les lieux, pas avec une agence qui n’a jamais vu la chambre. ${STAY_PAY.fr}`,
       },
     ],
   },
@@ -247,18 +263,37 @@ const VEHICLE_COPY: Record<
   {
     heading: string;
     /** `from` is the cheapest daily rate; `deliveryFee` is this category's
-     *  delivery charge, which is 0 for scooters and Rs 600 for cars. Both come
-     *  from the CMS so the sentence cannot drift from what checkout charges. */
-    intro: (from: number | null, deliveryFee?: number) => string;
+     *  delivery charge and `freeDelivery` is deliveryIsFree() — both from the
+     *  CMS, so the sentence cannot drift from what checkout charges or from
+     *  the owner's own price notes. `pay` is rentalWhoWherePay(), placed
+     *  before the call to action (SEO audit 2026-09-29 C4 fix 2: "the same
+     *  who/where/pay sentence in both VEHICLE_COPY intros"), so the
+     *  paragraph still ends on what to do next. */
+    intro: (o: {
+      from: number | null;
+      deliveryFee?: number;
+      freeDelivery?: boolean;
+      pay?: string | null;
+    }) => string;
+    /** Words in the intro rendered as a link (see linkPhrase). */
+    link?: { phrase: string; href: string };
     frLabel?: string;
   }
 > = {
   scooter: {
     heading: "Scooter Rental in Rodrigues",
-    intro: (from) =>
+    // "delivered free" was unconditional here. It is now said only when
+    // deliveryIsFree() allows it: the fee checkout charges is 0 and no
+    // scooter's own note puts a condition on delivery (SEO audit 2026-09-29,
+    // rule: nothing is "free" unless its charge is zero; C20).
+    intro: ({ from, freeDelivery, pay }) =>
       `Rent a scooter in Rodrigues direct from local owners${
         from ? ` — from Rs ${from.toLocaleString("en-US")} a day` : ""
-      }, helmet included and delivered free to your guest house. We hand over in person, with real advice on the roads and the places worth riding to. Pick a scooter below and book your dates online.`,
+      }, helmet included and delivered${
+        freeDelivery ? " free" : ""
+      } to your guest house. We hand over in person, with real advice on the roads and the places worth riding to.${
+        pay ? ` ${pay}` : ""
+      } Pick a scooter below and book your dates online.`,
     frLabel: "Location de scooter à Rodrigues — cette page en français",
   },
   car: {
@@ -270,21 +305,30 @@ const VEHICLE_COPY: Record<
     // 1x, 3x and 7x the daily rate. A commercial page cannot promise a discount
     // the checkout will not give.
     //
-    // The delivery fee is now stated rather than implied. Cars carry a Rs 600
-    // fee (content.vehicleCategories) while scooters are free, and the fleet
-    // card already prints "+ Rs 600 delivery" -- so an intro that said only "we
-    // deliver to your guest house" was quietly setting up the contradiction.
+    // The delivery fee is now stated rather than implied. When the car
+    // category carries a fee (content.vehicleCategories) the fleet card prints
+    // "+ Rs N delivery" -- so an intro that said only "we deliver to your
+    // guest house" was quietly setting up the contradiction. At a fee of 0 it
+    // says nothing about the charge: the Swift's own note puts a condition on
+    // free delivery (C20), and deliveryIsFree() is what decides "free".
     //
     // Airport, Plaine Corail, automatic, air-conditioned and which side of the
     // road are here because the EN car pages contained ZERO occurrences of any
     // of them, while the French page answers all of those questions and is the
     // best car page on the site. These are the things a car renter searches for.
-    intro: (from, deliveryFee) =>
+    //
+    // The transfer sentence is the way out for somebody who would rather not
+    // drive off the plane, and the car page's link to /transfers (SEO audit
+    // 2026-09-29 C5). The /fr car page has offered the same all along.
+    intro: ({ from, deliveryFee, pay }) =>
       `Hire a car in Rodrigues from local owners${
         from ? ` — clear daily rates from Rs ${from.toLocaleString("en-US")} a day` : ""
       }${
         deliveryFee ? `, plus Rs ${deliveryFee.toLocaleString("en-US")} delivery` : ""
-      }. Automatic, air-conditioned and insured — the easy choice for families, longer stays and the rainy season. We bring the car to your guest house or meet you at Plaine Corail airport, hand over in person and explain the island's roads before you set off; on Rodrigues you drive on the left, as in Mauritius. Choose a car below and book your dates online.`,
+      }. Automatic, air-conditioned and insured — the easy choice for families, longer stays and the rainy season. We bring the car to your guest house or meet you at Plaine Corail airport, hand over in person and explain the island's roads before you set off; on Rodrigues you drive on the left, as in Mauritius. Rather not drive on arrival? Book an ${AIRPORT_TRANSFER_PHRASE} instead.${
+        pay ? ` ${pay}` : ""
+      } Choose a car below and book your dates online.`,
+    link: { phrase: AIRPORT_TRANSFER_PHRASE, href: "/transfers" },
     frLabel: "Location de voiture à Rodrigues — cette page en français",
   },
 };
@@ -323,16 +367,26 @@ const META: Record<
   // drift; the only question is how long it takes. Here it took a day. So the
   // title and the description now take theirs from the same fleet the grid
   // renders, and there is a test that fails if they ever disagree again.
+  // ── "free" IS NOT WRITTEN HERE ─────────────────────────────────────────
+  // Both said "delivered free to your guest house" while cars carried a
+  // Rs 600 fee. withFreeDelivery() adds the word only when deliveryIsFree()
+  // does: the fee is 0 AND no unit's own note puts a condition on delivery
+  // (SEO audit 2026-09-29, C20).
+  //
+  // Every description on a priced page (vehicles, stays, activities, tours)
+  // leaves room for " From Rs 9,999." inside 155 characters, because
+  // categoryMetaDescription() puts the price there and the price is the part
+  // Google used to cut (T7). lib/browse-copy.test.ts measures them.
   scooter: {
     title: "Scooter Rental Rodrigues",
     description:
-      "Rent a scooter in Rodrigues, delivered free to your guest house. Helmets included, no minimum hire, and real local advice on where to ride.",
+      "Rent a scooter in Rodrigues, delivered to your guest house. Helmets included, no minimum hire, and real local advice on where to ride.",
     fr: "/fr/location-scooter-rodrigues",
   },
   car: {
     title: "Car Rental Rodrigues",
     description:
-      "Rent a car in Rodrigues, delivered free to your guest house. Automatic, air-conditioned and insured, booked direct with local owners.",
+      "Rent a car in Rodrigues, delivered to your guest house. Automatic, air-conditioned and insured, booked direct with local owners.",
     fr: "/fr/location-voiture-rodrigues",
   },
   stays: {
@@ -343,10 +397,17 @@ const META: Record<
     // the one the French page declares.
     fr: "/fr/hebergement-rodrigues",
   },
+  // ── NOT "Things to Do in Rodrigues" ──────────────────────────────────────
+  // That is /experiences' title, and this page lists a subset of it: two
+  // pages, one query (SEO audit 2026-09-29 C19/T14). Whether this page should
+  // redirect there is the owner's decision; until then it names what it is.
+  // The description promised "Kitesurfing, snorkelling, hiking" on a page
+  // listing a massage and a hike, so it now promises no kind at all — the
+  // same rule its intro below is written under.
   activities: {
-    title: "Things to Do in Rodrigues Island",
+    title: "Activities in Rodrigues",
     description:
-      "Things to do in Rodrigues: boat trips, snorkelling, fishing, hikes, massage and tours, with photos and prices, booked direct with locals.",
+      "Activities in Rodrigues you book directly with the person who runs them. See the photos and the price per person on each listing.",
   },
   tours: {
     title: "Guided Tours in Rodrigues",
@@ -365,8 +426,9 @@ const META: Record<
     // different title, and they stop cannibalising each other. The <h1> stays
     // "Getting Around Rodrigues", which is what the page is.
     title: "Taxi, Car & Scooter Hire in Rodrigues",
+    // Was 156 characters (SEO audit 2026-09-29 T15).
     description:
-      "Getting around Rodrigues: taxis, airport transfers, scooter and car hire. Compare real local prices and contact drivers direct — no agency, no booking fees.",
+      "Getting around Rodrigues: taxis, airport transfers, scooter and car hire. Compare real local prices and contact drivers direct, no booking fees.",
   },
   events: {
     title: "Events & Festivals in Rodrigues Island",
@@ -431,10 +493,16 @@ export async function generateMetadata({
   // fleet, same filter and same price parser the grid uses, so the title cannot
   // advertise a rate the page below it does not show.
   let vehicleFrom: number | null = null;
+  // May this category's delivery be called free (deliveryIsFree, C20)? False
+  // for a place category or a failed read, and then nothing is called free.
+  let freeDelivery = false;
   try {
     const { content, fleet, recentBookings } = await getFleetView();
     cats = buildBrowseCategories(content, fleet, recentBookings);
-    listings = content.recommended.items;
+    // Named rows only: a nameless one renders nowhere, so its price must not
+    // become the title's "from" (SEO audit 2026-09-29 T2).
+    listings = content.recommended.items.filter(isNamed);
+    freeDelivery = deliveryIsFree(fleet, category, content.vehicleCategories);
     const rates = fleet
       .filter((f) => (f.category ?? "scooter") === category)
       .filter(isSellableFleetItem)
@@ -474,12 +542,12 @@ export async function generateMetadata({
           // nothing sellable keeps its plain title rather than inventing a
           // figure to look consistent.
           vehicleFrom;
-    const title = from
-      ? `${m.title} from Rs ${from.toLocaleString("en-US")}`
-      : m.title;
+    // Built in lib/browse-copy.ts so the 60/155 limits are enforced and
+    // tested rather than eyeballed: the price used to trail the description
+    // past character 155, where Google cut it (SEO audit 2026-09-29 T7).
     return pageMeta(
-      `${title} | Roule Rodrigues`,
-      from ? `${m.description} From Rs ${from.toLocaleString("en-US")}.` : m.description,
+      categoryTitle(m.title, from),
+      categoryMetaDescription(withFreeDelivery(m.description, freeDelivery), from),
       category,
       m.fr,
       ogImage,
@@ -545,7 +613,10 @@ export default async function BrowsePage({
   // for invisible content is the exact thing that guideline exists to stop. It
   // was also telling Google that a page about guest houses is about driving
   // licences, which is a topical-relevance leak on three commercial pages.
-  const seo = (label: string, items: { name: string }[], withFaq = false) => (
+  // Each item carries its own page's url: a list of names gave a crawler no
+  // route to the priced detail pages (SEO audit 2026-09-29 T13). itemListLd()
+  // keeps one ListItem per url, so the twin AVENIS rows are listed once.
+  const seo = (label: string, items: { name: string; url?: string }[], withFaq = false) => (
     <JsonLd
       data={[
         breadcrumbLd([
@@ -649,7 +720,7 @@ export default async function BrowsePage({
             </p>
             {pausedCopy ? (
               <p className="mt-4 font-dm text-sm leading-relaxed text-muted">
-                {pausedCopy.intro(null, undefined)}
+                {linkPhrase(pausedCopy.intro({ from: null }), pausedCopy.link)}
               </p>
             ) : null}
             <div className="mt-6 flex flex-wrap gap-3">
@@ -717,11 +788,40 @@ export default async function BrowsePage({
     // Google left it "Discovered - currently not indexed" while ranking THIS
     // thinner page around position 50-70 for French car queries.
     const vFrHref = META[vcat.id]?.fr;
+    // Who rents, from where, and how to pay — from the contact line (SEO
+    // audit 2026-09-29 C4). It goes inside the intro, before the call to
+    // action; the intro has already said the delivery.
+    const whoWherePay = rentalWhoWherePay({
+      category: vcat.id,
+      location: content.contact.location,
+    });
+    // One answer to "is delivery free?" for the intro, the airport passage
+    // and the metadata: the fee checkout charges, read against the owner's
+    // own price notes (C20).
+    const freeDelivery = deliveryIsFree(items, vcat.id, content.vehicleCategories);
+    // ── WHAT CAR HIRE COSTS, AND THE AIRPORT (SEO audit 2026-09-29 C18) ────
+    // "car rental rodrigues (price / airport)" land here, and the page showed
+    // only per-day cards while each model's own page had the 1-day / 3-day /
+    // 1-week table. Same helper as that table, so the two cannot disagree.
+    // The security deposit is the owner's FAQ answer, verbatim — a different
+    // sum from the part-payment that confirms a booking (lib/rental-conditions),
+    // so the two are printed apart below. Four columns at 375px: prices never
+    // wrap, names do, and the wrapper scrolls rather than the page.
+    const carCosts = vcat.id === "car" ? modelCostTable(items, content.vehicleCategories) : [];
+    const securityDeposit = conditionItems.find((c) => c.id === "deposit")?.answer;
+    const airport =
+      vcat.id === "car"
+        ? carAirportPassage({
+            location: content.contact.location,
+            deliveryFee: vcat.deliveryFee,
+            freeDelivery,
+          })
+        : null;
     return (
       <>
         {seo(
           vcat.label,
-          items.map((i) => ({ name: i.name })),
+          items.map((i) => ({ name: vehicleName(i), url: `${SITE_URL}${vehicleHref(i)}` })),
           // The only branch that renders <RentalConditions> visibly.
           true,
         )}
@@ -811,7 +911,15 @@ export default async function BrowsePage({
             subtitle={
               vcopy ? (
                 <>
-                  {vcopy.intro(vFrom, vcat.deliveryFee)}
+                  {linkPhrase(
+                    vcopy.intro({
+                      from: vFrom,
+                      deliveryFee: vcat.deliveryFee,
+                      freeDelivery,
+                      pay: whoWherePay,
+                    }),
+                    vcopy.link,
+                  )}
                   {/* ── THE FRENCH TWIN, ON ITS OWN LINE ──────────────────
                       This was a bare <a> welded onto the end of the intro
                       with a {" "}, so the English paragraph ran straight on
@@ -863,6 +971,86 @@ export default async function BrowsePage({
                "deposit" each appeared zero times in the live HTML. */
             conditions={conditionItems}
           />
+          {/* Below the form, not above it: the cards and the booking form keep
+              their place, and the table is still server-rendered text. */}
+          {carCosts.length || airport ? (
+            <div className="mx-auto max-w-5xl px-4 pb-10 md:px-6">
+              <div className="space-y-7 border-t border-white/10 pt-8">
+                {carCosts.length ? (
+                  <section>
+                    <h2 className="font-syne text-lg font-extrabold leading-tight text-offwhite md:text-xl">
+                      What car hire costs on Rodrigues
+                    </h2>
+                    <div className="mt-3 max-w-2xl overflow-x-auto">
+                      <table className="w-full border-collapse font-dm text-sm">
+                        <thead>
+                          <tr className="border-b border-white/10 text-left text-xs text-muted">
+                            <th scope="col" className="py-2 pr-3 font-medium">Car</th>
+                            {carCosts[0].tiers.map((t) => (
+                              <th key={t.days} scope="col" className="py-2 pl-3 text-right font-medium">
+                                {t.label}
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {carCosts.map((m) => (
+                            <tr key={m.href} className="border-b border-white/5">
+                              <th scope="row" className="py-2.5 pr-3 text-left font-normal">
+                                <Link
+                                  href={m.href}
+                                  className="text-offwhite underline-offset-2 hover:text-yellow hover:underline"
+                                >
+                                  {m.name}
+                                </Link>
+                              </th>
+                              {m.tiers.map((t) => (
+                                <td key={t.days} className="whitespace-nowrap py-2.5 pl-3 text-right text-offwhite/85">
+                                  Rs {t.rental.toLocaleString("en-US")}
+                                </td>
+                              ))}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    {/* Two different sums are called "deposit" here: the
+                        part-payment that confirms a booking online, and the
+                        Rs 5,000 security deposit the owner's answer states.
+                        Run into one paragraph they read as one sum, so the
+                        first is named for what it is and the owner's answer
+                        stands on its own line, word for word. */}
+                    <p className="mt-3 max-w-2xl font-dm text-[15px] leading-relaxed text-muted">
+                      Rental only — delivery and the part-payment that confirms your booking
+                      online are shown before you confirm.
+                    </p>
+                    {securityDeposit ? (
+                      <p className="mt-2 max-w-2xl font-dm text-[15px] leading-relaxed text-muted">
+                        {securityDeposit}
+                      </p>
+                    ) : null}
+                  </section>
+                ) : null}
+                {airport ? (
+                  <section>
+                    <h2 className="font-syne text-lg font-extrabold leading-tight text-offwhite md:text-xl">
+                      Collecting your car at Plaine Corail airport
+                    </h2>
+                    <p className="mt-2 max-w-2xl font-dm text-[15px] leading-relaxed text-muted">
+                      {airport.body}{" "}
+                      {linkPhrase(airport.transfer, {
+                        phrase: AIRPORT_TRANSFER_PHRASE,
+                        href: "/transfers",
+                      })}
+                    </p>
+                    <p className="mt-2 max-w-2xl font-dm text-[15px] leading-relaxed text-muted">
+                      {airport.mainland}
+                    </p>
+                  </section>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
         </main>
         {footer}
       </>
@@ -872,7 +1060,11 @@ export default async function BrowsePage({
   // ── Places (restaurants / activities / tours / stays) ──
   const place = PLACE_SLUGS[category];
   if (place) {
-    const items = content.recommended.items.filter(place.filter);
+    // isNamed: /browse/activities published six Services and a six-item
+    // ItemList while rendering two cards — four rows with name "" that
+    // RecommendedPlaces drops (SEO audit 2026-09-29 T2). Filtered once here,
+    // so the cards, the ItemList, the @graph and the empty state agree.
+    const items = content.recommended.items.filter(place.filter).filter(isNamed);
     // Same guard as the vehicle branch above, for the same reason. /browse/stays
     // and /browse/tours are in the sitemap and carry hreflang from their French
     // twins, and an empty listing is "nothing published yet", not "this URL was
@@ -905,11 +1097,56 @@ export default async function BrowsePage({
         </>
       );
     }
+    // The cost section first, read from the prices on these same cards.
+    const placeNotes = [
+      ...(place.costNote ? [place.costNote(items.map(placePrice))] : []),
+      ...(place.notes ?? []),
+    ];
+    // The listings' markup (see THE PRICE, WHERE A MACHINE CAN READ IT below).
+    const placeNodes = items.map((i) => {
+      const image = i.image
+        ? i.image.startsWith("http")
+          ? i.image
+          : `${SITE_URL}${i.image}`
+        : undefined;
+      // placePrice, not the deposit: the deposit holds a booking and
+      // is not what the listing costs. The Île aux Cocos Service went
+      // out with no Offer at all (no deposit set) beside an on-screen
+      // "Rs 1999/Person" (SEO audit 2026-09-29 T2). The experience
+      // routes switched in M191; this was the copy they left behind.
+      const price = placePrice(i);
+      // The listing's own address, not the page's. Every entry here
+      // shared one URL, which is the same defect lib/place-href.ts was
+      // written to end.
+      const url = `${SITE_URL}${placeHref(i)}`;
+      return i.category === "hotel"
+        ? stayLd({ name: i.name, price, description: i.description, image, url })
+        : experienceLd({
+            name: i.name,
+            price,
+            description: i.description,
+            image,
+            url,
+            providerName: i.providerName ?? null,
+            durationMinutes:
+              typeof i.durationMinutes === "number" ? i.durationMinutes : null,
+          });
+    });
+    // ── THE SELLER THE SERVICES POINT AT, ON THE PAGE THAT POINTS (T9) ──────
+    // experienceLd() names #business as the provider when the owner named
+    // nobody, and as every priced Offer's seller, and nothing on /browse/tours
+    // or /browse/activities defined it: a bare pointer with no type and no
+    // name (SEO audit 2026-09-29 T9, "the two browse place branches"). Added
+    // only when a node here actually points at it, read off the nodes rather
+    // than off which helper made them: stayLd() references nothing, so
+    // /browse/stays gets no AutoRental node that nothing on it refers to.
+    const pointsAtSeller = JSON.stringify(placeNodes).includes(`"${SITE_URL}/#business"`);
+    const placeGraph = pointsAtSeller ? [sellerLd(), ...placeNodes] : placeNodes;
     return (
       <>
         {seo(
           place.label,
-          items.map((i) => ({ name: i.name })),
+          items.map((i) => ({ name: i.name.trim(), url: `${SITE_URL}${placeHref(i)}` })),
         )}
         {/* ── THE PRICE, WHERE A MACHINE CAN READ IT (M137) ─────────────────
             This branch serves stays, activities and tours, and emitted a
@@ -926,33 +1163,7 @@ export default async function BrowsePage({
         <JsonLd
           data={{
             "@context": "https://schema.org",
-            "@graph": items.map((i) => {
-              const image = i.image
-                ? i.image.startsWith("http")
-                  ? i.image
-                  : `${SITE_URL}${i.image}`
-                : undefined;
-              const price =
-                typeof i.depositAmount === "number" && i.depositAmount > 0
-                  ? i.depositAmount
-                  : null;
-              // The listing's own address, not the page's. Every entry here
-              // shared one URL, which is the same defect lib/place-href.ts was
-              // written to end.
-              const url = `${SITE_URL}${placeHref(i)}`;
-              return i.category === "hotel"
-                ? stayLd({ name: i.name, price, description: i.description, image, url })
-                : experienceLd({
-                    name: i.name,
-                    price,
-                    description: i.description,
-                    image,
-                    url,
-                    providerName: i.providerName ?? null,
-                    durationMinutes:
-                      typeof i.durationMinutes === "number" ? i.durationMinutes : null,
-                  });
-            }),
+            "@graph": placeGraph,
           }}
         />
         {/* "span", not the default h1. This branch rendered place.label —
@@ -981,7 +1192,7 @@ export default async function BrowsePage({
             }}
             whatsapp={businessWhatsApp}
           />
-          {place.notes ? <CategoryNotes notes={place.notes} /> : null}
+          {placeNotes.length ? <CategoryNotes notes={placeNotes} /> : null}
           {/* The French twin as a real link, not only an hreflang annotation.
               META.stays has declared /fr/hebergement-rodrigues for weeks and
               this branch never rendered it, so the only routes into the French
@@ -1016,6 +1227,15 @@ export default async function BrowsePage({
     const ga = content.gettingAround;
     if (!ga?.enabled || (ga.options ?? []).length === 0) notFound();
     const opts = (ga.options ?? []).filter((o) => o.icon !== "bus");
+    // The airport price list /transfers prints and the booking charges. Null
+    // without a service-role key (local dev) or with transfers switched off,
+    // and then the note names no fare rather than inventing one.
+    const { airport } = await readTransferFares();
+    const notes = gettingAroundNotes({
+      carFrom: categoryFrom(fleet, "car", content.vehicleCategories),
+      scooterFrom: categoryFrom(fleet, "scooter", content.vehicleCategories),
+      airport,
+    });
     return (
       <>
         {seo(
@@ -1033,16 +1253,41 @@ export default async function BrowsePage({
             stickyTop="top-[56px]"
           />
           <GettingAround titleAs="h1" content={{ ...ga, options: opts }} />
-          <CategoryNotes notes={GETTING_AROUND_NOTES} />
-          {/* /fr/se-deplacer-a-rodrigues was "Discovered - currently not
-              indexed": Google knew of it and had never fetched it. Its
-              hreflang twin is the blog post, so this is a plain link rather
-              than a second pairing — a crawl path, which is what was missing. */}
-          <div className="mx-auto max-w-7xl px-4 md:px-6">
-            <FrenchTwinLink
-              href="/fr/se-deplacer-a-rodrigues"
-              label="Se déplacer à Rodrigues — cette page en français"
-            />
+          <CategoryNotes notes={notes} />
+          {/* ── WHERE THE NOTES POINT ──────────────────────────────────────
+              /transfers is the page with the fares the taxi note quotes, and
+              had three inbound links (SEO audit 2026-09-29 C5).
+
+              /fr/se-deplacer-a-rodrigues was "Discovered - currently not
+              indexed", so it keeps a crawl path from here. But it was labelled
+              "cette page en français" while its hreflang twin is the blog
+              post, not this page (C13). It is now offered as what it is: the
+              French version of the guide linked beside it, and not through
+              FrenchTwinLink, whose contract is "the page that names THIS one
+              in its hreflang". */}
+          <div className="mx-auto max-w-5xl space-y-2 px-4 pb-6 pt-6 font-dm text-sm text-muted md:px-6">
+            <p>
+              <Link href="/transfers" className="underline underline-offset-2 hover:text-yellow">
+                Airport transfers: the fares zone by zone
+              </Link>
+            </p>
+            <p>
+              <Link
+                href="/blog/how-to-get-around-rodrigues"
+                className="underline underline-offset-2 hover:text-yellow"
+              >
+                How to get around Rodrigues: the full guide
+              </Link>
+              {" · "}
+              <Link
+                href="/fr/se-deplacer-a-rodrigues"
+                hrefLang="fr"
+                lang="fr"
+                className="underline underline-offset-2 hover:text-yellow"
+              >
+                Se déplacer à Rodrigues, le guide en français
+              </Link>
+            </p>
           </div>
         </main>
         {footer}

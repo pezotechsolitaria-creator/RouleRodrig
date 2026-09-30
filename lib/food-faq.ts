@@ -25,11 +25,16 @@ import type { Language } from "@/lib/i18n";
 
 import type { FaqItem } from "@/lib/experiences-faq";
 
+// The first answer in each language said "island kitchens" / "cuisines de
+// l'île" — plural, when Chez Banane is the one kitchen (SEO audit 2026-09-29
+// C8, stale line 5). llms.txt dropped it; these answers carried it straight
+// back into /llms-full.txt, /food and its FAQPage JSON-LD. Only the plural
+// went; the rest of each answer is unchanged.
 const EN: FaqItem[] = [
   {
     question: "Can I order food online in Rodrigues?",
     answer:
-      "Yes. Dishes from island kitchens are listed with their price, and you order on the site — no phone call needed. Each dish says how far ahead to order: a kitchen that cooks to order needs a day’s notice. At checkout you choose when you want it — the day and the time.",
+      "Yes. Dishes are listed with their price, and you order on the site — no phone call needed. Each dish says how far ahead to order: a kitchen that cooks to order needs a day’s notice. At checkout you choose when you want it — the day and the time.",
   },
   {
     question: "How much does a meal cost?",
@@ -57,7 +62,7 @@ const FR: FaqItem[] = [
   {
     question: "Peut-on commander à manger en ligne à Rodrigues ?",
     answer:
-      "Oui. Les plats des cuisines de l’île sont proposés avec leur prix, et vous commandez sur le site — sans appeler. Chaque plat indique combien de temps à l’avance le commander : une cuisine qui cuisine à la commande demande un jour de préavis. Au moment de commander, vous choisissez quand vous le voulez — le jour et l’heure.",
+      "Oui. Les plats sont proposés avec leur prix, et vous commandez sur le site — sans appeler. Chaque plat indique combien de temps à l’avance le commander : une cuisine qui cuisine à la commande demande un jour de préavis. Au moment de commander, vous choisissez quand vous le voulez — le jour et l’heure.",
   },
   {
     question: "Combien coûte un repas ?",

@@ -1,16 +1,23 @@
-import { fitTitle } from "@/lib/fit-title";
+import { fitTitleWithTails } from "@/lib/fit-title";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import BackLink from "@/components/BackLink";
 import { getFleetView } from "@/lib/site-data";
 import { SITE_NAME, SITE_URL } from "@/lib/site";
 import { SERVICE_TYPES, type ServiceType } from "@/lib/defaults";
-import { EXPERIENCES, experiencesOfType, fromPriceOf, experienceFaq } from "@/lib/experiences";
+import {
+  EXPERIENCES,
+  experiencesOfType,
+  fromPriceOf,
+  experienceFaq,
+  providerOf,
+} from "@/lib/experiences";
 import { breadcrumbLd, itemListLd, experienceLd, sellerLd } from "@/lib/schema";
 import { placeHref } from "@/lib/place-href";
 import { findPlaceBySlug, placeSlug, placesWithOwnPage } from "@/lib/place-slug";
 import { placePrice } from "@/lib/place-detail";
 import { experienceMetaDescription } from "@/lib/experience-meta";
+import { recommendedCount, robotsWhileEmpty } from "@/lib/listing-gates";
 import PlaceDetail from "./PlaceDetail";
 import JsonLd from "@/components/JsonLd";
 import ExperienceMarket from "@/components/experiences/ExperienceMarket";
@@ -68,20 +75,19 @@ export async function generateMetadata({
         const price = placePrice(place);
         // Same reasoning as the listing titles below: the price pre-qualifies
         // the tap and is the number an assistant repeats.
-        // ── THE NAME YIELDS, NOT THE PRICE ────────────────────────────
+        // ── THE ISLAND, THEN THE NAME, NEVER THE PRICE ────────────────
         // The boilerplate here is already as short as it can be; what pushes
         // these past 60 characters is the operator's own name — "Île aux Cocos
         // Excursion with Les Inséparables" is 45 on its own, and the title
         // came out at 69 and truncated mid-word in a result.
         //
-        // So the NAME is trimmed rather than the price or the island. Those
-        // two are what the title is for: the price pre-qualifies the tap, and
-        // "in Rodrigues" is the geography somebody searched. A name cut at a
-        // word boundary still reads; a title cut by Google mid-word does not.
-        const suffix = price
-          ? ` — Rs ${price.toLocaleString("en-US")} in Rodrigues`
-          : " in Rodrigues";
-        const title = `${fitTitle(place.name, 60 - suffix.length)}${suffix}`;
+        // The price never yields: it pre-qualifies the tap. " in Rodrigues"
+        // now yields BEFORE the name does (SEO audit 2026-09-29 T6) — keeping
+        // it clipped "Île aux Cocos Excursion with Les…", the words that
+        // said whose trip it was. A name cut at a word boundary is the last
+        // resort, still better than a title Google cuts mid-word.
+        const priceTail = price ? ` — Rs ${price.toLocaleString("en-US")}` : "";
+        const title = fitTitleWithTails(place.name, priceTail, " in Rodrigues", 60);
         // Built from the listing's fields, not sliced from the operator's
         // prose — see lib/experience-meta.ts for what the slice produced.
         const description = experienceMetaDescription(place);
@@ -147,6 +153,17 @@ export async function generateMetadata({
     title,
     description,
     alternates: { canonical: `${SITE_URL}/experiences/${copy.slug}` },
+    // ── AN EMPTY VERTICAL IS NOT INDEXED (SEO audit 2026-09-29 C16/T4) ─────
+    // "No chauffeurs listed yet" is a soft 404 to Google. noindex, follow —
+    // the rule the sitemap applies too (lib/listing-gates.ts) — and the page
+    // indexes itself again the moment the first listing is published.
+    //
+    // Through recommendedCount, the gate app/sitemap.ts uses, never the raw
+    // length: getContent() answers a failed read with DEFAULT_CONTENT, whose
+    // recommended.items is [], so places.length was 0 for massage, fishing and
+    // boat too, and a DB hiccup noindexed them for the 300 s ISR window while
+    // the sitemap still submitted them. Unread counts as unknown, not empty.
+    ...robotsWhileEmpty(recommendedCount(content, places)),
     openGraph: {
       title,
       description,
@@ -199,8 +216,11 @@ export default async function ExperiencePage({ params }: { params: Promise<{ typ
         {places.length > 0 && (
           <JsonLd
             data={[
+              // The hub level the detail pages already carry; this trail
+              // skipped it (SEO audit 2026-09-29 T13).
               breadcrumbLd([
                 { name: "Home", url: SITE_URL },
+                { name: "Experiences", url: `${SITE_URL}/experiences` },
                 { name: copy.title, url: `${SITE_URL}/experiences/${copy.slug}` },
               ]),
               itemListLd(
@@ -208,6 +228,8 @@ export default async function ExperiencePage({ params }: { params: Promise<{ typ
                 // Each item at its OWN address. This used to repeat the page
                 // URL for every entry, so an ItemList of two charters pointed
                 // twice at one place and neither could be told apart.
+                // itemListLd() drops a repeated address (two listings sharing
+                // a slug share a page).
                 places.map((p) => ({ name: p.name, url: `${SITE_URL}${placeHref(p)}` })),
               ),
               // ── EACH EXPERIENCE, WITH ITS PRICE AND ITS CAPTAIN (M134) ──
@@ -251,7 +273,9 @@ export default async function ExperiencePage({ params }: { params: Promise<{ typ
                   description: p.description || undefined,
                   image: p.image || undefined,
                   url: `${SITE_URL}${placeHref(p)}`,
-                  providerName: p.providerName || null,
+                  // providerOf() skips admin placeholder text, the same as
+                  // the detail page, so the two publish one operator.
+                  providerName: providerOf(p),
                   durationMinutes: typeof p.durationMinutes === "number" ? p.durationMinutes : null,
                 }),
               ),

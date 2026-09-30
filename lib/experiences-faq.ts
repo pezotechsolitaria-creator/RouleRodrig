@@ -1,4 +1,5 @@
 import type { Language } from "@/lib/i18n";
+import { IN_PERSON_SENTENCE } from "./experiences";
 
 // ── WHAT /experiences NEVER SAID OUT LOUD (M151) ────────────────────────────
 //
@@ -25,8 +26,18 @@ import type { Language } from "@/lib/i18n";
 
 export type FaqItem = { question: string; answer: string };
 
-/** The cheapest and dearest experience currently listed, in whole rupees. */
-export type PriceRange = { min: number; max: number };
+/**
+ * The cheapest and dearest experience currently listed, in whole rupees, and
+ * optionally WHICH listing sits at each end.
+ *
+ * The names exist because the answer used to describe the ends itself: "from
+ * Rs 700 for an hour on the water to Rs 2,500 for a full day out". The Rs 2,500
+ * was the sunrise hike (about four hours); the actual full day, Île aux Cocos,
+ * is cheaper. A derived figure beside a hand-written label is still a false
+ * sentence, so the label is now the listing's own name, or nothing at all
+ * (SEO audit 2026-09-29 C1).
+ */
+export type PriceRange = { min: number; max: number; minName?: string; maxName?: string };
 
 /**
  * Used only when the caller has no listings to measure. The caller that
@@ -35,6 +46,27 @@ export type PriceRange = { min: number; max: number };
 export const FALLBACK_RANGE: PriceRange = { min: 700, max: 2500 };
 
 const rs = (n: number) => `Rs ${n.toLocaleString("en-US")}`;
+
+/** " (Balade en mer)" — the listing at that end of the range, when known. */
+const named = (name?: string) => (name?.trim() ? ` (${name.trim()})` : "");
+
+/**
+ * The range and the listing at each end, from the prices the cards print
+ * (placePrice() in the caller). For the hub, so the answer under the grid can
+ * name what it prices. Null when nothing is priced; the caller keeps its
+ * fallback.
+ */
+export function priceRangeOf(
+  places: { name: string; price: number | null }[],
+): PriceRange | null {
+  const priced = places.filter(
+    (p): p is { name: string; price: number } => typeof p.price === "number" && p.price > 0,
+  );
+  if (!priced.length) return null;
+  const lo = priced.reduce((a, b) => (b.price < a.price ? b : a));
+  const hi = priced.reduce((a, b) => (b.price > a.price ? b : a));
+  return { min: lo.price, max: hi.price, minName: lo.name.trim(), maxName: hi.name.trim() };
+}
 
 const EN = (range: PriceRange): FaqItem[] => [
   {
@@ -45,17 +77,19 @@ const EN = (range: PriceRange): FaqItem[] => [
   {
     question: "How much does an experience cost?",
     answer:
-      `Prices are per person and shown on every listing — from ${rs(range.min)} for an hour on the water to ${rs(range.max)} for a full day out. Nothing is added on top: you pay the provider's price.`,
+      `Prices are per person and shown on every listing — from ${rs(range.min)}${named(range.minName)} to ${rs(range.max)}${named(range.maxName)}. Nothing is added on top: you pay the provider's price.`,
   },
   {
     question: "Do I pay straight away when I book?",
+    // The last sentence is the booking form's cash option (M220), worded as the
+    // request it is and shared with lib/experiences.ts (SEO audit 2026-09-29 C4).
     answer:
-      "No. You send a request first and we check the date with the provider. Only once availability is confirmed do you get a payment link and a deadline — if the date cannot be held, you are told and offered alternatives instead.",
+      `No. You send a request first and we check the date with the provider. Only once availability is confirmed do you get a payment link and a deadline — if the date cannot be held, you are told and offered alternatives instead. ${IN_PERSON_SENTENCE}`,
   },
   {
     question: "Who runs the trips?",
     answer:
-      "Independent Rodriguan skippers, guides and therapists. You book through Roulé Rodrigues, but the trip is theirs — which is why the price, the boat and the day are agreed with the person actually taking you out.",
+      "Independent Rodriguan skippers, guides and therapists. You book through Roule Rodrigues, but the trip is theirs — which is why the price, the boat and the day are agreed with the person actually taking you out.",
   },
   {
     question: "Can I visit Île aux Cocos?",
@@ -73,17 +107,19 @@ const FR = (range: PriceRange): FaqItem[] => [
   {
     question: "Combien coûte une activité ?",
     answer:
-      `Les prix sont par personne et figurent sur chaque annonce — à partir de ${rs(range.min)} pour une heure en mer, jusqu'à ${rs(range.max)} pour une journée complète. Rien n'est ajouté : vous payez le prix du prestataire.`,
+      `Les prix sont par personne et figurent sur chaque annonce — à partir de ${rs(range.min)}${named(range.minName)}, jusqu'à ${rs(range.max)}${named(range.maxName)}. Rien n'est ajouté : vous payez le prix du prestataire.`,
   },
   {
     question: "Faut-il payer immédiatement à la réservation ?",
+    // The same cash option as the English, in the form's own French wording
+    // (placeBooking.inPersonNote).
     answer:
-      "Non. Vous envoyez d'abord une demande et nous vérifions la date auprès du prestataire. Ce n'est qu'une fois la disponibilité confirmée que vous recevez un lien de paiement et une échéance — si la date ne peut pas être retenue, on vous le dit et on vous propose d'autres options.",
+      "Non. Vous envoyez d'abord une demande et nous vérifions la date auprès du prestataire. Ce n'est qu'une fois la disponibilité confirmée que vous recevez un lien de paiement et une échéance — si la date ne peut pas être retenue, on vous le dit et on vous propose d'autres options. Vous pouvez aussi demander à payer sur place, en espèces : nous vous disons si c'est possible ou s'il faut payer en ligne.",
   },
   {
     question: "Qui organise les sorties ?",
     answer:
-      "Des skippers, guides et thérapeutes rodriguais indépendants. Vous réservez via Roulé Rodrigues, mais la sortie est la leur — c'est pourquoi le prix, le bateau et la journée se conviennent avec la personne qui vous emmène.",
+      "Des skippers, guides et thérapeutes rodriguais indépendants. Vous réservez via Roule Rodrigues, mais la sortie est la leur — c'est pourquoi le prix, le bateau et la journée se conviennent avec la personne qui vous emmène.",
   },
   {
     question: "Peut-on visiter l'Île aux Cocos ?",

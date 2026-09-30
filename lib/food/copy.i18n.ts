@@ -61,12 +61,31 @@
 
 import type { Language } from "@/lib/i18n";
 
+/** One kitchen, as the /food "Restaurants" sentence states it — every field
+ *  read from food_home() and store_payment_options(), never typed here. */
+export type KitchenLine = {
+  name: string;
+  /** The kitchen's own address field; null prints no place. */
+  place: string | null;
+  dishes: number;
+  /** kitchen_notice_hours(); 0 = walk-up, and no notice clause. */
+  notice: number;
+  /** store_payment_options().accepts_cash AND pickup offered. */
+  cash: boolean;
+};
+
 const EN = {
   // ── /food chrome ─────────────────────────────────────────────────────────
   chrome: {
     /** ShopHeader's back label. The header itself speaks from SHOP_COPY. */
     backHome: "Home",
     /** The h1 is two pieces because the second half is the yellow one. */
+    // Deliberately unchanged, and OPEN (SEO audit 2026-09-29 T19): the audit
+    // proposes "Order Rodriguan food" but says owner tone applies, and this
+    // question is the page's designed voice ("The question, asked plainly" —
+    // app/food/page.tsx). The keywords now sit in the C21 h2, "Restaurants
+    // and local food in Rodrigues". Change only these text nodes, in all three
+    // languages, once the owner has chosen the wording.
     titleLead: "What are you ",
     titleAccent: "hungry for?",
     dishCount: (n: number) =>
@@ -147,6 +166,26 @@ const EN = {
     backBarTitle: "Food Concierge",
   },
 
+  // ── "restaurants in rodrigues" had no heading to land on ────────────────
+  // SEO audit 2026-09-29 C21. The sentence names the kitchens food_home()
+  // returns, with facts read from the data: the address, the notice hours and
+  // whether its store_payment_options() take cash. No other restaurant is
+  // named — that list is the owner's to give. See app/food/RestaurantsIntro.tsx.
+  restaurants: {
+    title: "Restaurants and local food in Rodrigues",
+    /** Used when ONE kitchen cooks everything on the page. */
+    one: (k: KitchenLine) =>
+      `The dishes here are cooked by ${k.name}${k.place ? `, ${k.place}` : ""}` +
+      (k.notice > 0 ? ` — order at least ${k.notice} hours ahead` : "") +
+      (k.cash ? `, and you pay the kitchen in cash when you collect` : "") +
+      ".",
+    many: (k: KitchenLine) =>
+      `${k.name}${k.place ? `, ${k.place}` : ""}: ${k.dishes} dish${k.dishes === 1 ? "" : "es"}` +
+      (k.notice > 0 ? `, ordered at least ${k.notice} hours ahead` : "") +
+      (k.cash ? `, paid in cash when you collect` : "") +
+      ".",
+  },
+
   // ── The dish card, met a hundred times ──────────────────────────────────
   card: {
     signature: "SIGNATURE",
@@ -171,7 +210,7 @@ const EN = {
   // sends to the kitchen, and lib/rides/copy.i18n.ts already recorded what goes
   // wrong when a message crossing between two people follows one of their UI
   // languages. It is also a URL payload, which this pass does not change.
-  // Everything Roulé Rodrigues says around it — the button, the note under it —
+  // Everything Roule Rodrigues says around it — the button, the note under it —
   // is translated.
   dish: {
     backAria: "Back to food",
@@ -186,6 +225,24 @@ const EN = {
       "No local bank account? Ask them to arrange it with you directly.",
     relatedTitle: "Goes well with this",
     relatedNote: "From the same kitchen, so it all arrives in one order.",
+    // ── How ordering works (SEO audit 2026-09-29 C15) ──────────────────────
+    // The dish pages rank for dish names and never said how to pay. Worded
+    // after lib/food-faq.ts; which sentences show is decided by the kitchen's
+    // own store_payment_options() and the notice hours — see
+    // app/food/[slug]/HowOrdering.tsx. No sentence here carries a number of
+    // its own: the hours and the names arrive as arguments.
+    howTitle: "How ordering works",
+    howNotice: (hours: number) =>
+      `Order at least ${hours} hours ahead — you choose the day and the time at checkout.`,
+    howCollect: (kitchen: string) =>
+      `Collect it from ${kitchen} — you get a code to show at the kitchen when you arrive.`,
+    howPayCash: "You pay the kitchen, not the site, in cash when you collect.",
+    howPayTransfer: "You pay the kitchen, not the site, by bank transfer.",
+    howPayEither:
+      "You pay the kitchen, not the site: in cash when you collect, or by bank transfer.",
+    howDelivery: "Delivery is the other option — its fee depends on the area.",
+    howGuide: "What to eat on Rodrigues",
+    howFrench: "En français : manger à Rodrigues",
   },
 
   // ── The order panel on a dish page ──────────────────────────────────────
@@ -414,6 +471,20 @@ const FR: FoodCopy = {
     backBarTitle: "Concierge culinaire",
   },
 
+  restaurants: {
+    title: "Restaurants et cuisine locale à Rodrigues",
+    one: (k: KitchenLine) =>
+      `Les plats de cette page sont cuisinés par ${k.name}${k.place ? `, ${k.place}` : ""}` +
+      (k.notice > 0 ? ` — à commander au moins ${k.notice} heures à l’avance` : "") +
+      (k.cash ? `, et vous payez la cuisine en espèces au retrait` : "") +
+      ".",
+    many: (k: KitchenLine) =>
+      `${k.name}${k.place ? `, ${k.place}` : ""} : ${k.dishes} plat${k.dishes === 1 ? "" : "s"}` +
+      (k.notice > 0 ? `, à commander au moins ${k.notice} heures à l’avance` : "") +
+      (k.cash ? `, payés en espèces au retrait` : "") +
+      ".",
+  },
+
   card: {
     signature: "SIGNATURE",
     unavailable: "Indisponible",
@@ -439,6 +510,18 @@ const FR: FoodCopy = {
     relatedTitle: "Ça va bien avec ce plat",
     relatedNote:
       "Du même restaurant, pour que tout arrive en une seule commande.",
+    howTitle: "Comment commander",
+    howNotice: (hours: number) =>
+      `Commandez au moins ${hours} heures à l’avance — vous choisissez le jour et l’heure en passant commande.`,
+    howCollect: (kitchen: string) =>
+      `Retrait sur place, ${kitchen} — vous recevez un code à présenter à la cuisine en arrivant.`,
+    howPayCash: "Vous payez la cuisine, pas le site, en espèces au retrait.",
+    howPayTransfer: "Vous payez la cuisine, pas le site, par virement bancaire.",
+    howPayEither:
+      "Vous payez la cuisine, pas le site : en espèces au retrait, ou par virement bancaire.",
+    howDelivery: "La livraison est l’autre option — ses frais dépendent de la région.",
+    howGuide: "Que manger à Rodrigues (en anglais)",
+    howFrench: "Manger à Rodrigues — la page en français",
   },
 
   panel: {
@@ -613,6 +696,20 @@ const CR: FoodCopy = {
     backBarTitle: "Konsierz manze",
   },
 
+  restaurants: {
+    title: "Restoran ek manze lokal dan Rodrig",
+    one: (k: KitchenLine) =>
+      `Bann plat isi kwi par ${k.name}${k.place ? `, ${k.place}` : ""}` +
+      (k.notice > 0 ? ` — komann omwin ${k.notice} er davans` : "") +
+      (k.cash ? `, ek ou pey lakwizinn la an kas kan ou al pran li` : "") +
+      ".",
+    many: (k: KitchenLine) =>
+      `${k.name}${k.place ? `, ${k.place}` : ""}: ${k.dishes} plat` +
+      (k.notice > 0 ? `, komann omwin ${k.notice} er davans` : "") +
+      (k.cash ? `, peye an kas kan ou al pran li` : "") +
+      ".",
+  },
+
   card: {
     signature: "SIGNATIR",
     unavailable: "Pa disponib",
@@ -636,6 +733,18 @@ const CR: FoodCopy = {
       "Pena kont banker lokal ? Demann zot arranz sa direk ar ou.",
     relatedTitle: "Sa al byen ar sa plat la",
     relatedNote: "Depi mem lakwizinn, koumsa tou ariv dan enn sel komann.",
+    howTitle: "Kouma komande",
+    howNotice: (hours: number) =>
+      `Komann omwin ${hours} er davans — ou swazir ki zour ek ki ler kan ou fer ou komann.`,
+    howCollect: (kitchen: string) =>
+      `Al pran li kot ${kitchen} — ou gagn enn kod pou montre lakwizinn la kan ou arive.`,
+    howPayCash: "Ou pey lakwizinn la, pa sit la, an kas kan ou al pran li.",
+    howPayTransfer: "Ou pey lakwizinn la, pa sit la, par vireman banker.",
+    howPayEither:
+      "Ou pey lakwizinn la, pa sit la: an kas kan ou al pran li, ouswa par vireman banker.",
+    howDelivery: "Livrezon se lot swa — so fre depan landrwa.",
+    howGuide: "Ki pou manze dan Rodrig (an angle)",
+    howFrench: "Manze dan Rodrig — paz an franse",
   },
 
   panel: {

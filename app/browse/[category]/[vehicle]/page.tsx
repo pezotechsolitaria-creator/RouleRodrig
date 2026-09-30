@@ -10,7 +10,8 @@ import {
   isSellableFleetItem,
 } from "@/lib/site-data";
 import { realCopy } from "@/lib/placeholder-copy";
-import { priceBreakdown } from "@/lib/booking-pricing";
+import { costTiers } from "@/lib/vehicle-cost";
+import { vehicleMetaTitle } from "@/lib/browse-copy";
 import { breadcrumbLd, productLd, sellerLd } from "@/lib/schema";
 import { pickConditions } from "@/lib/rental-conditions";
 import { findVehicle, vehicleName, vehicleSlug } from "@/lib/vehicle-slug";
@@ -64,10 +65,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     const url = `${SITE_URL}/browse/${category}/${vehicleSlug(item)}`;
     // The price belongs in the title: it pre-qualifies the tap, and a link
     // pasted into a chat is read as a price quote whether or not we intended it.
+    // SEO audit 2026-09-29 T5: "Toyota Hilux — Rs 2899/day in Rodrigues" had
+    // no "rental" and an ungrouped price beside category titles that say
+    // "Rs 1,899". vehicleMetaTitle keeps it inside 60 characters.
     const from = priceNumber(item.price);
-    const title = from
-      ? `${vehicleName(item)} — Rs ${from}/day in Rodrigues`
-      : `${vehicleName(item)} — rent in Rodrigues`;
+    const title = vehicleMetaTitle(vehicleName(item), category, from);
     const description =
       // Specs, inclusions and the price, when there is a price — see
       // lib/vehicle-meta.ts. The owner's copy below is the fallback.
@@ -272,13 +274,13 @@ export default async function VehiclePage({ params }: Props) {
               prices with, rather than from content.pricing — which renders on
               no public page, shows the car at Rs 0, and disagrees with the
               fleet about the scooter. A rate table that quotes a figure the
-              checkout will not honour is worse than no table. */}
+              checkout will not honour is worse than no table.
+
+              Via costTiers() since SEO audit 2026-09-29 C18: /browse/car now
+              prints the same table for every model, from the same helper. */}
           {(() => {
-            const tiers = [1, 3, 7]
-              .map((d) => ({ d, b: priceBreakdown(item, d, content.vehicleCategories) }))
-              .filter((t): t is { d: number; b: NonNullable<typeof t.b> } => Boolean(t.b));
+            const tiers = costTiers(item, content.vehicleCategories);
             if (tiers.length < 2) return null;
-            const base = Math.round(tiers[0].b.rental / tiers[0].d);
             return (
               <div className="mt-6 rounded-2xl border border-dark-border bg-dark-card p-6">
                 {/* An h2, not a styled <p>. These four sections have always
@@ -290,30 +292,26 @@ export default async function VehiclePage({ params }: Props) {
                   What it costs to hire
                 </h2>
                 <ul className="divide-y divide-white/5">
-                  {tiers.map(({ d, b }) => {
-                    const perDay = Math.round(b.rental / d);
-                    const off = base > 0 ? Math.round(100 - (perDay / base) * 100) : 0;
-                    return (
-                      <li key={d} className="flex items-baseline justify-between gap-3 py-2.5 first:pt-0 last:pb-0">
-                        <span className="font-dm text-sm text-offwhite/85">
-                          {d === 1 ? "1 day" : d === 7 ? "1 week" : `${d} days`}
-                          {off > 0 && (
-                            <span className="ml-2 rounded-full bg-yellow/15 px-2 py-0.5 font-bebas text-[10px] tracking-[0.12em] text-yellow">
-                              {off}% OFF
-                            </span>
-                          )}
-                        </span>
-                        <span className="text-right">
-                          <span className="font-syne text-base font-extrabold text-offwhite">
-                            Rs {b.rental.toLocaleString()}
+                  {tiers.map(({ days, label, rental, perDay, off }) => (
+                    <li key={days} className="flex items-baseline justify-between gap-3 py-2.5 first:pt-0 last:pb-0">
+                      <span className="font-dm text-sm text-offwhite/85">
+                        {label}
+                        {off > 0 && (
+                          <span className="ml-2 rounded-full bg-yellow/15 px-2 py-0.5 font-bebas text-[10px] tracking-[0.12em] text-yellow">
+                            {off}% OFF
                           </span>
-                          <span className="block font-dm text-[11px] text-muted">
-                            Rs {perDay.toLocaleString()} / day
-                          </span>
+                        )}
+                      </span>
+                      <span className="text-right">
+                        <span className="font-syne text-base font-extrabold text-offwhite">
+                          Rs {rental.toLocaleString("en-US")}
                         </span>
-                      </li>
-                    );
-                  })}
+                        <span className="block font-dm text-[11px] text-muted">
+                          Rs {perDay.toLocaleString("en-US")} / day
+                        </span>
+                      </span>
+                    </li>
+                  ))}
                 </ul>
                 <p className="mt-3 font-dm text-[11px] text-muted">
                   Rental only — delivery and the deposit are shown before you confirm.

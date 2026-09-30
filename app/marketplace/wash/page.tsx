@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { cache } from "react";
 import Link from "next/link";
 import { ArrowRight, CalendarCheck, Car, MapPin, Phone, Store } from "lucide-react";
 import BackLink from "@/components/BackLink";
@@ -8,7 +9,8 @@ import { getContent } from "@/lib/content";
 import { createClient } from "@/lib/supabase/server";
 import { SITE_URL } from "@/lib/site";
 import { breadcrumbLd } from "@/lib/schema";
-import { isVehicleTrade } from "@/lib/marketplace/hub";
+import { listVehicleProviders } from "@/lib/marketplace/vehicle-providers";
+import { robotsWhileEmpty } from "@/lib/listing-gates";
 
 // ── WASH MY VEHICLE ─────────────────────────────────────────────────────────
 //
@@ -31,7 +33,8 @@ import { isVehicleTrade } from "@/lib/marketplace/hub";
 // This page is that list, and it deliberately adds no rules of its own.
 //
 // ── WHY THE QUERY LOOKS TOO SIMPLE ──────────────────────────────────────────
-// There is no status filter here and that is not an oversight. RLS on
+// (It lives in lib/marketplace/vehicle-providers.ts now, shared with the
+// sitemap.) There is no status filter and that is not an oversight. RLS on
 // trade_providers is `store_is_visible(store_id) OR is_store_staff OR
 // is_platform_admin`, so a draft or paused business is already absent for a
 // visitor — the same rule the storefront and marketplace_stores use. Repeating
@@ -43,67 +46,37 @@ export const revalidate = 300;
 const DESCRIPTION =
   "Book a car wash, a valet or a full detail with a local business on Rodrigues. See who is open, what they charge, and book a time online.";
 
-export const metadata: Metadata = {
-  title: "Car wash & valeting on Rodrigues — book online | Roule Rodrigues",
-  description: DESCRIPTION,
-  alternates: { canonical: `${SITE_URL}/marketplace/wash` },
-  openGraph: {
-    title: "Car wash & valeting on Rodrigues | Roule Rodrigues",
+// ── NOT A REDIRECT, WHILE THERE IS SOMETHING BEHIND THE DOOR ────────────────
+// SEO audit 2026-09-29 C16/T4 asked for a 308 to /marketplace, on the grounds
+// that the car-wash vertical was cancelled on 29 Aug and its tables dropped.
+// That was the FIRST attempt. This page was rebuilt on 7 Sept on M177
+// trade_providers, which is live (it answers, empty, to the public key), and
+// /marketplace links it. So it is gated on its own data instead, by the rule
+// every empty listing now follows (lib/listing-gates.ts): `noindex, follow`
+// and out of the sitemap while nobody is listed. If the owner has cancelled it
+// again, the 308 is a one-line change — that call is his.
+const loadListed = cache(async () => listVehicleProviders(await createClient()));
+
+export async function generateMetadata(): Promise<Metadata> {
+  const listed = await loadListed();
+  return {
+    title: "Car wash & valeting on Rodrigues — book online | Roule Rodrigues",
     description: DESCRIPTION,
-    url: `${SITE_URL}/marketplace/wash`,
-    type: "website",
-    images: [`${SITE_URL}/og-image.jpg`],
-  },
-};
-
-type Provider = {
-  store_id: string;
-  trade: string;
-  mobile: boolean;
-  takes_online_bookings: boolean;
-};
-
-type StoreRow = {
-  id: string;
-  name: string;
-  slug: string;
-  tagline: string | null;
-  address: string | null;
-  phone: string | null;
-  logo_url: string | null;
-};
+    alternates: { canonical: `${SITE_URL}/marketplace/wash` },
+    ...robotsWhileEmpty(listed ? listed.length : null),
+    openGraph: {
+      title: "Car wash & valeting on Rodrigues | Roule Rodrigues",
+      description: DESCRIPTION,
+      url: `${SITE_URL}/marketplace/wash`,
+      type: "website",
+      images: [`${SITE_URL}/og-image.jpg`],
+    },
+  };
+}
 
 export default async function WashPage() {
   const content = await getContent();
-  const supabase = await createClient();
-
-  // Two queries rather than an embed: marketplace_stores is a VIEW, so it
-  // carries no foreign key for PostgREST to join on. Joined by id below.
-  const { data: providerRows } = await supabase
-    .from("trade_providers")
-    .select("store_id, trade, mobile, takes_online_bookings");
-
-  const vehicle = ((providerRows ?? []) as Provider[]).filter((p) =>
-    isVehicleTrade(p.trade),
-  );
-
-  let stores: StoreRow[] = [];
-  if (vehicle.length > 0) {
-    const { data } = await supabase
-      .from("marketplace_stores")
-      .select("id, name, slug, tagline, address, phone, logo_url")
-      .in(
-        "id",
-        vehicle.map((p) => p.store_id),
-      );
-    stores = (data ?? []) as StoreRow[];
-  }
-
-  // A provider whose store row did not come back is dropped rather than
-  // rendered as a nameless card — the two queries can disagree by a moment.
-  const listed = vehicle
-    .map((p) => ({ p, s: stores.find((s) => s.id === p.store_id) }))
-    .filter((row): row is { p: Provider; s: StoreRow } => Boolean(row.s));
+  const listed = (await loadListed()) ?? [];
 
   const jsonLd = {
     "@context": "https://schema.org",

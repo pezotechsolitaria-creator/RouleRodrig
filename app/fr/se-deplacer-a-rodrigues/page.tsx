@@ -7,10 +7,15 @@ import { loc } from "@/lib/localize";
 import { RODRIGUES_KNOWLEDGE } from "@/lib/rodrigues-knowledge";
 import { SITE_URL } from "@/lib/site";
 import { breadcrumbLd } from "@/lib/schema";
+import { readTransferFares } from "@/lib/rides/fares";
+import type { TransferPricing } from "@/lib/rides/transfer";
+import { taxiPriceAnswer, TRANSFERS_LINK } from "@/lib/taxi-faq";
+import LangLink from "@/components/nav/LangLink";
 import JsonLd from "@/components/JsonLd";
 import Navbar from "@/components/Navbar";
 import PageLanguage from "@/components/PageLanguage";
 import HubBacklink from "@/components/nav/HubBacklink";
+import FrenchTwinLink from "@/components/FrenchTwinLink";
 
 export const revalidate = 3600;
 
@@ -32,11 +37,19 @@ export const revalidate = 3600;
 // maintains, read through loc() for the same reason.
 //
 // ── AND THE HONEST PART ─────────────────────────────────────────────────────
-// No taxi fares are published on this page. Rodriguan taxis are not metered and
-// there is no published fare table, so any number here would be invented and
+// No DRIVER's fare is published on this page. Rodriguan taxis are not metered
+// and there is no official fare table, so any number here would be invented and
 // would be quoted back at a driver who never agreed to it. The page says that
-// plainly and sends people to agree the price first — which is both true and
-// the most useful sentence on it.
+// plainly and sends people to agree the price first.
+//
+// The AIRPORT is the exception (SEO audit 2026-09-29 C2/C5): since M220 airport
+// transfers booked here have the platform's own zone fares, published on
+// /transfers. This page said "nous n'en avons pas de fiable" while its English
+// twin (/blog/how-to-get-around-rodrigues) and /fr/taxi-rodrigues gave the
+// two-part answer, so the price answer is now taxiPriceAnswer("fr") — the zone
+// fares read from the price sheet at render time, never typed here, or the
+// page named instead of a number when the sheet cannot be read — and the page
+// links /transfers.
 
 const NB = " "; // narrow no-break space — French sets one before ? ! ; :
 
@@ -70,7 +83,10 @@ export const metadata: Metadata = {
 
 const rs = (n: number) => n.toLocaleString("fr-FR");
 
-const FAQ = (scooter: number, car: number) => [
+// `link` renders under its answer; it is not part of the FAQPage text.
+type FaqEntry = { q: string; a: string; link?: { href: string; label: string } };
+
+const FAQ = (scooter: number, car: number, airport: TransferPricing | null): FaqEntry[] => [
   {
     q: `Faut-il louer une voiture à Rodrigues${NB}?`,
     a: `Pas forcément, mais il faut louer quelque chose. Les bus relient Port Mathurin aux villages principaux, ils sont rares et s'arrêtent tôt, et ils ne vont pas aux plages isolées. Un scooter à partir de Rs ${rs(scooter)} par jour suffit à deux avec peu de bagages ; la voiture, à partir de Rs ${rs(car)}, s'impose en famille, avec des valises, ou pour la climatisation.`,
@@ -83,7 +99,10 @@ const FAQ = (scooter: number, car: number) => [
   },
   {
     q: `Combien coûte un taxi à Rodrigues${NB}?`,
-    a: "Aucun tarif officiel n'est publié pour les taxis à Rodrigues. Mettez-vous d'accord sur le prix AVANT de monter — c'est l'usage, et personne ne le prendra mal. Nous listons des chauffeurs locaux avec leur numéro pour que vous puissiez demander directement.",
+    // The same two-part answer /fr/taxi-rodrigues gives to the same question
+    // (C2): two FAQPage answers on one site must not contradict each other.
+    a: taxiPriceAnswer("fr", airport),
+    link: TRANSFERS_LINK.fr,
   },
   {
     q: `De quel côté roule-t-on${NB}?`,
@@ -100,12 +119,15 @@ const FAQ = (scooter: number, car: number) => [
 ];
 
 export default async function SeDeplacerPage() {
-  const content = await getContent();
-  const { fleet } = await getFleetView();
+  const [content, { fleet }, fares] = await Promise.all([
+    getContent(),
+    getFleetView(),
+    readTransferFares(),
+  ]);
 
   const scooterFrom = fleetFromPrice(fleet, "scooter");
   const carFrom = fleetFromPrice(fleet, "car");
-  const faq = FAQ(scooterFrom, carFrom);
+  const faq = FAQ(scooterFrom, carFrom, fares.airport);
 
   // The same researched entries Ti Roulé answers from, in French.
   const know = (id: string) => RODRIGUES_KNOWLEDGE.find((k) => k.id === id);
@@ -217,8 +239,12 @@ export default async function SeDeplacerPage() {
               </li>
               <li className="flex flex-wrap items-baseline justify-between gap-x-4 border-b border-dark-border pb-3">
                 <span className="font-dm text-sm text-offwhite/90">Taxi</span>
+                {/* Two parts, as the English twin's table row (C2). No figure
+                    here: the zone fares are in the FAQ answer, read from the
+                    price sheet. */}
                 <span className="font-dm text-sm text-muted">
-                  prix à convenir avant de monter
+                  transfert aéroport réservé ici : tarif fixe par zone ; autre
+                  course : prix à convenir avant de monter
                 </span>
               </li>
             </ul>
@@ -226,14 +252,31 @@ export default async function SeDeplacerPage() {
             {/* The most useful sentence on the page, and the one a comparison
                 site cannot write because it does not know the custom. */}
             <div className="mt-5 rounded-2xl border border-yellow/30 bg-yellow/[0.06] p-4">
+              {/* "Nous n'en avons pas de fiable" stopped being true with M220's
+                  zone fares; this now mirrors the English twin's taxi
+                  paragraphs (C2): the airport is the one exception, every
+                  other ride keeps no price list, for the same reason. */}
               <p className="font-dm text-sm leading-relaxed text-offwhite/90">
                 Aucun tarif officiel n&apos;est publié pour les taxis à
-                Rodrigues. Convenez du prix avant de monter : c&apos;est
-                l&apos;usage, tout le monde le fait, et personne ne le prendra
-                mal. Nous ne publions pas de grille tarifaire ici parce que nous
-                n&apos;en avons pas de fiable — un chiffre inventé serait
-                ensuite opposé à un chauffeur qui ne l&apos;a jamais accepté.
+                Rodrigues. Pour un taxi trouvé sur place, convenez du prix avant
+                de monter : c&apos;est l&apos;usage, tout le monde le fait, et
+                personne ne le prendra mal. La seule exception sur ce site,
+                c&apos;est l&apos;aéroport : les transferts aéroport réservés
+                ici ont des tarifs fixes par zone, selon la distance par la
+                route depuis Plaine Corail, et se règlent au chauffeur. Pour
+                toute autre course, nous ne publions volontairement aucune
+                grille — un chiffre inventé serait ensuite opposé à un chauffeur
+                qui ne l&apos;a jamais accepté.
               </p>
+              {/* LangLink: /transfers holds the booking form, which reads the
+                  site language — a French reader lands on it in French. */}
+              <LangLink
+                lang="fr"
+                href={TRANSFERS_LINK.fr.href}
+                className="mt-2 inline-flex min-h-11 items-center gap-1.5 font-dm text-sm text-yellow/80 transition-colors hover:text-yellow"
+              >
+                {TRANSFERS_LINK.fr.label} <ArrowRight size={14} />
+              </LangLink>
             </div>
           </section>
 
@@ -259,6 +302,15 @@ export default async function SeDeplacerPage() {
                   <p className="mt-2 font-dm text-muted leading-relaxed">
                     {f.a}
                   </p>
+                  {f.link && (
+                    <LangLink
+                      lang="fr"
+                      href={f.link.href}
+                      className="mt-1 inline-flex min-h-11 items-center gap-1.5 font-dm text-sm text-yellow/80 transition-colors hover:text-yellow"
+                    >
+                      {f.link.label} <ArrowRight size={14} />
+                    </LangLink>
+                  )}
                 </section>
               ))}
             </div>
@@ -295,6 +347,15 @@ export default async function SeDeplacerPage() {
               ))}
             </ul>
           </nav>
+
+          {/* The English twin hreflang names — the blog post, not
+              /browse/getting-around — as a link a crawler can follow (SEO
+              audit 2026-09-29 C13). The other French pages all had one. */}
+          <FrenchTwinLink
+            href="/blog/how-to-get-around-rodrigues"
+            label="Read this page in English"
+            lang="en"
+          />
         </div>
       </main>
       <HubBacklink href="/fr" label="Tous nos guides en français" />

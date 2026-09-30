@@ -3,6 +3,7 @@ import Link from "next/link";
 import { getContent } from "@/lib/content";
 import { SITE_URL } from "@/lib/site";
 import { breadcrumbLd } from "@/lib/schema";
+import { ileAuxCocosBooking, type CocosBooking } from "@/lib/ile-aux-cocos-listing";
 import JsonLd from "@/components/JsonLd";
 import AppPageHeader from "@/components/AppPageHeader";
 import HubBacklink from "@/components/nav/HubBacklink";
@@ -18,8 +19,12 @@ import HubBacklink from "@/components/nav/HubBacklink";
 // ── EVERY FACT ON THIS PAGE IS SOURCED, AND THE THIN ONES ARE MARKED ────────
 // The temptation on a page like this is to write beautifully about a place and
 // let the detail drift. Detail is the entire value here: somebody deciding
-// whether to spend a morning and Rs 2,000 needs to know that they cannot just
-// turn up, and that half the island is closed to them.
+// whether to spend a morning and the price of the trip needs to know that they
+// cannot just turn up, and that half the island is closed to them.
+//
+// The price itself is the listing's, read at render (SEO audit 2026-09-29 C1,
+// C12) — see lib/ile-aux-cocos-listing.ts. It used to be typed here, and it
+// had drifted from what the listing charges.
 //
 // Sources, cited on the page itself because a claim a reader cannot check is
 // worth less than one they can:
@@ -64,8 +69,43 @@ export const metadata: Metadata = {
   },
 };
 
+/** "Rs 1,999 per person", from the listing — or nothing at all. */
+function priceText(b: CocosBooking): string | null {
+  if (!b.price) return null;
+  return `Rs ${b.price.toLocaleString("en-US")}${b.perPerson ? " per person" : ""}`;
+}
+
+/** What the listing is and costs, in one sentence; empty without a listing. */
+function listedTrip(b: CocosBooking): string {
+  if (!b.name) return "";
+  const price = priceText(b);
+  return price
+    ? `The trip listed on Roule Rodrigues, ${b.name}, is ${price}.`
+    : `The trip listed on Roule Rodrigues is ${b.name}.`;
+}
+
 // Answer-first, because these are the questions asked verbatim and a direct
 // first sentence is what an AI answer or a featured snippet can lift whole.
+// A function of the listing, because one answer quotes its price.
+function cocosFaq(b: CocosBooking): { q: string; a: string }[] {
+  return FAQ.map((f) =>
+    f.q === PRICE_Q
+      ? {
+          q: f.q,
+          a: [
+            "Operators price it themselves and it usually includes the boat and lunch.",
+            listedTrip(b),
+            "Confirm what is included when you book, because that varies between operators.",
+          ]
+            .filter(Boolean)
+            .join(" "),
+        }
+      : f,
+  );
+}
+
+const PRICE_Q = "How much does the Île aux Cocos excursion cost?";
+
 const FAQ: { q: string; a: string }[] = [
   {
     q: "Can you visit Île aux Cocos on your own?",
@@ -84,8 +124,9 @@ const FAQ: { q: string; a: string }[] = [
     a: "No. The southern tip is marked off with wooden posts and closed, to keep people away from the nesting colony. Staying out of it is not a formality — it is the condition the reserve is visited on.",
   },
   {
-    q: "How much does the Île aux Cocos excursion cost?",
-    a: "Operators price it themselves and it usually includes the boat and lunch. The trip listed on Roulé Rodrigues is Rs 2,000 per person with Les Inséparables. Confirm what is included when you book, because that varies between operators.",
+    q: PRICE_Q,
+    // Written by cocosFaq() from the listing — see above.
+    a: "",
   },
   {
     q: "When should you go?",
@@ -95,6 +136,9 @@ const FAQ: { q: string; a: string }[] = [
 
 export default async function IleAuxCocosPage() {
   const content = await getContent();
+  const booking = ileAuxCocosBooking(content.recommended.items);
+  const faq = cocosFaq(booking);
+  const price = priceText(booking);
 
   return (
     <>
@@ -132,7 +176,7 @@ export default async function IleAuxCocosPage() {
           {
             "@context": "https://schema.org",
             "@type": "FAQPage",
-            mainEntity: FAQ.map((f) => ({
+            mainEntity: faq.map((f) => ({
               "@type": "Question",
               name: f.q,
               acceptedAnswer: { "@type": "Answer", text: f.a },
@@ -217,7 +261,7 @@ export default async function IleAuxCocosPage() {
               Common questions
             </h2>
             <dl className="mt-3 space-y-4">
-              {FAQ.map((f) => (
+              {faq.map((f) => (
                 <div key={f.q}>
                   <dt className="font-syne text-base font-bold text-offwhite">
                     {f.q}
@@ -233,13 +277,20 @@ export default async function IleAuxCocosPage() {
           <section className="mt-8 rounded-2xl border border-white/10 bg-dark-card p-5">
             <h2 className="font-syne text-lg font-extrabold">Booking it</h2>
             <p className="mt-2 font-dm text-sm leading-relaxed text-muted">
-              The excursion listed on Roulé Rodrigues runs with Les
-              Inséparables. Operators arrange the authorisation as part of the
-              trip, so booking with one is how the permission happens.
+              {booking.name && (
+                <>
+                  The excursion listed on Roule Rodrigues is {booking.name}
+                  {price && <>, at {price}</>}.{" "}
+                </>
+              )}
+              Operators arrange the authorisation as part of the trip, so
+              booking with one is how the permission happens.
             </p>
             <div className="mt-4 flex flex-wrap gap-2">
+              {/* The excursion's own page, not the /browse/tours shelf it used
+                  to open (SEO audit 2026-09-29 C12). */}
               <Link
-                href="/browse/tours"
+                href={booking.href}
                 className="flex min-h-12 items-center justify-center rounded-xl bg-yellow px-5 font-dm text-sm font-bold text-dark"
               >
                 See the excursion

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { cache } from "react";
 import {
   ArrowRight,
   ClipboardList,
@@ -13,6 +14,7 @@ import BackLink from "@/components/BackLink";
 import Navbar from "@/components/Navbar";
 import JsonLd from "@/components/JsonLd";
 import { getContent } from "@/lib/content";
+import { createAnonClient } from "@/lib/supabase/anon";
 import { SITE_URL } from "@/lib/site";
 import { breadcrumbLd } from "@/lib/schema";
 import { HUB_ACTIONS } from "@/lib/marketplace/hub";
@@ -38,26 +40,57 @@ import { HUB_ACTIONS } from "@/lib/marketplace/hub";
 
 export const revalidate = 3600;
 
-const DESCRIPTION =
-  "Buy from local shops, book a car wash, or have something delivered anywhere on Rodrigues. One place for everything Roule Rodrigues can get done for you.";
+// No "book a car wash" (SEO audit 2026-09-29 T4): the car-wash vertical was
+// cancelled and its tables dropped, so the snippet no longer offers it. The
+// Wash card below still leads to its shelf.
+//
+// "Buy from local shops" is different: shops are a live vertical waiting for
+// its first store (C16/T4). The clause is said only while sitemap_stores() —
+// the predicate /shop is indexed by, see lib/listing-gates.ts — lists a shop,
+// so it leaves the snippet while /shop is noindexed and comes back by itself
+// with the first shop. A failed read is unknown and keeps the clause, as
+// robotsWhileEmpty keeps /shop indexable.
+const DESCRIPTION_WITH_SHOPS =
+  "Buy from local shops, or have something delivered anywhere on Rodrigues. One place for everything Roule Rodrigues can get done for you.";
+const DESCRIPTION_NO_SHOPS =
+  "Have something delivered anywhere on Rodrigues. One place for everything Roule Rodrigues can get done for you.";
 
-export const metadata: Metadata = {
-  // "Rodrigues Marketplace" belongs to /shop, whose own h1 claims it: "Rodrigues
-  // Marketplace — buy from the island's shops". Both pages carried that title,
-  // so two indexable URLs competed for one phrase and the site's own navigation
-  // pointed the word at whichever it happened to mean. This page's h1 has always
-  // said what it actually is.
-  title: "Buy it. Book it. Get it done. | Roule Rodrigues",
-  description: DESCRIPTION,
-  alternates: { canonical: `${SITE_URL}/marketplace` },
-  openGraph: {
+/** Shops sitemap_stores() lists; null when the read failed. Cookieless, so
+ *  the page stays ISR (lib/supabase/anon.ts), and cached so the metadata and
+ *  the page share one read per render. */
+const listedShops = cache(async (): Promise<number | null> => {
+  try {
+    const { data, error } = await createAnonClient().rpc("sitemap_stores");
+    if (error) return null;
+    return Array.isArray(data) ? data.length : 0;
+  } catch {
+    return null;
+  }
+});
+
+const descriptionFor = (shops: number | null) =>
+  shops === 0 ? DESCRIPTION_NO_SHOPS : DESCRIPTION_WITH_SHOPS;
+
+export async function generateMetadata(): Promise<Metadata> {
+  const description = descriptionFor(await listedShops());
+  return {
+    // "Rodrigues Marketplace" belongs to /shop, whose own h1 claims it: "Rodrigues
+    // Marketplace — buy from the island's shops". Both pages carried that title,
+    // so two indexable URLs competed for one phrase and the site's own navigation
+    // pointed the word at whichever it happened to mean. This page's h1 has always
+    // said what it actually is.
     title: "Buy it. Book it. Get it done. | Roule Rodrigues",
-    description: DESCRIPTION,
-    url: `${SITE_URL}/marketplace`,
-    type: "website",
-    images: [`${SITE_URL}/og-image.jpg`],
-  },
-};
+    description,
+    alternates: { canonical: `${SITE_URL}/marketplace` },
+    openGraph: {
+      title: "Buy it. Book it. Get it done. | Roule Rodrigues",
+      description,
+      url: `${SITE_URL}/marketplace`,
+      type: "website",
+      images: [`${SITE_URL}/og-image.jpg`],
+    },
+  };
+}
 
 /** Icons live here, not in hub.ts — that module stays plain data so it can be
  *  tested in node without React. */
@@ -71,7 +104,7 @@ const ICON: Record<string, React.ElementType> = {
 };
 
 export default async function MarketplacePage() {
-  const content = await getContent();
+  const [content, shops] = await Promise.all([getContent(), listedShops()]);
   const jsonLd = {
     "@context": "https://schema.org",
     "@graph": [
@@ -114,7 +147,7 @@ export default async function MarketplacePage() {
             Buy it. Book it. Get it done.
           </h1>
           <p className="mt-2 max-w-xl font-dm text-sm leading-relaxed text-muted">
-            {DESCRIPTION}
+            {descriptionFor(shops)}
           </p>
 
           <div className="mt-8 grid gap-3 sm:grid-cols-2">

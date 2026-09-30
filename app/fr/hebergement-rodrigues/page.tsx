@@ -4,6 +4,8 @@ import LangLink from "@/components/nav/LangLink";
 import { ArrowRight, Check, MessageCircle } from "lucide-react";
 import { getFleetView } from "@/lib/site-data";
 import { fromPriceOf } from "@/lib/experiences";
+import { placePrice } from "@/lib/place-detail";
+import { IN_PERSON_SENTENCE_FR } from "@/lib/browse-copy";
 import { SITE_URL } from "@/lib/site";
 import { breadcrumbLd, stayLd } from "@/lib/schema";
 import JsonLd from "@/components/JsonLd";
@@ -47,12 +49,23 @@ const rs = (n: number) => n.toLocaleString("fr-FR");
 const TITLE = (from: number) =>
   `Hébergement à Rodrigues dès Rs ${rs(from)}/nuit | Roule Rodrigues`;
 
+// "à Rodrigues", not "à l'île Rodrigues": that made it 156 characters with a
+// four-digit price, and the snippet ends on the no-fee promise (SEO audit
+// 2026-09-29 T15).
 const DESCRIPTION = (from: number) =>
   `Où dormir à Rodrigues : pensions, villas et maisons d'hôtes dès Rs ${rs(from)} la nuit, réservées en direct avec le propriétaire, sans frais de réservation.`;
 
+/**
+ * The stays this page describes: hotels with a name. A nameless row renders
+ * nowhere on /browse/stays, so it must not set the "dès" price, the count or a
+ * LodgingBusiness node here either (SEO audit 2026-09-29 T2).
+ */
+const staysOf = <T extends { category: string; name?: string | null }>(items: T[]): T[] =>
+  items.filter((p) => p.category === "hotel" && Boolean(p.name?.trim()));
+
 export async function generateMetadata(): Promise<Metadata> {
   const { content } = await getFleetView();
-  const stays = content.recommended.items.filter((p) => p.category === "hotel");
+  const stays = staysOf(content.recommended.items);
   const from = fromPriceOf(stays) ?? 0;
   return metadataFor(from);
 }
@@ -93,7 +106,10 @@ const FAQ = (from: number, count: number) => [
   },
   {
     q: "Paie-t-on avant que la réservation soit confirmée ?",
-    a: "Non. Vous envoyez une demande, nous vérifions les dates avec le propriétaire, et vous ne réglez qu'une fois la disponibilité confirmée. Si le logement n'est pas libre à vos dates, nous vous le disons tout de suite et nous vous proposons autre chose — vous n'êtes jamais débité pour un hébergement que nous ne pouvons pas fournir.",
+    // The cash request (M220), in the words /browse/stays and the experiences
+    // FAQ use: this answer never offered it (SEO audit 2026-09-29 C4). It also
+    // feeds the FAQPage below, which maps this same array.
+    a: `Non. Vous envoyez une demande, nous vérifions les dates avec le propriétaire, et vous ne réglez qu'une fois la disponibilité confirmée. Si le logement n'est pas libre à vos dates, nous vous le disons tout de suite et nous vous proposons autre chose — vous n'êtes jamais débité pour un hébergement que nous ne pouvons pas fournir. ${IN_PERSON_SENTENCE_FR}`,
   },
   {
     q: "Quels types de logement proposez-vous à Rodrigues ?",
@@ -111,7 +127,7 @@ const FAQ = (from: number, count: number) => [
 
 export default async function HebergementRodriguesPage() {
   const { content, businessWhatsApp } = await getFleetView();
-  const stays = content.recommended.items.filter((p) => p.category === "hotel");
+  const stays = staysOf(content.recommended.items);
   const from = fromPriceOf(stays);
 
   const wa = (businessWhatsApp ?? "").replace(/\D/g, "");
@@ -149,11 +165,16 @@ export default async function HebergementRodriguesPage() {
           // Each property, priced, so a result can carry a nightly rate and an
           // assistant asked "where can I stay on Rodrigues" has something to
           // quote rather than prose to guess from.
+          //
+          // placePrice, not depositAmount: the deposit holds a booking and is
+          // not the nightly rate — Cathartica went out unpriced beside its
+          // "Rs 2,990 per night" (SEO audit 2026-09-29 T2). And the French
+          // description where the owner wrote one, on the French page.
           ...stays.map((s) =>
             stayLd({
-              name: s.name,
-              price: typeof s.depositAmount === "number" ? s.depositAmount : null,
-              description: s.description || undefined,
+              name: s.name.trim(),
+              price: placePrice(s),
+              description: s.descriptionFr || s.description || undefined,
               image: s.image
                 ? s.image.startsWith("http")
                   ? s.image
@@ -298,7 +319,7 @@ export default async function HebergementRodriguesPage() {
                 where the need arises, not in a footer nobody scrolls to. */}
             <nav className="mt-14 rounded-3xl border border-dark-border bg-white/[0.02] p-8">
               <p className="font-syne text-lg font-bold text-offwhite">
-                Aussi sur Roulé Rodrigues
+                Aussi sur Roule Rodrigues
               </p>
               <ul className="mt-4 space-y-2.5">
                 {[

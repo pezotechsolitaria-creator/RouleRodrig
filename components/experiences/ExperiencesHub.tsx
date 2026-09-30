@@ -13,7 +13,7 @@ import { useLanguage } from "@/context/LanguageContext";
 import JsonLd from "@/components/JsonLd";
 import { SITE_URL } from "@/lib/site";
 import { faqPageLd } from "@/lib/schema";
-import { experiencesFaq, experiencesFaqHeading, FALLBACK_RANGE } from "@/lib/experiences-faq";
+import { experiencesFaq, experiencesFaqHeading, FALLBACK_RANGE, priceRangeOf } from "@/lib/experiences-faq";
 import { EXPERIENCES } from "@/lib/experiences";
 import { loc } from "@/lib/localize";
 import { placeHref } from "@/lib/place-href";
@@ -121,14 +121,13 @@ export default function ExperiencesHub({ places }: { places: RecommendedPlace[] 
   // and Ile aux Cocos at Rs 1,999. Derived from the same placePrice() the
   // cards use, so the paragraph and the grid cannot disagree again — and the
   // FAQPage schema below is built from the same range.
-  const priceRange = useMemo(() => {
-    const prices = places
-      .map((p) => placePrice(p))
-      .filter((n): n is number => n !== null && n > 0);
-    return prices.length
-      ? { min: Math.min(...prices), max: Math.max(...prices) }
-      : FALLBACK_RANGE;
-  }, [places]);
+  //
+  // SEO audit 2026-09-29 C1: the answer also NAMES the listing at each end, so
+  // "Rs 2,500" is the sunrise hike it is, not "a full day out".
+  const priceRange = useMemo(
+    () => priceRangeOf(places.map((p) => ({ name: p.name, price: placePrice(p) }))) ?? FALLBACK_RANGE,
+    [places],
+  );
 
 
   const inMode = useMemo(

@@ -1,7 +1,9 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { taxiFaq, taxiFaqHeading, taxiFaqLd, taxiServiceLd } from "./taxi-faq";
+import { SHEET } from "@/test/transfer-sheet.fixture";
+import { moneyFr } from "./transfers-faq";
+import { taxiFaq, taxiFaqHeading, taxiFaqLd, taxiPriceAnswer, taxiServiceLd, TRANSFERS_LINK } from "./taxi-faq";
 
 // ── /taxi ANSWERED NONE OF THE QUESTIONS IT EXISTS TO ANSWER (M149) ─────────
 //
@@ -63,6 +65,60 @@ describe("the answers match what the product actually does", () => {
   it("repeats the disclaimer rather than contradicting it", () => {
     expect(en).toContain("not a transport operator");
   });
+
+  it("spells the brand unaccented, in both languages (C17)", () => {
+    for (const list of [taxiFaq("en", SHEET), taxiFaq("fr", SHEET)]) {
+      expect(JSON.stringify(list)).not.toContain("Roulé Rodrigues");
+    }
+  });
+});
+
+// ── ONE PRICE ANSWER, IN TWO PARTS (SEO audit 2026-09-29 C2) ────────────────
+// "Every driver sets their own fare, so there is no fixed price list" was
+// false of an airport transfer, which has zone fares. The answer is now the
+// zone fares read from the price sheet, then the driver's fare for any other
+// ride. SHEET's numbers are not the live ones, so a remembered fare fails.
+describe("the taxi price answer", () => {
+  it("states the sheet's zone fares and Port Mathurin, then the driver's fare", () => {
+    const a = taxiPriceAnswer("en", SHEET);
+    expect(a).toContain("Rs 1,111 up to 6 km, Rs 1,444 over 6 and under 13 km, and Rs 1,777 for 13 km and over");
+    expect(a).toContain("each extra passenger adds Rs 123");
+    expect(a).toContain("Port Mathurin is Rs 1,777 one way.");
+    expect(a).toContain("Night transfers (22:00–04:59) are priced by hand");
+    expect(a).toContain("Every other ride: each driver sets their own fare");
+    expect(a).toContain("Roule Rodrigues never takes payment for a ride");
+    expect(a).not.toMatch(/no fixed price|pas de grille/);
+  });
+
+  it("says the same in French", () => {
+    const a = taxiPriceAnswer("fr", SHEET);
+    expect(a).toContain(`${moneyFr(111100)} jusqu'à 6 km`);
+    expect(a).toContain(`Port Mathurin : ${moneyFr(177700)} l'aller simple.`);
+    expect(a).toContain("Pour toute autre course, chaque chauffeur fixe son propre tarif");
+    expect(a).toContain("ne prend jamais de paiement pour une course");
+  });
+
+  it("prints no figure without a sheet, and names the page that has them", () => {
+    for (const l of ["en", "fr"] as const) {
+      expect(taxiPriceAnswer(l, null)).not.toMatch(/Rs\s?\d/);
+    }
+    expect(taxiPriceAnswer("en", null)).toContain("airport transfers page");
+  });
+
+  it("is the first answer, and links /transfers in the reader's language", () => {
+    expect(taxiFaq("en", SHEET)[0].answer).toBe(taxiPriceAnswer("en", SHEET));
+    expect(taxiFaq("en", SHEET)[0].link).toEqual(TRANSFERS_LINK.en);
+    expect(taxiFaq("fr", SHEET)[0].link).toEqual(TRANSFERS_LINK.fr);
+    expect(TRANSFERS_LINK.en.href).toBe("/transfers");
+  });
+
+  it("keeps the FAQPage text to the answer; the link is not part of it", () => {
+    const items = taxiFaq("en", SHEET);
+    const ld = taxiFaqLd("https://x.test/taxi", items) as {
+      mainEntity: { acceptedAnswer: { text: string } }[];
+    };
+    expect(ld.mainEntity[0].acceptedAnswer.text).toBe(items[0].answer);
+  });
 });
 
 describe("the structured data cannot outrun the page", () => {
@@ -75,7 +131,12 @@ describe("the structured data cannot outrun the page", () => {
     expect(ld.mainEntity[0].acceptedAnswer.text).toBe(EN[0].answer);
   });
 
-  it("does NOT claim Roulé Rodrigues operates the transport", () => {
+  it("names the one business entity as provider, not a second Organization (T9)", () => {
+    const ld = taxiServiceLd("https://x.test") as { provider: unknown };
+    expect(ld.provider).toEqual({ "@id": "https://x.test/#business" });
+  });
+
+  it("does NOT claim Roule Rodrigues operates the transport", () => {
     // The page's own disclaimer says it is not a transport operator. Schema
     // that contradicts the visible page is a claim we would have to defend.
     const ld = taxiServiceLd("https://x.test") as Record<string, unknown>;
@@ -95,7 +156,10 @@ describe("the structured data cannot outrun the page", () => {
 });
 
 describe("the page renders what it marks up", () => {
-  const src = readFileSync(join(__dirname, "..", "app", "taxi", "page.tsx"), "utf8")
+  // The directory moved into its own client component when /taxi became a
+  // server page (SEO audit 2026-09-29 C23); app/taxi/taxi-page.test.ts renders
+  // it and reads the HTML back.
+  const src = readFileSync(join(__dirname, "..", "app", "taxi", "TaxiDirectory.tsx"), "utf8")
     .replace(/\/\*[\s\S]*?\*\//g, "")
     .replace(/^\s*\/\/.*$/gm, "");
 
@@ -107,7 +171,7 @@ describe("the page renders what it marks up", () => {
 
   it("feeds the markup the same variable it renders", () => {
     expect(src).toMatch(/taxiFaqLd\(`\$\{SITE_URL\}\/taxi`, faqItems\)/);
-    expect(src).toMatch(/const faqItems = taxiFaq\(language\)/);
+    expect(src).toMatch(/const faqItems = taxiFaq\(language, airport\)/);
   });
 
   it("keeps the FAQ below the driver list, not above it", () => {
