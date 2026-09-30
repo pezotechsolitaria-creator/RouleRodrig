@@ -45,11 +45,11 @@ export default function DestinationGrid({
   if (items.length === 0) return null;
 
   return (
-    <section aria-labelledby="esim-destinations" className="pt-12">
-      <h2 id="esim-destinations" className="font-syne text-2xl font-bold text-offwhite">
+    <section id="esim-destinations" aria-labelledby="esim-destinations-title" className="scroll-mt-32 pt-16">
+      <h2 id="esim-destinations-title" className="font-syne text-[1.625rem] font-bold leading-tight text-offwhite">
         {home ? t.destTitleHome : t.destTitleWorld}
       </h2>
-      <p className="mt-1 font-dm text-sm text-muted">{home ? t.destSubHome : t.destSubWorld}</p>
+      <p className="mt-1.5 max-w-[56ch] font-dm text-sm leading-relaxed text-offwhite/65">{home ? t.destSubHome : t.destSubWorld}</p>
 
       {items.length > 8 && (
         <label className="relative mt-4 block">
@@ -68,22 +68,23 @@ export default function DestinationGrid({
       {shown.length === 0 ? (
         <p className="mt-4 font-dm text-sm text-muted">{t.destNone}</p>
       ) : (
-        <ul className="mt-4 grid grid-cols-2 gap-2.5 sm:grid-cols-3">
+        <ul className="mt-5 grid grid-cols-2 gap-2.5 sm:grid-cols-3">
           {shown.map(({ d, l }) => (
             <li key={d.code}>
+              {/* An arrivals-board tile: the country code is the design (the
+                  boarding-pass system's own device), which also sidesteps
+                  Windows drawing flag emoji as two plain letters. */}
               <Link
                 href={destinationPath(d, lang)}
-                className="flex min-h-14 items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.03] px-3.5 py-3 transition-colors hover:border-yellow/40 focus-visible:ring-2 focus-visible:ring-yellow/60"
+                className="group flex h-full min-h-[5.25rem] flex-col justify-between rounded-2xl border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.01))] px-3.5 py-3 transition-[border-color,transform] duration-300 ease-out hover:-translate-y-0.5 hover:border-yellow/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow/60"
               >
-                {/* Fixed width: Windows draws flag emoji as two letters, and
-                    the names should line up whichever it draws. */}
-                <span className="w-8 shrink-0 text-center text-2xl leading-none" aria-hidden>
-                  {d.flag}
+                <span className="flex items-start justify-between gap-2">
+                  <span className="font-bebas text-[1.75rem] leading-none tracking-[0.08em] text-offwhite transition-colors group-hover:text-yellow">
+                    {d.code}
+                  </span>
+                  <span className="pt-1 font-dm text-[11px] text-muted">{t.destFrom(formatEur(l.fromEurCents, lang))}</span>
                 </span>
-                <span className="min-w-0">
-                  <span className="block font-dm text-sm font-semibold leading-tight text-offwhite">{lang === "en" ? d.en : d.fr}</span>
-                  <span className="mt-0.5 block font-dm text-xs text-muted">{t.destFrom(formatEur(l.fromEurCents, lang))}</span>
-                </span>
+                <span className="mt-2 block font-dm text-[13px] font-semibold leading-tight text-offwhite/90">{lang === "en" ? d.en : d.fr}</span>
               </Link>
             </li>
           ))}
@@ -94,7 +95,7 @@ export default function DestinationGrid({
           href={destinationPath(DESTINATIONS[0], lang)}
           className="mt-4 inline-flex min-h-11 items-center font-dm text-sm text-yellow/80 underline underline-offset-4 hover:text-yellow"
         >
-          {DESTINATIONS[0].flag} {lang === "en" ? "Mauritius & Rodrigues eSIM (my.t 4G)" : "eSIM Maurice et Rodrigues (my.t 4G)"}
+          {lang === "en" ? "Mauritius & Rodrigues eSIM (my.t 4G)" : "eSIM Maurice et Rodrigues (my.t 4G)"}
         </Link>
       )}
     </section>

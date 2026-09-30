@@ -44,7 +44,7 @@ export async function destinationMetadata(slug: string, lang: Lang): Promise<Met
   const description =
     lang === "en"
       ? `A data eSIM for ${d.en} in a minute${from ? `, from ${from}` : ""}. QR code in seconds, hotspot included. Install before you fly; it starts when you land.`
-      : `Une eSIM data pour ${d.fr} en une minute${from ? `, dès ${from}` : ""}. QR code en quelques secondes, partage inclus. Installez avant de partir.`;
+      : `Une eSIM data à utiliser ${d.frIn}${from ? `, dès ${from}` : ""}. QR code en quelques secondes, partage inclus. Installez-la avant de partir.`;
   return {
     title,
     description,
@@ -58,7 +58,7 @@ export async function destinationMetadata(slug: string, lang: Lang): Promise<Met
       url: lang === "en" ? u.en : u.fr,
       type: "website",
       ...(lang === "fr" ? { locale: "fr_FR" } : {}),
-      images: ogImages(lang === "en" ? `Mobile data eSIM for ${d.en}` : `eSIM data pour ${d.fr}`),
+      images: ogImages(lang === "en" ? `Mobile data eSIM for ${d.en}` : `eSIM data ${d.frIn}`),
     },
   };
 }
@@ -95,7 +95,7 @@ export default async function DestinationPage({ slug, lang }: { slug: string; la
         })}
       />
       <AppPageHeader showBack backHref={lang === "en" ? "/esim" : "/fr/esim-maurice-rodrigues"} />
-      <main lang={lang} className="min-h-[calc(100vh-4rem)] bg-dark pb-[calc(8rem+env(safe-area-inset-bottom))]">
+      <main lang={lang} className="min-h-[calc(100vh-4rem)] bg-dark pb-[calc(12rem+env(safe-area-inset-bottom))]">
         <EsimStore plans={plans} selling={selling} lang={lang} whatsapp={whatsapp} destination={d} live={live} />
         <div className="mx-auto max-w-2xl px-5 pt-8">
           {lang === "en" ? (

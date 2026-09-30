@@ -180,8 +180,8 @@ export function worldFaq(lang: Lang, place: WorldPlace, fromPrice: string | null
           {
             q: `Quelle eSIM choisir ${place.inPlace} ?`,
             a: nets
-              ? `Les eSIM Roulé Rodrigues pour ${place.name} se connectent à ${nets} ${place.inPlace}. Elles fournissent des données mobiles avec partage de connexion, livrées en quelques secondes par QR code.`
-              : `Les eSIM Roulé Rodrigues pour ${place.name} se connectent aux réseaux locaux 4G/5G ${place.inPlace}. Elles fournissent des données mobiles avec partage de connexion, livrées en quelques secondes par QR code.`,
+              ? `${place.inPlace.charAt(0).toUpperCase()}${place.inPlace.slice(1)}, les eSIM Roulé Rodrigues se connectent à ${nets}. Elles fournissent des données mobiles avec partage de connexion, livrées en quelques secondes par QR code.`
+              : `${place.inPlace.charAt(0).toUpperCase()}${place.inPlace.slice(1)}, les eSIM Roulé Rodrigues se connectent aux réseaux locaux 4G/5G. Elles fournissent des données mobiles avec partage de connexion, livrées en quelques secondes par QR code.`,
           },
           {
             q: `Combien coûte une eSIM ${place.inPlace} ?`,

@@ -11,6 +11,47 @@ comments carry the reasoning line by line; this is the map.
 
 ---
 
+## M225 — The boarding-pass redesign (30 Sep 2026)
+
+Owner: "more premium, pro, modern… improve scrolling to the max… PayPal, account
+number (if recommended), WhatsApp help". Chosen: **card/PayPal only + WhatsApp**,
+design **"Boarding pass"**.
+
+- **Why no bank transfer.** A transfer needs a human to see the money arrive before
+  the eSIM can be ordered: the one flow in the store that would stop being
+  automatic, for a €7–€40 item a card already covers (PayPal's guest checkout takes
+  any Visa/Mastercard, including Mauritian ones, with no PayPal account). The
+  WhatsApp link is the human fallback instead.
+- **Plans are passes** (`ui/Ticket.tsx`): main body = what you get (data, days,
+  networks), perforated stub = what it costs + "Choose". One button per pass; the
+  accessible name reads data, days and price as one sentence. The featured pass
+  (owner's pick, else best value) has the gold rim. Stub width and price size were
+  MEASURED at 375 px (Syne's wide numerals clipped "€23.90" in a 7 rem stub).
+- **Hero** (`ui/SignalStrip.tsx`): animated gold signal bars, "my.t 4G · Rodrigues",
+  live island clock (Indian/Mauritius, rendered after mount), one gold CTA that
+  scrolls to the plans, "Will my phone work?" link, check-mark trust line.
+- **Scrolling** (`ui/SectionNav.tsx`, `ui/StickyBar.tsx`, globals.css):
+  sticky chip rail docked under the site header with IntersectionObserver
+  scrollspy, active chip centred, reading-progress hairline; a sticky "From €x ·
+  See plans" bar that appears only once the hero AND the plans are off screen,
+  sits 8 px above the floating bottom nav, and hides while the sheet is open.
+  Passes "print" in with a **CSS scroll-driven animation** (`animation-timeline:
+  view()` inside `@supports`) — no JS state, so nothing can be stranded hidden
+  (the IntersectionObserver version was, in a throttled tab). FAQ opens with
+  `::details-content` + `interpolate-size`; below-the-fold sections use
+  `content-visibility: auto`. `prefers-reduced-motion` switches all of it off.
+- **Network board** (`ui/NetworkBoard.tsx`): a departures board — my.t Covered,
+  Emtel Covered, Chili struck through "No signal" on the Mauritius store; operator
+  and network type rows on world pages.
+- **Checkout sheet**: slides out on close, drag handle, the plan restated as a pass
+  stub, a "Pay securely" block (card or PayPal, guarantee line) and a WhatsApp
+  link pre-filled with the plan and place.
+- **Install page**: opens on the pass itself — REF stub with a READY / PREPARING /
+  ON IT / REFUNDED stamp — and a WhatsApp button pre-filled with the order number.
+- **French grammar**: destination copy uses the `frIn` preposition form ("à
+  utiliser en France", never "pour France") in the sub, FAQ, meta, OG alt and
+  WhatsApp message.
+
 ## M224 — Mauritius first, the world second (30 Sep 2026)
 
 Owner: "mainly for Mauritius and Rodrigues but allows other countries". The store
@@ -194,8 +235,8 @@ pricing, refund with profile cancel).
 
 ## 6. Frontend
 
-- `/esim` and `/fr/esim-maurice-rodrigues` — `EsimStore` (hero, 2×2 plan cards, how it
-  works, **why the network matters**, compatibility checker, FAQ, lost-link lookup,
+- `/esim` and `/fr/esim-maurice-rodrigues` — `EsimStore` (hero, boarding-pass plans
+  (`ui/Ticket`), sticky chip nav + price bar (M225), how it works, **why the network matters**, compatibility checker, FAQ, lost-link lookup,
   onward links). French renders French on the **server**.
 - `CheckoutSheet` — portalled bottom sheet: plan restated, email, "my phone supports
   eSIM" tick (the #1 refund cause), PayPal buttons incl. guest card; "opening soon +

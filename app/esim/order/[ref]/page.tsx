@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { viewOrder } from "@/lib/esim/service";
+import { getContent } from "@/lib/content";
 import AppPageHeader from "@/components/AppPageHeader";
 import OrderInstall from "./OrderInstall";
 import { toUiLang } from "../../copy";
@@ -26,13 +27,14 @@ export default async function EsimOrderPage({
   searchParams: Promise<{ k?: string }>;
 }) {
   const [{ ref }, { k }] = await Promise.all([params, searchParams]);
-  const view = await viewOrder(ref, k ?? null, { refresh: true });
+  const [view, content] = await Promise.all([viewOrder(ref, k ?? null, { refresh: true }), getContent()]);
+  const whatsapp = content.contact.whatsappNumbers?.[0]?.number ?? content.contact.phone ?? null;
 
   return (
     <>
       <AppPageHeader showBack backHref="/esim" />
       <main className="min-h-[calc(100vh-4rem)] bg-dark pb-[calc(8rem+env(safe-area-inset-bottom))]">
-        <OrderInstall initial={view} refParam={ref} keyParam={k ?? null} lang={view ? toUiLang(view.language) : "en"} />
+        <OrderInstall initial={view} refParam={ref} keyParam={k ?? null} lang={view ? toUiLang(view.language) : "en"} whatsapp={whatsapp} />
       </main>
     </>
   );

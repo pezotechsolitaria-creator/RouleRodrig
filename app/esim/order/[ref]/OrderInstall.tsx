@@ -2,13 +2,14 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Apple, Check, CheckCircle2, Copy, Loader2, QrCode, Smartphone, LifeBuoy, AlertTriangle } from "lucide-react";
+import { Apple, Check, Copy, Loader2, QrCode, Smartphone, LifeBuoy, AlertTriangle, MessageCircle } from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
 import type { OrderView } from "@/lib/esim/service";
 import { buildPickupQr } from "@/lib/orders/pickup-qr";
 import { IOS_STEPS, ANDROID_STEPS } from "@/lib/esim/content";
 import { esimTrack } from "@/lib/esim/analytics";
 import { CONTACT_EMAIL } from "@/lib/site";
+import { waLink } from "../../ui/scroll";
 import { toUiLang, type UiLang } from "../../copy";
 
 // ── The install page ─────────────────────────────────────────────────────────
@@ -62,6 +63,13 @@ const T = {
     notFoundSub: "Check you copied the whole link from your email, or find your eSIM with your order number and email.",
     find: "Find my eSIM",
     help: "Need help? Write to us with your order number",
+    stampReady: "READY",
+    stampPreparing: "PREPARING",
+    stampOnIt: "ON IT",
+    stampRefunded: "REFUNDED",
+    pass: "DATA PASS",
+    wa: "Ask us on WhatsApp",
+    waMsg: (ref: string) => `Hello! A question about my eSIM ${ref}.`,
   },
   fr: {
     preparing: "Préparation de votre eSIM…",
@@ -104,6 +112,13 @@ const T = {
     notFoundSub: "Vérifiez que vous avez copié le lien complet depuis votre email, ou retrouvez votre eSIM avec votre numéro de commande et votre email.",
     find: "Retrouver mon eSIM",
     help: "Besoin d'aide ? Écrivez-nous avec votre numéro de commande",
+    stampReady: "PRÊTE",
+    stampPreparing: "EN COURS",
+    stampOnIt: "EN TRAITEMENT",
+    stampRefunded: "REMBOURSÉE",
+    pass: "PASS DATA",
+    wa: "Écrivez-nous sur WhatsApp",
+    waMsg: (ref: string) => `Bonjour ! Une question sur mon eSIM ${ref}.`,
   },
 };
 
@@ -126,11 +141,14 @@ export default function OrderInstall({
   refParam,
   keyParam,
   lang: initialLang,
+  whatsapp = null,
 }: {
   initial: OrderView | null;
   refParam: string;
   keyParam: string | null;
   lang: UiLang;
+  /** The business WhatsApp, for the help button. */
+  whatsapp?: string | null;
 }) {
   const { language, hasChosen } = useLanguage();
   // The order's own language wins until the visitor picks one on this device.
@@ -216,8 +234,51 @@ export default function OrderInstall({
     </dl>
   );
 
+  // ── The pass itself: the page opens on the document you just bought ─────
+  const home = view.destination.home;
+  const passHeader = (title: string, stamp: string, live: boolean) => (
+    <div className="relative flex overflow-hidden rounded-2xl border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.01)_60%),#111111]">
+      <div className="min-w-0 flex-1 px-4 py-4">
+        <p className="font-bebas text-[11px] leading-none tracking-[0.24em] text-muted">
+          {t.pass} · {home ? "RRG" : view.destination.code}
+        </p>
+        <h1 className="mt-2 font-syne text-[1.55rem] font-extrabold leading-[1.1] text-offwhite [text-wrap:balance]">{title}</h1>
+        <p className="mt-1.5 font-dm text-[13px] text-offwhite/65">
+          {lang === "en" ? view.destination.en : view.destination.fr} · {lang === "en" ? view.planLabelEn : view.planLabelFr}
+        </p>
+      </div>
+      <span aria-hidden className="pointer-events-none absolute bottom-3 right-[6.25rem] top-3 border-l border-dashed border-white/15" />
+      <span aria-hidden className="pointer-events-none absolute right-[6.25rem] top-0 h-4 w-4 -translate-y-1/2 translate-x-1/2 rounded-full border border-white/10 bg-dark" />
+      <span aria-hidden className="pointer-events-none absolute bottom-0 right-[6.25rem] h-4 w-4 translate-x-1/2 translate-y-1/2 rounded-full border border-white/10 bg-dark" />
+      <div className="flex w-[6.25rem] shrink-0 flex-col items-center justify-center gap-2 px-2 text-center">
+        <span className="font-bebas text-[11px] tracking-[0.2em] text-muted">REF</span>
+        <span className="font-bebas text-[15px] leading-none tracking-[0.1em] text-offwhite">{view.ref}</span>
+        <span
+          className={`mt-1 inline-flex items-center gap-1 rounded-md border px-2 py-1 font-bebas text-[11px] leading-none tracking-[0.18em] ${
+            live ? "border-yellow/50 text-yellow" : "border-white/20 text-offwhite/80"
+          }`}
+        >
+          {!live && stamp === t.stampPreparing && <Loader2 size={10} className="animate-spin" aria-hidden />}
+          {stamp}
+        </span>
+      </div>
+    </div>
+  );
+  const waHref = waLink(whatsapp, t.waMsg(view.ref));
+
   const helpLine = (
-    <p className="mt-6 flex items-start gap-2 font-dm text-sm text-muted">
+    <>
+    {waHref && (
+      <a
+        href={waHref}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="mt-6 flex min-h-12 w-full items-center justify-center gap-2 rounded-full border border-white/12 font-dm text-sm text-offwhite/85 transition-colors hover:bg-white/5"
+      >
+        <MessageCircle size={16} aria-hidden /> {t.wa}
+      </a>
+    )}
+    <p className="mt-4 flex items-start gap-2 font-dm text-sm text-muted">
       <LifeBuoy size={16} className="mt-0.5 shrink-0 text-yellow" aria-hidden />
       <span>
         {t.help} <b className="text-offwhite">{view.ref}</b> —{" "}
@@ -226,15 +287,16 @@ export default function OrderInstall({
         </a>
       </span>
     </p>
+    </>
   );
 
   if (view.status === "paid" || view.status === "provisioning") {
     return (
-      <div className="mx-auto max-w-md px-5 pt-10 text-center" role="status" aria-live="polite">
-        <Loader2 size={36} className="mx-auto animate-spin text-yellow" aria-hidden />
-        <h1 className="mt-5 font-syne text-2xl font-extrabold text-offwhite">{t.preparing}</h1>
-        <p className="mt-2 font-dm text-sm leading-relaxed text-muted">{t.preparingSub}</p>
-        <div className="text-left">{summary}</div>
+      <div className="mx-auto max-w-md px-5 pt-6" role="status" aria-live="polite">
+        {passHeader(t.preparing, t.stampPreparing, false)}
+        <p className="mt-4 font-dm text-sm leading-relaxed text-offwhite/70">{t.preparingSub}</p>
+        {summary}
+        {helpLine}
       </div>
     );
   }
@@ -242,10 +304,9 @@ export default function OrderInstall({
   if (view.status === "failed" || view.status === "refunded" || view.status === "cancelled" || !view.activation) {
     const refunded = view.status === "refunded";
     return (
-      <div className="mx-auto max-w-md px-5 pt-10">
-        <AlertTriangle size={32} className="text-yellow" aria-hidden />
-        <h1 className="mt-4 font-syne text-2xl font-extrabold text-offwhite">{refunded ? t.refunded : t.failed}</h1>
-        <p className="mt-2 font-dm text-sm leading-relaxed text-muted">{refunded ? t.refundedSub : t.failedSub}</p>
+      <div className="mx-auto max-w-md px-5 pt-6">
+        {passHeader(refunded ? t.refunded : t.failed, refunded ? t.stampRefunded : t.stampOnIt, false)}
+        <p className="mt-4 font-dm text-sm leading-relaxed text-offwhite/70">{refunded ? t.refundedSub : t.failedSub}</p>
         {summary}
         {helpLine}
       </div>
@@ -257,9 +318,8 @@ export default function OrderInstall({
 
   return (
     <div className="mx-auto max-w-md px-5 pt-6">
-      <CheckCircle2 size={34} className="text-yellow" aria-hidden />
-      <h1 className="mt-3 font-syne text-[1.75rem] font-extrabold leading-tight text-offwhite">{t.ready}</h1>
-      <p className="mt-2 font-dm text-sm leading-relaxed text-muted">
+      {passHeader(t.ready, t.stampReady, true)}
+      <p className="mt-4 font-dm text-sm leading-relaxed text-offwhite/70">
         {t.readySub(view.email, lang === "en" ? view.destination.enIn : view.destination.frIn)}
       </p>
 

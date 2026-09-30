@@ -75,7 +75,7 @@ export default async function EsimPage() {
         })}
       />
       <AppPageHeader showBack backHref="/" />
-      <main className="min-h-[calc(100vh-4rem)] bg-dark pb-[calc(8rem+env(safe-area-inset-bottom))]">
+      <main className="min-h-[calc(100vh-4rem)] bg-dark pb-[calc(12rem+env(safe-area-inset-bottom))]">
         <EsimStore plans={plans} selling={selling} whatsapp={whatsapp} live={live} />
         <div className="mx-auto max-w-2xl px-5 pt-8">
           <FrenchTwinLink href="/fr/esim-maurice-rodrigues" label="Lire cette page en français" />

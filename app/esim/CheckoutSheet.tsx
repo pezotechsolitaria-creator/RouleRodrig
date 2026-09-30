@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
-import { Loader2, Lock, ShieldCheck, X, Check } from "lucide-react";
+import { Loader2, Lock, ShieldCheck, X, Check, MessageCircle } from "lucide-react";
 import type { PublicPlan } from "@/lib/esim/service";
 import { planLabel, usageHint } from "@/lib/esim/format";
 import { formatEur } from "@/lib/esim/pricing";
@@ -11,6 +11,7 @@ import { displayNetworks } from "@/lib/esim/networks";
 import { esimTrack } from "@/lib/esim/analytics";
 import { HOME_CODE, type Destination } from "@/lib/esim/destinations";
 import CompatChecker from "./CompatChecker";
+import { prefersReducedMotion, waLink } from "./ui/scroll";
 import { COPY, type UiLang } from "./copy";
 
 // ── The checkout sheet ───────────────────────────────────────────────────────
@@ -58,6 +59,7 @@ export default function CheckoutSheet({
   lang,
   selling,
   destination,
+  whatsapp = null,
   onClose,
 }: {
   plan: PublicPlan;
@@ -66,6 +68,8 @@ export default function CheckoutSheet({
   /** The shelf the plan was chosen on — sent to checkout, which checks the
    *  plan really is listed there (and, for Mauritius, covers Rodrigues). */
   destination: Destination;
+  /** The business WhatsApp, for the "Questions?" button. */
+  whatsapp?: string | null;
   onClose: () => void;
 }) {
   const t = COPY[lang];
@@ -92,6 +96,19 @@ export default function CheckoutSheet({
   const container = useRef<HTMLDivElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
 
+  // Slides up on open and down on close (reduced motion: instant). `entered`
+  // flips on the frame after mount so the transition has a start to run from.
+  const [entered, setEntered] = useState(false);
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setEntered(true));
+    return () => cancelAnimationFrame(id);
+  }, []);
+  const close = useCallback(() => {
+    if (prefersReducedMotion()) return onClose();
+    setEntered(false);
+    window.setTimeout(onClose, 260);
+  }, [onClose]);
+
   const emailValid = EMAIL_RE.test(email.trim());
   const price = formatEur(plan.retail_eur_cents, lang);
   const label = planLabel(plan, lang);
@@ -102,14 +119,14 @@ export default function CheckoutSheet({
     document.body.style.overflow = "hidden";
     dialogRef.current?.focus();
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !processing) onClose();
+      if (e.key === "Escape" && !processing) close();
     };
     window.addEventListener("keydown", onKey);
     return () => {
       document.body.style.overflow = prev;
       window.removeEventListener("keydown", onKey);
     };
-  }, [onClose, processing]);
+  }, [close, processing]);
 
   // ── PayPal SDK, loaded once per page (shared id with the rental button).
   useEffect(() => {
@@ -239,6 +256,10 @@ export default function CheckoutSheet({
     ? displayNetworks(plan.networks)
     : plan.networks.slice(0, 2).map((n) => (n.type ? `${n.name} ${n.type}` : n.name));
 
+  const code = home ? "RRG" : destination.code;
+  const placeName = lang === "en" ? destination.en : destination.fr;
+  const helpHref = waLink(whatsapp, t.helpMsg(label, lang === "en" ? destination.enIn : destination.frIn));
+
   // PORTALLED to <body>. Rendered in place, the sheet sat inside the page
   // wrapper's stacking context (it animates with a transform), so the global
   // bottom nav — z-40 at the root — painted OVER the sheet's pay button on a
@@ -249,8 +270,8 @@ export default function CheckoutSheet({
       <button
         type="button"
         aria-label={t.close}
-        onClick={() => !processing && onClose()}
-        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+        onClick={() => !processing && close()}
+        className={`absolute inset-0 bg-black/70 backdrop-blur-sm transition-opacity duration-300 ${entered ? "opacity-100" : "opacity-0"}`}
       />
       <div
         ref={dialogRef}
@@ -258,34 +279,49 @@ export default function CheckoutSheet({
         aria-modal="true"
         aria-labelledby="esim-sheet-title"
         tabIndex={-1}
-        className="relative max-h-[92dvh] w-full max-w-md overflow-y-auto rounded-t-3xl border border-white/10 bg-dark px-5 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pt-5 outline-none sm:rounded-3xl"
+        className={`relative max-h-[92dvh] w-full max-w-md overflow-y-auto overscroll-contain rounded-t-[1.75rem] border border-white/10 bg-dark px-5 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pt-3 shadow-[0_-24px_60px_-20px_rgba(0,0,0,0.8)] outline-none transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] sm:rounded-[1.75rem] ${
+          entered ? "translate-y-0" : "translate-y-full sm:translate-y-8"
+        }`}
       >
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <p className="font-bebas text-[11px] tracking-[0.3em] text-yellow">
-              {t.sheetTitle.toUpperCase()} · {(lang === "en" ? destination.en : destination.fr).toUpperCase()}
-            </p>
-            <h2 id="esim-sheet-title" className="mt-1 font-syne text-2xl font-extrabold text-offwhite">
-              {label}
-            </h2>
-            <p className="mt-1 font-dm text-sm text-muted">
-              {[...networks, usageHint(plan, lang)].join(" · ")}
-            </p>
-          </div>
+        <div aria-hidden className="mx-auto h-1 w-10 rounded-full bg-white/20 sm:hidden" />
+
+        <div className="mt-3 flex items-center justify-between gap-3">
+          <p className="font-bebas text-[12px] tracking-[0.28em] text-yellow">
+            {t.sheetTitle.toUpperCase()} · {placeName.toUpperCase()}
+          </p>
           <button
             type="button"
-            onClick={onClose}
+            onClick={close}
             disabled={processing}
             aria-label={t.close}
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-white/10 text-offwhite/80 hover:bg-white/5 disabled:opacity-40"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-white/10 text-offwhite/80 transition-colors hover:bg-white/5 disabled:opacity-40"
           >
             <X size={18} />
           </button>
         </div>
 
-        <div className="mt-4 flex items-baseline justify-between rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
-          <span className="font-dm text-sm text-muted">Total</span>
-          <span className="font-syne text-2xl font-extrabold text-yellow">{price}</span>
+        {/* ── The pass being bought ── */}
+        <div className="relative mt-3 flex overflow-hidden rounded-2xl border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.045),rgba(255,255,255,0.01)_60%),#111111]">
+          <div className="min-w-0 flex-1 px-4 py-4">
+            <p className="font-bebas text-[11px] leading-none tracking-[0.24em] text-muted">
+              {t.pass} · {code}
+            </p>
+            <h2 id="esim-sheet-title" className="mt-2 font-syne text-[1.4rem] font-extrabold leading-tight text-offwhite">
+              {label}
+            </h2>
+            <p className="mt-1.5 font-dm text-[13px] leading-snug text-offwhite/65">{[...networks, usageHint(plan, lang)].join(" · ")}</p>
+          </div>
+          <span aria-hidden className="pointer-events-none absolute bottom-3 right-[7.5rem] top-3 border-l border-dashed border-white/15" />
+          <span aria-hidden className="pointer-events-none absolute right-[7.5rem] top-0 h-4 w-4 -translate-y-1/2 translate-x-1/2 rounded-full border border-white/10 bg-dark" />
+          <span aria-hidden className="pointer-events-none absolute bottom-0 right-[7.5rem] h-4 w-4 translate-x-1/2 translate-y-1/2 rounded-full border border-white/10 bg-dark" />
+          <div className="flex w-[7.5rem] shrink-0 flex-col items-center justify-center gap-1 px-2">
+            <span className="font-bebas text-[11px] tracking-[0.24em] text-muted">TOTAL</span>
+            {/* Same measured rule as the ticket stub: Syne's wide numerals clip
+                "€15.90" at 1.4rem in a narrow stub. */}
+            <span className={`whitespace-nowrap font-syne font-extrabold leading-none text-yellow ${price.length > 6 ? "text-[1.1rem]" : "text-[1.25rem]"}`}>
+              {price}
+            </span>
+          </div>
         </div>
 
         {processing ? (
@@ -297,7 +333,7 @@ export default function CheckoutSheet({
         ) : (
           <form className="mt-5 space-y-4" onSubmit={selling ? (e) => e.preventDefault() : notify} noValidate>
             <div>
-              <label htmlFor="esim-email" className="font-bebas text-[11px] tracking-[0.25em] text-muted">
+              <label htmlFor="esim-email" className="font-bebas text-[12px] tracking-[0.24em] text-offwhite/70">
                 {t.email.toUpperCase()} <span className="text-yellow">*</span>
               </label>
               <input
@@ -316,11 +352,11 @@ export default function CheckoutSheet({
                 aria-invalid={touched && !emailValid}
                 aria-describedby="esim-email-help"
                 placeholder="you@example.com"
-                className={`mt-1.5 w-full rounded-xl border bg-dark-card px-4 py-3.5 font-dm text-base text-offwhite placeholder:text-muted/50 focus:outline-none ${
+                className={`mt-1.5 w-full rounded-xl border bg-dark-card px-4 py-3.5 font-dm text-base text-offwhite placeholder:text-muted/60 focus:outline-none ${
                   touched && !emailValid ? "border-red-500/60" : "border-dark-border focus:border-yellow"
                 }`}
               />
-              <p id="esim-email-help" className="mt-1.5 font-dm text-xs text-muted">
+              <p id="esim-email-help" className="mt-1.5 font-dm text-xs text-offwhite/60">
                 {t.emailHelp}
               </p>
             </div>
@@ -351,7 +387,7 @@ export default function CheckoutSheet({
                   type="button"
                   onClick={() => setShowCompat((v) => !v)}
                   aria-expanded={showCompat}
-                  className="ml-8 min-h-11 font-dm text-sm text-yellow/80 underline underline-offset-4 hover:text-yellow"
+                  className="ml-8 min-h-11 font-dm text-sm text-yellow/85 underline underline-offset-4 hover:text-yellow"
                 >
                   {t.compatCheck}
                 </button>
@@ -370,17 +406,20 @@ export default function CheckoutSheet({
             )}
 
             {selling ? (
-              <div>
-                {!sdkReady && (
-                  <div className="flex h-12 items-center justify-center gap-2 rounded-full border border-white/10 font-dm text-sm text-muted">
-                    <Loader2 size={16} className="animate-spin" aria-hidden /> {t.payLoading}
-                  </div>
-                )}
-                <div ref={container} className="min-h-[1px]" />
-                <p className="mt-3 flex items-center justify-center gap-1.5 text-center font-dm text-xs text-muted">
-                  <Lock size={12} aria-hidden /> {t.secure}
+              <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4">
+                <p className="flex items-center gap-2 font-syne text-sm font-bold text-offwhite">
+                  <Lock size={14} className="text-yellow" aria-hidden /> {t.payTitle}
                 </p>
-                <p className="mt-1.5 flex items-center justify-center gap-1.5 text-center font-dm text-xs text-muted">
+                <p className="mt-1 font-dm text-xs text-offwhite/60">{t.payMethods}</p>
+                <div className="mt-3.5">
+                  {!sdkReady && (
+                    <div className="flex h-12 items-center justify-center gap-2 rounded-full border border-white/10 font-dm text-sm text-muted">
+                      <Loader2 size={16} className="animate-spin" aria-hidden /> {t.payLoading}
+                    </div>
+                  )}
+                  <div ref={container} className="min-h-[1px]" />
+                </div>
+                <p className="mt-2 flex items-center justify-center gap-1.5 text-center font-dm text-xs text-offwhite/60">
                   <ShieldCheck size={12} aria-hidden /> {t.guarantee}
                 </p>
               </div>
@@ -391,7 +430,7 @@ export default function CheckoutSheet({
             ) : (
               <div>
                 <p className="font-syne text-base font-bold text-offwhite">{t.soonTitle}</p>
-                <p className="mt-1 font-dm text-sm text-muted">{t.soonBody}</p>
+                <p className="mt-1 font-dm text-sm text-offwhite/65">{t.soonBody}</p>
                 <button
                   type="submit"
                   className="mt-4 w-full rounded-full bg-yellow py-4 font-syne text-sm font-bold text-dark transition-colors hover:bg-yellow-dark"
@@ -399,6 +438,17 @@ export default function CheckoutSheet({
                   {t.soonCta}
                 </button>
               </div>
+            )}
+
+            {helpHref && (
+              <a
+                href={helpHref}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex min-h-12 w-full items-center justify-center gap-2 rounded-full border border-white/12 font-dm text-sm text-offwhite/85 transition-colors hover:bg-white/5"
+              >
+                <MessageCircle size={16} aria-hidden /> {t.help}
+              </a>
             )}
           </form>
         )}

@@ -64,7 +64,7 @@ export default async function EsimFrPage() {
       <PageLanguage lang="fr" />
       <JsonLd data={esimJsonLd({ lang: "fr", url: URL, plans: plans ?? [], faq: esimFaq("fr", fromPrice, widest), selling })} />
       <AppPageHeader showBack backHref="/fr" />
-      <main lang="fr" className="min-h-[calc(100vh-4rem)] bg-dark pb-[calc(8rem+env(safe-area-inset-bottom))]">
+      <main lang="fr" className="min-h-[calc(100vh-4rem)] bg-dark pb-[calc(12rem+env(safe-area-inset-bottom))]">
         <EsimStore plans={plans} selling={selling} lang="fr" whatsapp={whatsapp} live={live} />
         <div className="mx-auto max-w-2xl px-5 pt-8">
           <FrenchTwinLink href="/esim" label="Read this page in English" lang="en" />
