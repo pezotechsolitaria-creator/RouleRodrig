@@ -836,6 +836,7 @@ export async function sendBookingEmails(
       ${sectionLabel("Before your pickup, please bring")}
       ${checkList(["A valid driver's licence", "Your booking confirmation", "A valid ID or passport if requested"])}
       ${paragraph(`Please arrive 10–15 minutes early so we can walk you through the vehicle together. Any question? Just reply to this email — we look forward to welcoming you!`)}
+      ${await esimCrossSell("en")}
       ${sepFr()}
       ${frHeading(`Merci, ${b.name} !`)}
       ${paragraph(`Merci d'avoir choisi Roule Rodrigues. Nous avons bien reçu votre demande de réservation — notre équipe confirmera la disponibilité et les modalités de paiement très bientôt, généralement sous quelques heures (souvent via WhatsApp).`)}
@@ -844,6 +845,7 @@ export async function sendBookingEmails(
       ${sectionLabel("À apporter le jour du retrait")}
       ${checkList(["Un permis de conduire valide", "Votre confirmation de réservation", "Une pièce d'identité ou un passeport si demandé"])}
       ${paragraph(`Merci d'arriver 10 à 15 minutes en avance afin que nous puissions vérifier le véhicule ensemble. Une question ? Répondez simplement à cet e-mail — au plaisir de vous accueillir !`)}
+      ${await esimCrossSell("fr")}
       ${wa ? `<div style="text-align:center">${waButton(wa, `Hi Roule Rodrigues! I just booked the ${b.scooter} for ${fmtDate(b.start_date)} – ${fmtDate(b.end_date)}.`, "💬 WhatsApp")}</div>` : ""}`;
     result.customer = await send({
       to: b.email,
@@ -2650,11 +2652,13 @@ export async function sendPlaceBookingEmails(
       ${detailCard(placeRows(b))}
       ${priced ? paragraph(payEn) : ""}
       ${paragraph(`<span style="color:${C.muted};font-size:13px">This is a request, not yet a confirmed reservation — we'll be in touch to finalise everything.</span>`)}
+      ${await esimCrossSell("en")}
       ${sepFr()}
       ${frHeading("Merci pour votre réservation !")}
       ${paragraph(`Bonjour ${b.name}, nous avons bien reçu votre demande de réservation pour <strong>${b.place_name}</strong>. Notre équipe confirmera la disponibilité auprès de l'établissement et reviendra vers vous très vite.`)}
       ${priced ? paragraph(payFr) : ""}
       ${paragraph(`<span style="color:${C.muted};font-size:13px">Il s'agit d'une demande, pas encore d'une réservation confirmée — nous vous recontacterons pour tout finaliser.</span>`)}
+      ${await esimCrossSell("fr")}
       ${wa ? `<div style="text-align:center">${waButton(wa, `Hi Roule Rodrigues! I just requested ${b.place_name} for ${fmtDate(b.start_date)}.`, "💬 WhatsApp")}</div>` : ""}`;
     const type = placeEmailType("booking_confirmation", b.category);
     result.customer = await send({
@@ -3004,6 +3008,7 @@ export async function sendRideEmails(
       ])}
       <div style="text-align:center">${primaryButton(trackUrl, "Follow my ride · Suivre ma course")}</div>
       ${b.reference ? paragraph(`<span style="color:${C.muted};font-size:13px">You'll need your reference <b>${b.reference}</b> and the phone number above to open it.</span>`) : ""}
+      ${meta?.needsArrival ? await esimCrossSell("en") : ""}
       ${sepFr()}
       ${frHeading("Nous cherchons votre chauffeur")}
       ${paragraph(
@@ -3017,6 +3022,7 @@ export async function sendRideEmails(
         "Vous réglez le chauffeur directement à la fin de la course — rien n'est débité ici",
         "Besoin de modifier ou d'annuler ? Répondez à cet e-mail ou écrivez-nous sur WhatsApp",
       ])}
+      ${meta?.needsArrival ? await esimCrossSell("fr") : ""}
       ${wa ? `<div style="text-align:center">${waButton(wa, `Hi Roule Rodrigues! About my ride${b.reference ? ` ${b.reference}` : ""} — `, "💬 WhatsApp")}</div>` : ""}`;
     result.customer = await send({
       to: b.email,
@@ -3569,6 +3575,34 @@ export async function sendOrderNotificationEmail(o: {
   });
 }
 
+// ── The eSIM cross-sell (M224) ───────────────────────────────────────────────
+//
+// A booking confirmation reaches a visitor BEFORE they fly — exactly when an
+// eSIM is installed. One short line, bilingual like the emails it sits in,
+// and ONLY while the store can actually sell: promising "get an eSIM" while
+// checkout says "opening soon" would be a broken promise in writing.
+//
+// The network fact comes first because it is the useful part even to
+// somebody who never clicks: a Chili SIM bought in Port Louis is dead here.
+
+async function esimCrossSell(half: "en" | "fr"): Promise<string> {
+  try {
+    const { storeState } = await import("./esim/state");
+    if (!storeState().selling) return "";
+  } catch {
+    return "";
+  }
+  const link = (path: string, label: string) =>
+    `<a href="${SITE_URL}${path}?utm_source=email&utm_medium=booking&utm_campaign=esim" style="color:${C.ink};font-weight:700">${label}</a>`;
+  return half === "en"
+    ? `${sectionLabel("Stay connected")}${paragraph(
+        `Only my.t and Emtel reach Rodrigues — Chili has no signal on the island. ${link("/esim", "Get a data eSIM on my.t")}: install it at home, it starts when you land.`,
+      )}`
+    : `${sectionLabel("Restez connecté")}${paragraph(
+        `Seuls my.t et Emtel couvrent Rodrigues — Chili n'y a aucun signal. ${link("/fr/esim-maurice-rodrigues", "Prenez une eSIM data sur my.t")} : installée chez vous, elle démarre à votre arrivée.`,
+      )}`;
+}
+
 // ── eSIM store (M223) ────────────────────────────────────────────────────────
 //
 // ONE language per email, not the bilingual EN · FR card the rentals use: the
@@ -3582,6 +3616,10 @@ export type EsimEmailOrder = {
   ref: string;
   email: string;
   language: "en" | "fr" | "cr";
+  /** "Mauritius & Rodrigues", "France" — in the email's language (M224). */
+  destinationName: string;
+  /** "in Mauritius and Rodrigues", "en France" — in the email's language. */
+  destinationIn: string;
   planLabel: string; // "3 GB · 30 days"
   priceLabel: string; // "€15.90"
   lpa: string;
@@ -3601,11 +3639,11 @@ export async function sendEsimDelivered(o: EsimEmailOrder): Promise<boolean> {
   const fr = o.language !== "en";
   const t = fr
     ? {
-        subject: `Votre eSIM Maurice & Rodrigues est prête — ${o.ref}`,
+        subject: `Votre eSIM ${o.destinationName} est prête — ${o.ref}`,
         pre: "Scannez le QR code ou installez en un geste sur iPhone.",
         eyebrow: "eSIM prête",
         title: "Votre eSIM est prête à installer",
-        intro: `Merci ! Votre eSIM <b>${escapeHtml(o.planLabel)}</b> est prête. Installez-la <b>avant de partir</b>, en Wi-Fi — elle ne commence à compter ses jours qu'à sa première connexion à Maurice ou Rodrigues.`,
+        intro: `Merci ! Votre eSIM <b>${escapeHtml(o.planLabel)}</b> est prête. Installez-la <b>avant de partir</b>, en Wi-Fi — elle ne commence à compter ses jours qu'à sa première connexion ${escapeHtml(o.destinationIn)}.`,
         open: "Ouvrir ma page d'installation",
         iphone: "Installer sur iPhone (un geste)",
         manual: "Installation manuelle",
@@ -3624,11 +3662,11 @@ export async function sendEsimDelivered(o: EsimEmailOrder): Promise<boolean> {
         help: `Un souci ? Répondez à cet email ou écrivez à <a href="mailto:${CONTACT_EMAIL}" style="color:${C.ink};font-weight:600">${CONTACT_EMAIL}</a> avec votre numéro <b>${o.ref}</b>.`,
       }
     : {
-        subject: `Your Mauritius & Rodrigues eSIM is ready — ${o.ref}`,
+        subject: `Your ${o.destinationName} eSIM is ready — ${o.ref}`,
         pre: "Scan the QR code, or install in one tap on iPhone.",
         eyebrow: "eSIM ready",
         title: "Your eSIM is ready to install",
-        intro: `Thank you! Your <b>${escapeHtml(o.planLabel)}</b> eSIM is ready. Install it <b>before you fly</b>, on Wi-Fi — its days only start counting when it first connects in Mauritius or Rodrigues.`,
+        intro: `Thank you! Your <b>${escapeHtml(o.planLabel)}</b> eSIM is ready. Install it <b>before you fly</b>, on Wi-Fi — its days only start counting when it first connects ${escapeHtml(o.destinationIn)}.`,
         open: "Open my install page",
         iphone: "Install on iPhone (one tap)",
         manual: "Manual installation",

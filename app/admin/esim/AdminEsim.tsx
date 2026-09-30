@@ -29,11 +29,15 @@ type Plan = {
   networkLabels: string[];
   networks: { name: string }[];
   margin: Margin;
+  hidden: boolean;
+  /** This plan's place on the selected destination's shelf, if it has one. */
+  listing: { badge: string | null; sort_order: number; auto: boolean } | null;
 };
 type Order = {
   id: string;
   ref: string;
   email: string;
+  destination: string | null;
   status: string;
   retail_eur_cents: number;
   paid_eur_cents: number | null;
@@ -49,6 +53,9 @@ type Desk = {
   provider: { id: string; configured: boolean; balanceUsdMicros: number | null; balanceError: string | null };
   webhookUrl: string;
   eurPerUsd: number;
+  country: string;
+  destinations: { code: string; name: string; flag: string; live: number }[];
+  shelfIsManual: boolean;
   plans: Plan[];
   orders: Order[];
   totals: { delivered: number; revenueEurCents: number; netEurCents: number; needsAction: number };
@@ -71,10 +78,12 @@ export default function AdminEsim() {
   const [desk, setDesk] = useState<Desk | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const [country, setCountry] = useState("MU");
+  const [showAll, setShowAll] = useState(false);
 
   const load = useCallback(async () => {
     try {
-      const r = await fetch("/api/admin/esim", { cache: "no-store" });
+      const r = await fetch(`/api/admin/esim?country=${encodeURIComponent(country)}`, { cache: "no-store" });
       const j = await r.json();
       if (!r.ok) throw new Error(j.error || `HTTP ${r.status}`);
       setDesk(j);
@@ -82,7 +91,7 @@ export default function AdminEsim() {
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not load the desk.");
     }
-  }, []);
+  }, [country]);
 
   useEffect(() => {
     load();
@@ -206,7 +215,10 @@ export default function AdminEsim() {
                       {o.email}
                       {o.email_sent_at && <div className="text-xs text-muted">emailed ✓</div>}
                     </td>
-                    <td className="p-3">{plan(o.plan_snapshot)}</td>
+                    <td className="p-3">
+                      {o.destination && <span className="mr-1 text-xs text-muted">{o.destination}</span>}
+                      {plan(o.plan_snapshot)}
+                    </td>
                     <td className="p-3">{eur(o.paid_eur_cents ?? o.retail_eur_cents)}</td>
                     <td className="p-3">
                       <span className={`rounded-full border px-2 py-0.5 text-xs ${STATUS[o.status] ?? "border-white/10"}`}>{o.status}</span>
@@ -254,18 +266,56 @@ export default function AdminEsim() {
         )}
       </section>
 
-      {/* ── Plans ──────────────────────────────────────────────────────── */}
+      {/* ── Shelves: one per destination (M224) ────────────────────────── */}
       <section>
-        <h2 className="font-syne text-lg font-bold">Plans</h2>
-        <p className="mt-1 font-dm text-xs text-muted">
-          Net = price − supplier cost − PayPal (5.4% + €0.35, deliberately pessimistic). A price you type is never changed by a sync.
+        <h2 className="font-syne text-lg font-bold">Shelves</h2>
+        <p className="mt-1 max-w-3xl font-dm text-xs text-muted">
+          Each destination page sells the plans on its shelf. Mauritius &amp; Rodrigues is yours alone and only takes
+          plans that reach Rodrigues (my.t / Emtel). Every other shelf is stocked automatically after each sync — until
+          you change it, then it is yours; &ldquo;Reset to automatic&rdquo; hands it back. Net = price − supplier cost −
+          PayPal (5.4% + €0.35, deliberately pessimistic). A price you type is never changed by a sync.
         </p>
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <label className="font-dm text-sm">
+            <span className="sr-only">Destination</span>
+            <select
+              value={country}
+              onChange={(e) => setCountry(e.target.value)}
+              className="min-h-10 rounded-xl border border-dark-border bg-dark-card px-3 text-offwhite"
+            >
+              {desk.destinations.map((d) => (
+                <option key={d.code} value={d.code}>
+                  {d.flag} {d.name} {d.live ? `· ${d.live} on sale` : "· empty"}
+                </option>
+              ))}
+            </select>
+          </label>
+          {desk.country !== "MU" && (
+            <span className="rounded-full border border-white/15 px-2.5 py-1 font-dm text-xs text-muted">
+              {desk.shelfIsManual ? "Curated by you" : "Automatic"}
+            </span>
+          )}
+          {desk.country !== "MU" && desk.shelfIsManual && (
+            <button
+              onClick={() => act(`curate:${desk.country}`, { action: "curate", country: desk.country }, (j) => `Reset: ${Object.values(j)[0]} plans picked.`)}
+              disabled={busy !== null}
+              className="min-h-10 rounded-full border border-white/15 px-3 font-dm text-xs disabled:opacity-50"
+            >
+              Reset to automatic
+            </button>
+          )}
+          <label className="ml-auto flex items-center gap-2 font-dm text-xs text-muted">
+            <input type="checkbox" checked={showAll} onChange={(e) => setShowAll(e.target.checked)} />
+            Show every plan that works here ({desk.plans.length})
+          </label>
+        </div>
         <div className="mt-3 overflow-x-auto rounded-2xl border border-white/10">
-          <table className="w-full min-w-[820px] text-left font-dm text-sm">
+          <table className="w-full min-w-[900px] text-left font-dm text-sm">
             <thead className="text-xs text-muted">
               <tr className="border-b border-white/10">
+                <th className="p-3">On shelf</th>
                 <th className="p-3">Plan</th>
-                <th className="p-3">Rodrigues</th>
+                <th className="p-3">{desk.country === "MU" ? "Rodrigues" : "Networks"}</th>
                 <th className="p-3">Cost</th>
                 <th className="p-3">Price €</th>
                 <th className="p-3">Net</th>
@@ -274,9 +324,12 @@ export default function AdminEsim() {
               </tr>
             </thead>
             <tbody>
-              {desk.plans.map((p) => (
-                <PlanRow key={p.id} p={p} busy={busy} act={act} />
-              ))}
+              {desk.plans
+                .filter((p) => showAll || p.listing)
+                .sort((a, b) => (a.listing?.sort_order ?? 1e6) - (b.listing?.sort_order ?? 1e6) || a.retail_eur_cents - b.retail_eur_cents)
+                .map((p) => (
+                  <PlanRow key={p.id} p={p} country={desk.country} busy={busy} act={act} />
+                ))}
             </tbody>
           </table>
         </div>
@@ -287,28 +340,54 @@ export default function AdminEsim() {
 
 function PlanRow({
   p,
+  country,
   busy,
   act,
 }: {
   p: Plan;
+  country: string;
   busy: string | null;
   act: (key: string, body: Record<string, unknown>, done: (j: Record<string, unknown>) => string) => Promise<unknown>;
 }) {
   const [price, setPrice] = useState((p.retail_eur_cents / 100).toFixed(2));
   const cents = Math.round(Number(price.replace(",", ".")) * 100);
   const changed = Number.isFinite(cents) && cents !== p.retail_eur_cents;
+  const home = country === "MU";
+  const listed = !!p.listing;
+  // A plan that cannot reach Rodrigues can never go on the Mauritius shelf.
+  const canList = p.available && (!home || p.covers_rodrigues);
   return (
-    <tr className={`border-b border-white/5 align-top ${p.active ? "" : "opacity-70"}`}>
+    <tr className={`border-b border-white/5 align-top ${listed && p.active ? "" : "opacity-70"}`}>
+      <td className="p-3">
+        <input
+          type="checkbox"
+          checked={listed}
+          disabled={busy !== null || (!listed && !canList)}
+          onChange={() =>
+            act(`list:${p.id}`, { action: "listing", country, planId: p.id, listed: !listed, badge: p.listing?.badge ?? null }, () =>
+              listed ? "Taken off this shelf." : "Put on this shelf.",
+            )
+          }
+          aria-label={`${listed ? "Remove from" : "Add to"} this shelf: ${plan(p)}`}
+          className="h-5 w-5"
+        />
+        {p.listing?.auto && <div className="mt-1 text-[10px] text-muted">auto</div>}
+      </td>
       <td className="p-3">
         <b>{plan(p)}</b>
         <div className="text-xs text-muted">{p.provider_code}{p.period_num ? ` × ${p.period_num}` : ""}{p.country_codes.length > 1 ? ` · ${p.country_codes.length} countries` : ""}</div>
         {!p.available && <div className="text-xs text-bad">withdrawn by supplier</div>}
+        {p.hidden && <div className="text-xs text-warn">switched off by you</div>}
       </td>
       <td className="p-3">
-        {p.covers_rodrigues ? (
-          <span className="text-ok">✓ {p.networkLabels.join(", ")}</span>
+        {home ? (
+          p.covers_rodrigues ? (
+            <span className="text-ok">✓ {p.networkLabels.join(", ")}</span>
+          ) : (
+            <span className="text-bad">✗ {p.networks.map((n) => n.name).join(", ") || "no network listed"}</span>
+          )
         ) : (
-          <span className="text-bad">✗ {p.networks.map((n) => n.name).join(", ") || "no network listed"}</span>
+          <span className="text-offwhite/80">{p.networkLabels.slice(0, 3).join(", ") || "—"}</span>
         )}
       </td>
       <td className="p-3">{eur(p.margin.costEurCents)}</td>
@@ -323,7 +402,7 @@ function PlanRow({
           />
           {changed && (
             <button
-              onClick={() => act(`price:${p.id}`, { action: "plan", id: p.id, retail_eur_cents: cents }, () => "Price saved.")}
+              onClick={() => act(`price:${p.id}`, { action: "plan", id: p.id, retail_eur_cents: cents }, () => "Price saved (on every shelf).")}
               disabled={busy !== null}
               className="rounded-full bg-yellow px-2.5 py-1 text-xs font-bold text-dark"
             >
@@ -337,12 +416,15 @@ function PlanRow({
       </td>
       <td className="p-3">
         <select
-          value={p.badge ?? ""}
-          onChange={(e) => act(`badge:${p.id}`, { action: "plan", id: p.id, badge: e.target.value || null }, () => "Badge saved.")}
-          className="rounded-lg border border-dark-border bg-dark-card px-2 py-1.5 text-offwhite"
+          value={p.listing?.badge ?? ""}
+          disabled={!listed || busy !== null}
+          onChange={(e) =>
+            act(`badge:${p.id}`, { action: "listing", country, planId: p.id, listed: true, badge: e.target.value || null, sort: p.listing?.sort_order }, () => "Badge saved.")
+          }
+          className="rounded-lg border border-dark-border bg-dark-card px-2 py-1.5 text-offwhite disabled:opacity-40"
         >
           <option value="">—</option>
-          <option value="popular">Most chosen</option>
+          <option value="popular">Our pick</option>
           <option value="best_value">Best value</option>
           <option value="short_trip">Short stay</option>
           <option value="long_stay">Heavy use</option>
@@ -350,8 +432,8 @@ function PlanRow({
       </td>
       <td className="p-3">
         <button
-          onClick={() => act(`active:${p.id}`, { action: "plan", id: p.id, active: !p.active }, () => (p.active ? "Taken off sale." : "On sale."))}
-          disabled={busy !== null || (!p.active && (!p.covers_rodrigues || !p.available))}
+          onClick={() => act(`active:${p.id}`, { action: "plan", id: p.id, active: !p.active }, () => (p.active ? "Taken off sale everywhere." : "On sale."))}
+          disabled={busy !== null || (!p.active && !p.available)}
           className={`min-h-9 rounded-full px-3 text-xs font-bold ${p.active ? "bg-ok-dim text-ok" : "border border-white/15 text-muted"} disabled:opacity-40`}
         >
           {p.active ? "On sale" : "Off"}

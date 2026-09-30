@@ -132,6 +132,15 @@ export function mapPackage(p: RawPackage): ProviderPackage | null {
     .filter((o) => o.operatorName)
     .map((o) => ({ name: String(o.operatorName), type: o.networkType ?? null }));
 
+  const networksByCountry: Record<string, EsimNetwork[]> = {};
+  for (const l of networks) {
+    const code = (l.locationCode || "").toUpperCase();
+    if (!code) continue;
+    networksByCountry[code] = (l.operatorList ?? [])
+      .filter((o) => o.operatorName)
+      .map((o) => ({ name: String(o.operatorName), type: o.networkType ?? null }));
+  }
+
   const fromList = networks.map((l) => (l.locationCode || "").toUpperCase()).filter(Boolean);
   const fromField = (p.location || "").split(",").map((s) => s.trim().toUpperCase()).filter(Boolean);
   const countryCodes = [...new Set(fromList.length ? fromList : fromField)];
@@ -146,6 +155,7 @@ export function mapPackage(p: RawPackage): ProviderPackage | null {
     durationDays,
     countryCodes,
     mauritiusNetworks,
+    networksByCountry,
     wholesaleUsdMicros: Math.round(priceE4 * E4_TO_MICROS),
     topupSupported: (p.supportTopUpType ?? 1) !== 1,
     fupPolicy: p.fupPolicy || null,
@@ -242,6 +252,22 @@ export const esimAccess: EsimProvider = {
     }
     // A package can come back under more than one filter.
     return [...new Map(all.map((p) => [p.code, p])).values()];
+  },
+
+  async listCatalogue(countryCodes) {
+    const wanted = new Set(countryCodes.map((c) => c.toUpperCase()));
+    const all = new Map<string, ProviderPackage>();
+    // One call per destination for its single-country packages, then the
+    // multi-country families once. Sequential: 8 req/s is the documented
+    // limit and a sync is an admin action, not a hot path.
+    for (const locationCode of [...wanted, "!GL", "!RG"]) {
+      const obj = await call<{ packageList?: RawPackage[] }>("/package/list", { locationCode, type: "BASE" });
+      for (const raw of obj.packageList ?? []) {
+        const p = mapPackage(raw);
+        if (p && p.countryCodes.some((c) => wanted.has(c))) all.set(p.code, p);
+      }
+    }
+    return [...all.values()];
   },
 
   async getPackage(code) {

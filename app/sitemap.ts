@@ -58,6 +58,29 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // No date is the honest fallback, and the one this file now prefers.
   }
 
+  // eSIM destinations (M224). Only destinations with a plan on sale: an empty
+  // shelf is a 404 by design (app/esim/DestinationPage.tsx), and a sitemap
+  // entry that 404s is worse than a missing one. Both languages, because each
+  // pair names the other in hreflang. A failure costs these URLs only.
+  let esimDestinations: MetadataRoute.Sitemap = [];
+  try {
+    const [{ getLiveDestinations }, { destinationByCode, HOME_CODE }] = await Promise.all([
+      import("@/lib/esim/service"),
+      import("@/lib/esim/destinations"),
+    ]);
+    const live = await getLiveDestinations();
+    esimDestinations = live.flatMap((l) => {
+      const d = destinationByCode(l.code);
+      if (!d || d.code === HOME_CODE) return [];
+      return [
+        { url: `${SITE_URL}/esim/${d.slug}`, changeFrequency: "weekly" as const, priority: 0.6 },
+        { url: `${SITE_URL}/fr/esim/${d.slug}`, changeFrequency: "weekly" as const, priority: 0.6 },
+      ];
+    });
+  } catch {
+    // The two home eSIM pages below are listed regardless.
+  }
+
   // Browse pages are the commercial entry points — highest priority after home.
   let browse: MetadataRoute.Sitemap = [];
   // /guide/shops only exists once the owner has pinned a shop — including it
@@ -632,6 +655,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: "weekly",
       priority: 0.85,
     },
+    ...esimDestinations,
     // The hub whose five children were already listed without it.
     {
       url: `${SITE_URL}/experiences`,

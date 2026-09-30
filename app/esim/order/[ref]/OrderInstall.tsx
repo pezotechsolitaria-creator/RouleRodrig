@@ -25,7 +25,7 @@ const T = {
     preparing: "Preparing your eSIM…",
     preparingSub: "Payment received. Our supplier is issuing your eSIM — usually under a minute. This page updates by itself, and it will also arrive by email.",
     ready: "Your eSIM is ready",
-    readySub: (email: string) => `Also sent to ${email}. Install it now, on Wi-Fi — the days start only when it first connects in Mauritius or Rodrigues.`,
+    readySub: (email: string, inPlace: string) => `Also sent to ${email}. Install it now, on Wi-Fi — the days start only when it first connects ${inPlace}.`,
     installIphone: "Install on this iPhone",
     installIphoneNote: "iOS 17.4 or later. Opens the iPhone's own eSIM screen.",
     installAndroid: "Install on this phone",
@@ -46,7 +46,7 @@ const T = {
     land: [
       "Turn on the Roulé Rodrigues eSIM and its Data Roaming. That's normal and free.",
       "Choose it for mobile data; keep your usual SIM for calls and texts.",
-      "Give it a minute or two to find my.t. Restarting the phone once helps if it doesn't.",
+      "Give it a minute or two to find the network. Restarting the phone once helps if it doesn't.",
     ],
     once: "An eSIM installs only once. Don't delete it after installing — you can switch it off instead.",
     order: "Order",
@@ -67,7 +67,7 @@ const T = {
     preparing: "Préparation de votre eSIM…",
     preparingSub: "Paiement reçu. Notre fournisseur émet votre eSIM — généralement en moins d'une minute. Cette page se met à jour toute seule, et l'eSIM arrive aussi par email.",
     ready: "Votre eSIM est prête",
-    readySub: (email: string) => `Envoyée aussi à ${email}. Installez-la maintenant, en Wi-Fi — les jours ne comptent qu'à la première connexion à Maurice ou Rodrigues.`,
+    readySub: (email: string, inPlace: string) => `Envoyée aussi à ${email}. Installez-la maintenant, en Wi-Fi — les jours ne comptent qu'à la première connexion ${inPlace}.`,
     installIphone: "Installer sur cet iPhone",
     installIphoneNote: "iOS 17.4 ou plus récent. Ouvre l'écran eSIM de l'iPhone.",
     installAndroid: "Installer sur ce téléphone",
@@ -88,7 +88,7 @@ const T = {
     land: [
       "Activez l'eSIM Roulé Rodrigues et son itinérance des données. C'est normal et sans frais.",
       "Choisissez-la pour les données mobiles ; gardez votre SIM habituelle pour les appels et SMS.",
-      "Laissez-lui une ou deux minutes pour trouver my.t. Redémarrer le téléphone une fois aide si besoin.",
+      "Laissez-lui une ou deux minutes pour trouver le réseau. Redémarrer le téléphone une fois aide si besoin.",
     ],
     once: "Une eSIM ne s'installe qu'une fois. Ne la supprimez pas après l'installation — désactivez-la plutôt.",
     order: "Commande",
@@ -201,7 +201,7 @@ export default function OrderInstall({
     <dl className="mt-8 divide-y divide-white/10 rounded-2xl border border-white/10 px-4">
       {[
         [t.order, view.ref],
-        [t.plan, lang === "en" ? view.planLabelEn : view.planLabelFr],
+        [t.plan, `${lang === "en" ? view.destination.en : view.destination.fr} · ${lang === "en" ? view.planLabelEn : view.planLabelFr}`],
         [t.paid, view.priceLabel],
         ...(view.expiresAt && view.status === "delivered"
           ? [[t.expires, new Date(view.expiresAt).toLocaleDateString(lang === "en" ? "en-GB" : "fr-FR", { day: "numeric", month: "long", year: "numeric" })]]
@@ -259,7 +259,9 @@ export default function OrderInstall({
     <div className="mx-auto max-w-md px-5 pt-6">
       <CheckCircle2 size={34} className="text-yellow" aria-hidden />
       <h1 className="mt-3 font-syne text-[1.75rem] font-extrabold leading-tight text-offwhite">{t.ready}</h1>
-      <p className="mt-2 font-dm text-sm leading-relaxed text-muted">{t.readySub(view.email)}</p>
+      <p className="mt-2 font-dm text-sm leading-relaxed text-muted">
+        {t.readySub(view.email, lang === "en" ? view.destination.enIn : view.destination.frIn)}
+      </p>
 
       {/* ── One tap, for the phone this page is open on ─────────────────── */}
       {device === "ios" && (

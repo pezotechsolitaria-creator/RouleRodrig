@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { SITE_URL } from "@/lib/site";
 import { getContent } from "@/lib/content";
-import { getPublicPlans, storeState } from "@/lib/esim/service";
+import { getListing, getLiveDestinations, storeState } from "@/lib/esim/service";
 import { esimFaq } from "@/lib/esim/content";
 import { esimJsonLd } from "@/lib/esim/seo";
 import { formatEur } from "@/lib/esim/pricing";
@@ -57,7 +57,7 @@ export const metadata: Metadata = {
 };
 
 export default async function EsimPage() {
-  const [plans, content] = await Promise.all([getPublicPlans("mauritius"), getContent()]);
+  const [plans, content, live] = await Promise.all([getListing("MU"), getContent(), getLiveDestinations()]);
   const { selling } = storeState();
   const fromPrice = plans?.length ? formatEur(Math.min(...plans.map((p) => p.retail_eur_cents))) : null;
   const widest = plans?.reduce<string[] | null>((a, p) => (!a || p.country_codes.length > a.length ? p.country_codes : a), null) ?? null;
@@ -76,7 +76,7 @@ export default async function EsimPage() {
       />
       <AppPageHeader showBack backHref="/" />
       <main className="min-h-[calc(100vh-4rem)] bg-dark pb-[calc(8rem+env(safe-area-inset-bottom))]">
-        <EsimStore plans={plans} selling={selling} whatsapp={whatsapp} />
+        <EsimStore plans={plans} selling={selling} whatsapp={whatsapp} live={live} />
         <div className="mx-auto max-w-2xl px-5 pt-8">
           <FrenchTwinLink href="/fr/esim-maurice-rodrigues" label="Lire cette page en français" />
         </div>

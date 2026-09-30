@@ -17,6 +17,7 @@ import { newOrderId, refFor, newOrderSalt, orderLinkKey, linkKeyMatches, normali
 import { parseActivation, appleInstallUrl, androidInstallUrl } from "./lpa";
 import { planLabel } from "./format";
 import { qrPngBase64 } from "./qr";
+import { destinationByCode, HOME_CODE, type Destination } from "./destinations";
 
 // ── The eSIM order engine ────────────────────────────────────────────────────
 //
@@ -50,7 +51,6 @@ export type Lang = "en" | "fr" | "cr";
 export type PublicPlan = {
   id: string;
   name: string;
-  region: string;
   country_codes: string[];
   data_mb: number;
   per_day: boolean;
@@ -74,6 +74,8 @@ type OrderRow = {
   email: string;
   language: Lang;
   status: "pending_payment" | "paid" | "provisioning" | "delivered" | "failed" | "refunded" | "cancelled";
+  /** ISO-2 of the destination the eSIM was bought for (M224). */
+  destination: string | null;
   retail_eur_cents: number;
   wholesale_usd_micros: number | null;
   paypal_order_id: string | null;
@@ -110,35 +112,53 @@ export type PlanSnapshot = {
   networks: { name: string; type?: string | null }[];
   /** Per-unit wholesale price at checkout — the order-time price guard. */
   unit_usd_micros: number;
+  /** ISO-2 of the destination it was bought for. Absent on M223-era orders. */
+  destination?: string;
 };
 
-// ── Can the store sell right now? ────────────────────────────────────────────
-
-export type StoreState = { selling: boolean; missing: ("provider" | "paypal" | "database")[] };
-
-export function storeState(): StoreState {
-  const missing: StoreState["missing"] = [];
-  if (!activeProvider().configured()) missing.push("provider");
-  if (!paypalConfigured()) missing.push("paypal");
-  if (!hasServiceRole()) missing.push("database");
-  return { selling: missing.length === 0, missing };
-}
+// ── Can the store sell right now? ─────────────────────────────────────────────
+// Lives in ./state so lib/email.ts can ask without importing this module.
+export { storeState, type StoreState } from "./state";
+import { storeState } from "./state";
 
 // ── The public catalogue ─────────────────────────────────────────────────────
 
-/** Plans a shopper may buy. Null (not []) when the read failed, so a page can
- *  tell "no plans" from "could not load plans". */
-export async function getPublicPlans(region = "mauritius"): Promise<PublicPlan[] | null> {
+/** One destination's shelf. Null (not []) when the read failed, so a page can
+ *  tell "no plans" from "could not load plans". The Rodrigues rule for MU is
+ *  applied inside the database function, so no caller can forget it. */
+export async function getListing(country: string): Promise<PublicPlan[] | null> {
   try {
-    const { data, error } = await createAnonClient().rpc("public_esim_plans", { p_region: region });
+    const { data, error } = await createAnonClient().rpc("public_esim_listing", { p_country: country.toUpperCase() });
     if (error) {
-      console.error("[esim] catalogue read failed", error);
+      console.error("[esim] listing read failed", country, error);
       return null;
     }
     return (data ?? []) as PublicPlan[];
   } catch (e) {
-    console.error("[esim] catalogue read threw", e);
+    console.error("[esim] listing read threw", e);
     return null;
+  }
+}
+
+/** Kept for callers of the M223 name: the Mauritius & Rodrigues shelf. */
+export async function getPublicPlans(): Promise<PublicPlan[] | null> {
+  return getListing(HOME_CODE);
+}
+
+export type LiveDestination = { code: string; plans: number; fromEurCents: number };
+
+/** Destinations with at least one plan on sale. Empty on a failed read. */
+export async function getLiveDestinations(): Promise<LiveDestination[]> {
+  try {
+    const { data, error } = await createAnonClient().rpc("public_esim_destinations");
+    if (error) return [];
+    return ((data ?? []) as { country_code: string; plans: number; from_eur_cents: number }[]).map((d) => ({
+      code: d.country_code,
+      plans: d.plans,
+      fromEurCents: d.from_eur_cents,
+    }));
+  } catch {
+    return [];
   }
 }
 
@@ -153,10 +173,14 @@ export function orderUrl(o: Pick<OrderRow, "id" | "ref" | "access_token_hash">, 
 
 export async function startCheckout(input: {
   planId: string;
+  /** ISO-2 of the destination page the plan was chosen on. */
+  destination?: string;
   email: string;
   language: Lang;
   source: Record<string, string>;
 }): Promise<{ orderId: string; ref: string; paypalOrderId: string; priceEurCents: number }> {
+  const destination: Destination | null = destinationByCode(input.destination ?? HOME_CODE);
+  if (!destination) throw new EsimError(400, "Unknown destination.");
   const state = storeState();
   if (!state.selling) {
     throw new EsimError(503, "eSIM sales open very soon — leave your email and we'll tell you.", `missing: ${state.missing.join(",")}`);
@@ -169,9 +193,22 @@ export async function startCheckout(input: {
     .eq("id", input.planId)
     .maybeSingle();
   if (error) throw new EsimError(500, "Something went wrong. Please try again.", error.message);
-  if (!plan || !plan.active || !plan.available || !plan.covers_rodrigues) {
+  if (!plan || !plan.active || !plan.available || !(plan.country_codes as string[]).includes(destination.code)) {
     throw new EsimError(404, "This plan is no longer available. Please choose another.");
   }
+  // THE RODRIGUES RULE, for the home shelf: a plan sold as a Mauritius &
+  // Rodrigues eSIM must roam onto my.t or Emtel. Other destinations are bound
+  // by the listing (the plan must be on that destination's shelf) and margin.
+  if (destination.code === HOME_CODE && !plan.covers_rodrigues) {
+    throw new EsimError(404, "This plan is no longer available. Please choose another.");
+  }
+  const { data: listing } = await db
+    .from("esim_listings")
+    .select("plan_id")
+    .eq("country_code", destination.code)
+    .eq("plan_id", plan.id)
+    .maybeSingle();
+  if (!listing) throw new EsimError(404, "This plan is no longer available. Please choose another.");
 
   // ── The live price check, BEFORE the customer pays ───────────────────────
   // Wholesalers change prices without notice. Checking here (not at
@@ -229,8 +266,12 @@ export async function startCheckout(input: {
     data_mb: plan.data_mb,
     per_day: plan.per_day,
     validity_days: plan.validity_days,
-    networks: plan.networks ?? [],
+    networks:
+      destination.code === HOME_CODE
+        ? (plan.networks ?? [])
+        : ((plan.networks_by_country ?? {}) as Record<string, PlanSnapshot["networks"]>)[destination.code] ?? [],
     unit_usd_micros: live.wholesaleUsdMicros,
+    destination: destination.code,
   };
   const { error: insErr } = await db.from("esim_orders").insert({
     id,
@@ -240,6 +281,7 @@ export async function startCheckout(input: {
     plan_snapshot: snapshot,
     email: input.email,
     language: input.language,
+    destination: destination.code,
     status: "pending_payment",
     retail_eur_cents: plan.retail_eur_cents,
     wholesale_usd_micros: totalMicros,
@@ -253,7 +295,7 @@ export async function startCheckout(input: {
     paypal = await createEurOrder({
       referenceId: id,
       customId: ref,
-      description: `eSIM Mauritius & Rodrigues — ${planLabel(plan, "en")}`,
+      description: `eSIM ${destination.en} — ${planLabel(plan, "en")}`,
       eurValue: eurCentsToPayPalValue(plan.retail_eur_cents),
     });
   } catch (e) {
@@ -446,6 +488,7 @@ async function finalize(order: OrderRow, profile: Profile): Promise<OrderRow> {
       message: "Paid, issued and emailed to the customer. Nothing to do.",
       details: [
         ["Order", delivered.ref],
+        ["Destination", orderDestination(delivered).en],
         ["Plan", planLabel(delivered.plan_snapshot, "en")],
         ["Paid", formatEur(delivered.paid_eur_cents ?? delivered.retail_eur_cents)],
         ["Customer", delivered.email],
@@ -459,7 +502,10 @@ async function finalize(order: OrderRow, profile: Profile): Promise<OrderRow> {
 export async function emailDelivered(order: OrderRow): Promise<boolean> {
   if (!order.lpa || !order.smdp_address || !order.activation_code) return false;
   const lang = order.language;
+  const dest = orderDestination(order);
   const ok = await sendEsimDelivered({
+    destinationName: lang === "en" ? dest.en : dest.fr,
+    destinationIn: lang === "en" ? dest.enIn : dest.frIn,
     id: order.id,
     ref: order.ref,
     email: order.email,
@@ -514,6 +560,7 @@ async function alertOwner(a: Parameters<typeof sendOwnerEsimAlert>[0]): Promise<
 export type OrderView = {
   ref: string;
   status: OrderRow["status"];
+  destination: { code: string; en: string; fr: string; enIn: string; frIn: string; home: boolean };
   language: Lang;
   planLabelEn: string;
   planLabelFr: string;
@@ -536,9 +583,11 @@ export type OrderView = {
 
 function toView(o: OrderRow): OrderView {
   const act = o.status === "delivered" ? parseActivation(o.lpa) : null;
+  const d = orderDestination(o);
   return {
     ref: o.ref,
     status: o.status,
+    destination: { code: d.code, en: d.en, fr: d.fr, enIn: d.enIn, frIn: d.frIn, home: d.code === HOME_CODE },
     language: o.language,
     planLabelEn: planLabel(o.plan_snapshot, "en"),
     planLabelFr: planLabel(o.plan_snapshot, "fr"),
@@ -659,6 +708,11 @@ export async function handleWebhook(
 }
 
 // ── Shared ───────────────────────────────────────────────────────────────────
+
+/** Where an order's eSIM is for. M223-era orders predate the column: MU. */
+export function orderDestination(o: Pick<OrderRow, "destination" | "plan_snapshot">): Destination {
+  return destinationByCode(o.destination ?? o.plan_snapshot?.destination ?? HOME_CODE) ?? destinationByCode(HOME_CODE)!;
+}
 
 export async function loadOrder(id: string): Promise<OrderRow | null> {
   const db = await getPrivileged();

@@ -11,6 +11,9 @@ import {
   refundOrder,
   customerLink,
   registerWebhook,
+  setListing,
+  curateOne,
+  curateAll,
 } from "@/lib/esim/admin";
 
 // The owner's eSIM desk (/admin/esim). One GET for everything on the screen,
@@ -22,7 +25,8 @@ export async function GET(req: NextRequest) {
   const gate = await guardAdminApi(req, "The eSIM desk");
   if (gate instanceof NextResponse) return gate;
   try {
-    return NextResponse.json(await readDesk(gate.admin), { headers: { "Cache-Control": "no-store" } });
+    const country = new URL(req.url).searchParams.get("country") ?? "MU";
+    return NextResponse.json(await readDesk(gate.admin, country.toUpperCase()), { headers: { "Cache-Control": "no-store" } });
   } catch (e) {
     return failed(e, "Failed to load the eSIM desk");
   }
@@ -40,6 +44,17 @@ const action = z.discriminatedUnion("action", [
     sort_order: z.number().int().optional(),
   }),
   z.object({ action: z.enum(["retry", "resend", "refund", "link"]), id: z.string().uuid() }),
+  // M224 — destination shelves.
+  z.object({
+    action: z.literal("listing"),
+    country: z.string().regex(/^[A-Za-z]{2}$/),
+    planId: z.string().uuid(),
+    listed: z.boolean(),
+    badge: z.enum(["popular", "best_value", "short_trip", "long_stay"]).nullable().optional(),
+    sort: z.number().int().optional(),
+  }),
+  // "Reset to automatic" for one destination, or re-curate every automatic one.
+  z.object({ action: z.literal("curate"), country: z.string().regex(/^[A-Za-z]{2}$/).optional() }),
 ]);
 
 export async function POST(req: NextRequest) {
@@ -70,6 +85,13 @@ export async function POST(req: NextRequest) {
         return NextResponse.json(await refundOrder(gate.admin, a.id));
       case "link":
         return NextResponse.json(await customerLink(a.id));
+      case "listing":
+        await setListing(gate.admin, { country: a.country, planId: a.planId, listed: a.listed, badge: a.badge, sort: a.sort });
+        return NextResponse.json({ ok: true });
+      case "curate":
+        return NextResponse.json(
+          a.country ? { [a.country.toUpperCase()]: await curateOne(gate.admin, a.country.toUpperCase(), { reset: true }) } : await curateAll(gate.admin),
+        );
     }
   } catch (e) {
     if (e instanceof EsimError) return NextResponse.json({ error: e.publicMessage }, { status: e.status });

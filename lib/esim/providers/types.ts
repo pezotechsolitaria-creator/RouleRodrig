@@ -23,6 +23,9 @@ export type ProviderPackage = {
   countryCodes: string[];
   /** Operators in MAURITIUS only — the ones that decide Rodrigues coverage. */
   mauritiusNetworks: EsimNetwork[];
+  /** Operators per country (ISO-2), for every country the package covers —
+   *  what a destination page names ("Orange, SFR and Bouygues in France"). */
+  networksByCountry: Record<string, EsimNetwork[]>;
   /** Price of ONE unit (one day, for a day pass), millionths of a USD. */
   wholesaleUsdMicros: number;
   topupSupported: boolean;
@@ -78,6 +81,8 @@ export interface EsimProvider {
   /** Credentials present. False → the store shows plans but sells nothing. */
   configured(): boolean;
   listPackages(countryCode: string): Promise<ProviderPackage[]>;
+  /** Every package covering at least one of these countries (ISO-2). */
+  listCatalogue(countryCodes: string[]): Promise<ProviderPackage[]>;
   /** One package by code, at today's price. Null when the wholesaler dropped it. */
   getPackage(code: string): Promise<ProviderPackage | null>;
   /** Places the wholesale order. Returns the wholesaler's order number. */

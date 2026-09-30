@@ -9,6 +9,7 @@ import { planLabel, usageHint } from "@/lib/esim/format";
 import { formatEur } from "@/lib/esim/pricing";
 import { displayNetworks } from "@/lib/esim/networks";
 import { esimTrack } from "@/lib/esim/analytics";
+import { HOME_CODE, type Destination } from "@/lib/esim/destinations";
 import CompatChecker from "./CompatChecker";
 import { COPY, type UiLang } from "./copy";
 
@@ -56,11 +57,15 @@ export default function CheckoutSheet({
   plan,
   lang,
   selling,
+  destination,
   onClose,
 }: {
   plan: PublicPlan;
   lang: UiLang;
   selling: boolean;
+  /** The shelf the plan was chosen on — sent to checkout, which checks the
+   *  plan really is listed there (and, for Mauritius, covers Rodrigues). */
+  destination: Destination;
   onClose: () => void;
 }) {
   const t = COPY[lang];
@@ -165,6 +170,7 @@ export default function CheckoutSheet({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             planId: plan.id,
+            destination: destination.code,
             email: live.current.email.trim(),
             language: lang,
             source: live.current.source,
@@ -228,7 +234,10 @@ export default function CheckoutSheet({
     } else setError(t.payFail);
   }
 
-  const networks = displayNetworks(plan.networks);
+  const home = destination.code === HOME_CODE;
+  const networks = home
+    ? displayNetworks(plan.networks)
+    : plan.networks.slice(0, 2).map((n) => (n.type ? `${n.name} ${n.type}` : n.name));
 
   // PORTALLED to <body>. Rendered in place, the sheet sat inside the page
   // wrapper's stacking context (it animates with a transform), so the global
@@ -253,12 +262,14 @@ export default function CheckoutSheet({
       >
         <div className="flex items-start justify-between gap-3">
           <div>
-            <p className="font-bebas text-[11px] tracking-[0.3em] text-yellow">{t.sheetTitle.toUpperCase()}</p>
+            <p className="font-bebas text-[11px] tracking-[0.3em] text-yellow">
+              {t.sheetTitle.toUpperCase()} · {(lang === "en" ? destination.en : destination.fr).toUpperCase()}
+            </p>
             <h2 id="esim-sheet-title" className="mt-1 font-syne text-2xl font-extrabold text-offwhite">
               {label}
             </h2>
             <p className="mt-1 font-dm text-sm text-muted">
-              {networks.join(" · ")} · {usageHint(plan, lang)}
+              {[...networks, usageHint(plan, lang)].join(" · ")}
             </p>
           </div>
           <button

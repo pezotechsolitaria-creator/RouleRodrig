@@ -11,6 +11,41 @@ comments carry the reasoning line by line; this is the map.
 
 ---
 
+## M224 — Mauritius first, the world second (30 Sep 2026)
+
+Owner: "mainly for Mauritius and Rodrigues but allows other countries". The store
+now sells eSIMs for **25 more destinations** (Réunion, Madagascar, Seychelles, South
+Africa, Kenya, Tanzania, France, UK, Germany, Italy, Spain, Portugal, Switzerland,
+Belgium, UAE, Qatar, India, China, Thailand, Singapore, Malaysia, Japan, Australia,
+USA, Canada), each at `/esim/<slug>` and `/fr/esim/<slug>`, while `/esim` stays the
+Mauritius & Rodrigues store with a "Travelling beyond Mauritius?" grid below the fold.
+
+- **Shelves = listings** (`esim_listings`: destination × plan, own badge and order).
+  A global plan can sit on many shelves. `public_esim_listing(country)` and
+  `public_esim_destinations()` are the only public reads.
+- **The Rodrigues rule is scoped to MU** — enforced in the read function, in
+  `setListing()` and in checkout. Other shelves are bound by the listing + margin.
+- **Automatic shelves** (`lib/esim/curate.ts`): per destination, the cheapest
+  sellable plan for four trip shapes (≥1 GB/7 d, ≥3 GB/7 d, ≥5 GB/15 d, ≥10 GB/30 d),
+  dominated picks dropped, identical twins deduped. Re-run after every catalogue
+  sync for shelves the owner hasn't touched; touching a shelf makes it the
+  owner's; "Reset to automatic" hands it back. A plan the owner switches off
+  (`hidden`) is never re-activated.
+- **Badges are facts** — best value = lowest €/GB on the shelf, heavy use ≥10 GB/30 d,
+  short stay ≤10 d. No "most chosen" on shelves with no sales; the owner's MU
+  "popular" badge now reads "Our pick".
+- **Launch stock** (M224c): generated from the supplier's 634 documented packages
+  through the same mapping/pricing/curation code — 43 plans, 98 listings. Prices
+  are re-checked live at checkout; the owner's first sync brings the full catalogue.
+- **Orders carry `destination`**; email subject, install page and owner alert name it.
+- **SEO/GEO**: each destination page is a real page (its own shelf, the networks the
+  plans use there, a computed FAQ, Product + FAQPage JSON-LD, hreflang pair,
+  twin links), in the sitemap only while it has plans (an empty shelf is a true 404),
+  and one llms.txt line lists every destination with its real "from" price.
+- **Cross-sell**: rental, stay/experience and arrival-transfer confirmation emails
+  carry a short bilingual "Stay connected" line to the eSIM store — only while the
+  store can sell.
+
 ## 0. The brief, improved
 
 The original brief was strong on ambition and wrong on three facts that would
@@ -138,8 +173,9 @@ Files: `lib/esim/*` (engine, provider, pricing, networks, content), `app/esim/*`
 |---|---|---|
 | **MVP** | **Built, tested** | Catalogue, device check, EN/FR store, PayPal checkout, provisioning, install page, email with QR, webhooks, lookup, admin desk, homepage tile, SEO/GEO. |
 | Go-live | **Needs you (§11)** | eSIM Access account + keys, one real test order. |
-| Next (2–4 wks) | Designed | Top-ups (API ready: `/esim/topup`), "Add an eSIM" upsell on scooter/car/transfer confirmations and emails, usage page ("data left") from webhooks, promo codes (PayPal amount stays server-computed). |
-| Later | Designed | Second supplier (Airalo, Emtel), regions `reunion`/`madagascar`/`europe` (schema already has `region`, `country_codes`), affiliate links via the `source` attribution column. |
+| Next (2–4 wks) | Designed | Top-ups (API ready: `/esim/topup`), usage page ("data left") from webhooks, promo codes (PayPal amount stays server-computed). |
+| **M224** | **Built** | 25 more destinations with automatic shelves, EN/FR destination pages, booking-email cross-sell. |
+| Later | Designed | Second supplier (Airalo, Emtel), affiliate links via the `source` attribution column. |
 
 ## 5. Backend API
 

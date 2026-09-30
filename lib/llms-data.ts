@@ -80,7 +80,7 @@ async function readContent(): Promise<SiteContent> {
 async function readEsimFrom(): Promise<number | null> {
   try {
     const { createAnonClient } = await import("@/lib/supabase/anon");
-    const { data, error } = await createAnonClient().rpc("public_esim_plans", { p_region: "mauritius" });
+    const { data, error } = await createAnonClient().rpc("public_esim_listing", { p_country: "MU" });
     if (error || !data?.length) return null;
     return Math.min(...(data as { retail_eur_cents: number }[]).map((p) => p.retail_eur_cents));
   } catch {
@@ -88,15 +88,34 @@ async function readEsimFrom(): Promise<number | null> {
   }
 }
 
+/** eSIM destinations beyond Mauritius with a plan on sale (M224). */
+async function readEsimWorld(): Promise<NonNullable<LlmsData["esimWorld"]>> {
+  try {
+    const [{ getLiveDestinations }, { DESTINATIONS, HOME_CODE, destinationPath }] = await Promise.all([
+      import("@/lib/esim/service"),
+      import("@/lib/esim/destinations"),
+    ]);
+    const live = new Map((await getLiveDestinations()).map((l) => [l.code, l]));
+    return DESTINATIONS.filter((d) => d.code !== HOME_CODE && live.has(d.code)).map((d) => ({
+      name: d.en,
+      path: destinationPath(d, "en"),
+      fromEurCents: live.get(d.code)!.fromEurCents,
+    }));
+  } catch {
+    return [];
+  }
+}
+
 export async function readLlmsData(siteUrl: string): Promise<LlmsData> {
-  const [content, fares, food, eventsOnSale, esimFromEurCents] = await Promise.all([
+  const [content, fares, food, eventsOnSale, esimFromEurCents, esimWorld] = await Promise.all([
     readContent(),
     readTransferFares(),
     readFood(),
     readEventsOnSale(),
     readEsimFrom(),
+    readEsimWorld(),
   ]);
-  return { siteUrl, content, fares, food, eventsOnSale, esimFromEurCents };
+  return { siteUrl, content, fares, food, eventsOnSale, esimFromEurCents, esimWorld };
 }
 
 /**

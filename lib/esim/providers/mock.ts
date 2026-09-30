@@ -30,6 +30,7 @@ function pkg(code: string, name: string, dataMb: number, durationDays: number, m
     durationDays,
     countryCodes: ["MU", "FR", "RE", "ZA", "GB"],
     mauritiusNetworks: [{ name: "my.t", type: "4G" }],
+    networksByCountry: { MU: [{ name: "my.t", type: "4G" }], FR: [{ name: "Orange", type: "5G" }] },
     wholesaleUsdMicros: micros,
     topupSupported: true,
     fupPolicy: null,
@@ -46,6 +47,9 @@ export const mockProvider: EsimProvider = {
   configured: () => !isProduction(),
   async listPackages() {
     return PACKAGES;
+  },
+  async listCatalogue(codes) {
+    return PACKAGES.filter((p) => p.countryCodes.some((c) => codes.includes(c)));
   },
   async getPackage(code) {
     return PACKAGES.find((p) => p.code === code) ?? null;

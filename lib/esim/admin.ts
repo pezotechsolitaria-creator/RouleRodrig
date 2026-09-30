@@ -2,102 +2,70 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { refundCapture } from "@/lib/paypal";
 import { SITE_URL } from "@/lib/site";
-import { activeProvider, providerById, type ProviderPackage } from "./providers";
+import { activeProvider, providerById } from "./providers";
 import { coversRodrigues, displayNetworks } from "./networks";
-import { suggestRetailEurCents, margin } from "./pricing";
+import { margin } from "./pricing";
+import { productsFor, planRowFor } from "./catalogue";
 import { eurPerUsd } from "./fx";
+import { curateDestination, type Candidate } from "./curate";
+import { DESTINATIONS, HOME_CODE, WORLD_DESTINATIONS, destinationByCode } from "./destinations";
 import { emailDelivered, loadOrder, orderUrl, provisionOrder, EsimError } from "./service";
 
 // ── The owner's eSIM desk ────────────────────────────────────────────────────
 // Every function takes the privileged client that guardAdminApi() handed the
 // route, so nothing here can be reached without the admin cookie.
 
-/** Day-pass lengths offered as products. A trip to Rodrigues is rarely
- *  shorter than 3 nights — there are only a few flights a day — and rarely
- *  longer than a fortnight. */
-export const DAY_PASS_PERIODS = [3, 5, 7, 10, 14] as const;
-
-type Product = {
-  code: string;
-  period: number | null;
-  pkg: ProviderPackage;
-};
-
-function productsFor(pkg: ProviderPackage): Product[] {
-  if (!pkg.perDay) return [{ code: pkg.code, period: null, pkg }];
-  return DAY_PASS_PERIODS.map((n) => ({ code: pkg.code, period: n, pkg }));
-}
-
 export type SyncReport = {
   seen: number;
   created: number;
   updated: number;
   retired: number;
-  coveringRodrigues: number;
-  skippedNoCoverage: string[];
+  mauritiusCoveringRodrigues: number;
+  mauritiusSkipped: string[];
+  curated: Record<string, number>;
 };
 
 /**
- * Pulls the wholesaler's Mauritius catalogue into esim_plans.
+ * Pulls the wholesaler's catalogue for EVERY destination into esim_plans,
+ * then restocks each destination's shelf (except Mauritius, the owner's).
  *
- *   · NEW products arrive INACTIVE, priced by suggestRetailEurCents() — the
- *     owner decides what the shop sells; a sync never publishes anything.
- *   · EXISTING products get today's wholesale cost and networks. Their retail
- *     price moves only if the owner never set one (retail_locked = false) AND
- *     the old price is no longer sellable.
- *   · Products the wholesaler stopped offering become available = false.
- *   · Coverage is recomputed every time: a package that drops my.t and Emtel
- *     disappears from the shop on the next sync, whatever else it has.
+ *   · NEW products arrive INACTIVE, priced by suggestRetailEurCents().
+ *   · EXISTING products get today's cost and networks; their price moves only
+ *     if the owner never typed one AND the old price would now lose money.
+ *   · Products the wholesaler dropped become available = false.
+ *   · Rodrigues coverage is recomputed every time.
  */
 export async function syncCatalog(db: SupabaseClient): Promise<SyncReport> {
   const provider = activeProvider();
   if (!provider.configured()) throw new EsimError(503, `The eSIM supplier (${provider.id}) is not configured — set its keys in Vercel.`);
-  const packages = await provider.listPackages("MU");
+  const packages = await provider.listCatalogue(DESTINATIONS.map((d) => d.code));
   const rate = await eurPerUsd();
 
-  const { data: existing, error } = await db.from("esim_plans").select("*").eq("provider", provider.id);
+  const { data: existing, error } = await db
+    .from("esim_plans")
+    .select("id, provider_code, period_num, retail_eur_cents, retail_locked, available")
+    .eq("provider", provider.id);
   if (error) throw error;
   const byKey = new Map((existing ?? []).map((p) => [`${p.provider_code}:${p.period_num ?? 0}`, p]));
   const seenKeys = new Set<string>();
-  const report: SyncReport = { seen: packages.length, created: 0, updated: 0, retired: 0, coveringRodrigues: 0, skippedNoCoverage: [] };
+  const report: SyncReport = { seen: packages.length, created: 0, updated: 0, retired: 0, mauritiusCoveringRodrigues: 0, mauritiusSkipped: [], curated: {} };
   const now = new Date().toISOString();
 
   for (const pkg of packages) {
-    const covers = coversRodrigues(pkg.mauritiusNetworks);
-    if (covers) report.coveringRodrigues++;
-    else report.skippedNoCoverage.push(`${pkg.code} (${pkg.mauritiusNetworks.map((n) => n.name).join(", ") || "no network listed"})`);
-
+    if (pkg.countryCodes.includes(HOME_CODE)) {
+      if (coversRodrigues(pkg.mauritiusNetworks)) report.mauritiusCoveringRodrigues++;
+      else report.mauritiusSkipped.push(`${pkg.code} (${pkg.mauritiusNetworks.map((n) => n.name).join(", ") || "no network listed"})`);
+    }
     for (const prod of productsFor(pkg)) {
       const key = `${prod.code}:${prod.period ?? 0}`;
       seenKeys.add(key);
-      const units = prod.period ?? 1;
-      const wholesale = pkg.wholesaleUsdMicros * units;
-      const validity = prod.period ?? pkg.durationDays;
-      const common = {
-        provider_slug: pkg.code,
-        country_codes: pkg.countryCodes.length ? pkg.countryCodes : ["MU"],
-        data_mb: pkg.dataMb,
-        per_day: pkg.perDay,
-        period_num: prod.period,
-        validity_days: Math.min(366, validity),
-        networks: pkg.mauritiusNetworks,
-        covers_rodrigues: covers,
-        topup_supported: pkg.topupSupported,
-        fup_policy: pkg.fupPolicy,
-        ip_export: pkg.ipExport,
-        wholesale_usd_micros: wholesale,
-        available: true,
-        synced_at: now,
-        provider_payload: pkg.raw as object,
-      };
-      const row = byKey.get(key);
-      if (!row) {
+      const { suggested_retail_eur_cents, ...row } = planRowFor(prod, rate);
+      const common = { ...row, available: true, synced_at: now, provider_payload: pkg.raw as object };
+      const found = byKey.get(key);
+      if (!found) {
         const { error: e } = await db.from("esim_plans").insert({
           provider: provider.id,
-          provider_code: prod.code,
-          region: "mauritius",
-          name: prod.period ? `${pkg.name} × ${prod.period} days` : pkg.name,
-          retail_eur_cents: suggestRetailEurCents(wholesale, rate),
+          retail_eur_cents: suggested_retail_eur_cents,
           active: false,
           sort_order: 500 + Math.round(pkg.dataMb / 100),
           ...common,
@@ -106,10 +74,13 @@ export async function syncCatalog(db: SupabaseClient): Promise<SyncReport> {
         report.created++;
       } else {
         const patch: Record<string, unknown> = { ...common };
-        if (!row.retail_locked && margin(row.retail_eur_cents, wholesale, rate).netEurCents < 100) {
-          patch.retail_eur_cents = suggestRetailEurCents(wholesale, rate);
+        // The region a row was first filed under is kept: it is history, and
+        // the shelves are listings now.
+        delete patch.region;
+        if (!found.retail_locked && margin(found.retail_eur_cents, row.wholesale_usd_micros, rate).netEurCents < 100) {
+          patch.retail_eur_cents = suggested_retail_eur_cents;
         }
-        const { error: e } = await db.from("esim_plans").update(patch).eq("id", row.id);
+        const { error: e } = await db.from("esim_plans").update(patch).eq("id", found.id);
         if (e) throw e;
         report.updated++;
       }
@@ -122,8 +93,95 @@ export async function syncCatalog(db: SupabaseClient): Promise<SyncReport> {
       report.retired++;
     }
   }
+
+  report.curated = await curateAll(db);
   return report;
 }
+
+// ── Automatic shelves ────────────────────────────────────────────────────────
+
+const CANDIDATE_COLS = "id, data_mb, per_day, validity_days, country_codes, retail_eur_cents, wholesale_usd_micros, available, hidden";
+
+/**
+ * Restocks every destination the owner has not curated by hand. A destination
+ * with ANY owner-made listing is his, and is left exactly as he set it —
+ * "reset to automatic" (curateOne with reset) hands it back.
+ */
+export async function curateAll(db: SupabaseClient): Promise<Record<string, number>> {
+  const out: Record<string, number> = {};
+  for (const d of WORLD_DESTINATIONS) out[d.code] = await curateOne(db, d.code, { reset: false });
+  return out;
+}
+
+export async function curateOne(db: SupabaseClient, code: string, opts: { reset: boolean }): Promise<number> {
+  if (code === HOME_CODE) throw new EsimError(409, "Mauritius & Rodrigues is curated by hand — its plans must cover Rodrigues.");
+  if (!destinationByCode(code)) throw new EsimError(404, "Unknown destination.");
+
+  if (opts.reset) {
+    await db.from("esim_listings").delete().eq("country_code", code);
+  } else {
+    const { data: manual } = await db.from("esim_listings").select("plan_id").eq("country_code", code).eq("auto", false).limit(1);
+    if (manual && manual.length) return -1; // the owner's shelf
+  }
+
+  const { data: plans, error } = await db
+    .from("esim_plans")
+    .select(CANDIDATE_COLS)
+    .contains("country_codes", [code])
+    .eq("available", true)
+    .eq("hidden", false);
+  if (error) throw error;
+  const picks = curateDestination(code, (plans ?? []) as Candidate[], await eurPerUsd());
+
+  await db.from("esim_listings").delete().eq("country_code", code).eq("auto", true);
+  if (picks.length) {
+    const { error: le } = await db
+      .from("esim_listings")
+      .insert(picks.map((p) => ({ country_code: code, plan_id: p.planId, badge: p.badge, sort_order: p.sort, auto: true })));
+    if (le) throw le;
+    const { error: ae } = await db.from("esim_plans").update({ active: true }).in("id", picks.map((p) => p.planId));
+    if (ae) throw ae;
+  }
+  return picks.length;
+}
+
+/** The owner puts a plan on (or takes it off) one destination's shelf. */
+export async function setListing(
+  db: SupabaseClient,
+  input: { country: string; planId: string; listed: boolean; badge?: string | null; sort?: number },
+) {
+  const code = input.country.toUpperCase();
+  if (!destinationByCode(code)) throw new EsimError(404, "Unknown destination.");
+  if (!input.listed) {
+    // Removing one plan makes the shelf the owner's: the rest stay, as his.
+    await db.from("esim_listings").update({ auto: false }).eq("country_code", code);
+    await db.from("esim_listings").delete().eq("country_code", code).eq("plan_id", input.planId);
+    return;
+  }
+  const { data: plan } = await db
+    .from("esim_plans")
+    .select("id, covers_rodrigues, available, country_codes, retail_eur_cents, wholesale_usd_micros")
+    .eq("id", input.planId)
+    .maybeSingle();
+  if (!plan) throw new EsimError(404, "Plan not found.");
+  if (!plan.available) throw new EsimError(409, "The supplier no longer offers this plan.");
+  if (!(plan.country_codes as string[]).includes(code)) throw new EsimError(409, "This plan does not work in that country.");
+  if (code === HOME_CODE && !plan.covers_rodrigues) {
+    throw new EsimError(409, "This plan does not roam onto my.t or Emtel, so it has no signal on Rodrigues. It cannot be listed for Mauritius.");
+  }
+  const m = margin(plan.retail_eur_cents, Number(plan.wholesale_usd_micros), await eurPerUsd());
+  if (m.netEurCents < 100) throw new EsimError(409, `At its price the plan nets ${(m.netEurCents / 100).toFixed(2)} € after the supplier and PayPal. Raise the price first.`);
+
+  await db.from("esim_listings").update({ auto: false }).eq("country_code", code);
+  const { error } = await db.from("esim_listings").upsert(
+    { country_code: code, plan_id: input.planId, badge: input.badge ?? null, sort_order: input.sort ?? 100, auto: false },
+    { onConflict: "country_code,plan_id" },
+  );
+  if (error) throw error;
+  await db.from("esim_plans").update({ active: true, hidden: false }).eq("id", input.planId);
+}
+
+// ── The desk ─────────────────────────────────────────────────────────────────
 
 export type DeskPlan = Record<string, unknown> & {
   id: string;
@@ -133,20 +191,27 @@ export type DeskPlan = Record<string, unknown> & {
   networkLabels: string[];
 };
 
-export async function readDesk(db: SupabaseClient) {
+const PLAN_COLS =
+  "id, name, provider_code, data_mb, per_day, period_num, validity_days, covers_rodrigues, available, active, hidden, badge, sort_order, retail_eur_cents, retail_locked, wholesale_usd_micros, country_codes, networks, networks_by_country";
+
+export async function readDesk(db: SupabaseClient, country = HOME_CODE) {
   const rate = await eurPerUsd();
-  const [{ data: plans, error: pe }, { data: orders, error: oe }] = await Promise.all([
-    db.from("esim_plans").select("*").order("active", { ascending: false }).order("sort_order").order("retail_eur_cents"),
+  const code = (destinationByCode(country) ?? destinationByCode(HOME_CODE)!).code;
+  const [{ data: listings, error: le }, { data: candidates, error: ce }, { data: orders, error: oe }, { data: counts }] = await Promise.all([
+    db.from("esim_listings").select("plan_id, badge, sort_order, auto").eq("country_code", code),
+    db.from("esim_plans").select(PLAN_COLS).contains("country_codes", [code]).order("retail_eur_cents").limit(400),
     db
       .from("esim_orders")
       .select(
-        "id, ref, email, language, status, retail_eur_cents, paid_eur_cents, wholesale_usd_micros, provider, provider_order_no, iccid, esim_status, used_bytes, total_bytes, expires_at, provision_attempts, last_error, email_sent_at, created_at, paid_at, delivered_at, refunded_at, plan_snapshot, source",
+        "id, ref, email, language, destination, status, retail_eur_cents, paid_eur_cents, wholesale_usd_micros, provider, provider_order_no, iccid, esim_status, used_bytes, total_bytes, expires_at, provision_attempts, last_error, email_sent_at, created_at, paid_at, delivered_at, refunded_at, plan_snapshot, source",
       )
       .neq("status", "pending_payment")
       .order("created_at", { ascending: false })
       .limit(300),
+    db.rpc("public_esim_destinations"),
   ]);
-  if (pe) throw pe;
+  if (le) throw le;
+  if (ce) throw ce;
   if (oe) throw oe;
 
   const provider = activeProvider();
@@ -160,21 +225,32 @@ export async function readDesk(db: SupabaseClient) {
     }
   }
 
-  const deskPlans: DeskPlan[] = (plans ?? []).map((p) => ({
+  const listed = new Map((listings ?? []).map((l) => [l.plan_id as string, l]));
+  const plans: DeskPlan[] = (candidates ?? []).map((p) => ({
     ...p,
-    margin: margin(p.retail_eur_cents, Number(p.wholesale_usd_micros), rate),
-    networkLabels: displayNetworks(p.networks),
-  }));
+    listing: listed.get(p.id as string) ?? null,
+    margin: margin(p.retail_eur_cents as number, Number(p.wholesale_usd_micros), rate),
+    networkLabels:
+      code === HOME_CODE
+        ? displayNetworks(p.networks as { name: string }[])
+        : (((p.networks_by_country as Record<string, { name: string; type?: string | null }[]>) ?? {})[code] ?? []).map(
+            (n) => (n.type ? `${n.name} ${n.type}` : n.name),
+          ),
+  })) as DeskPlan[];
 
   const delivered = (orders ?? []).filter((o) => o.status === "delivered");
   const revenue = delivered.reduce((s, o) => s + (o.paid_eur_cents ?? o.retail_eur_cents), 0);
   const net = delivered.reduce((s, o) => s + margin(o.paid_eur_cents ?? o.retail_eur_cents, Number(o.wholesale_usd_micros ?? 0), rate).netEurCents, 0);
+  const live = new Map(((counts ?? []) as { country_code: string; plans: number; from_eur_cents: number }[]).map((c) => [c.country_code, c]));
 
   return {
     provider: { id: provider.id, configured: provider.configured(), balanceUsdMicros, balanceError },
     webhookUrl: `${SITE_URL}/api/esim/webhook/${provider.id}`,
     eurPerUsd: rate,
-    plans: deskPlans,
+    country: code,
+    destinations: DESTINATIONS.map((d) => ({ code: d.code, name: d.en, flag: d.flag, live: live.get(d.code)?.plans ?? 0 })),
+    shelfIsManual: (listings ?? []).some((l) => !l.auto),
+    plans,
     orders: orders ?? [],
     totals: {
       delivered: delivered.length,
@@ -198,17 +274,23 @@ export async function updatePlan(
     clean.retail_eur_cents = patch.retail_eur_cents;
     clean.retail_locked = true;
   }
-  if (typeof patch.active === "boolean") clean.active = patch.active;
+  if (typeof patch.active === "boolean") {
+    clean.active = patch.active;
+    // Off by the owner's hand stays off: the curator skips hidden plans.
+    clean.hidden = !patch.active;
+  }
   if (patch.badge !== undefined) clean.badge = patch.badge || null;
   if (typeof patch.sort_order === "number") clean.sort_order = Math.round(patch.sort_order);
-  if (clean.active === true) {
-    const { data: plan } = await db.from("esim_plans").select("covers_rodrigues, available, retail_eur_cents, wholesale_usd_micros").eq("id", id).maybeSingle();
+  if (clean.active === true || typeof clean.retail_eur_cents === "number") {
+    const { data: plan } = await db.from("esim_plans").select("available, active, retail_eur_cents, wholesale_usd_micros").eq("id", id).maybeSingle();
     if (!plan) throw new EsimError(404, "Plan not found.");
-    if (!plan.covers_rodrigues) throw new EsimError(409, "This plan does not roam onto my.t or Emtel, so it has no signal on Rodrigues. It cannot be sold here.");
-    if (!plan.available) throw new EsimError(409, "The supplier no longer offers this plan.");
+    if (clean.active === true && !plan.available) throw new EsimError(409, "The supplier no longer offers this plan.");
+    const willSell = clean.active === true || (clean.active === undefined && plan.active);
     const price = (clean.retail_eur_cents as number | undefined) ?? plan.retail_eur_cents;
     const m = margin(price, Number(plan.wholesale_usd_micros), await eurPerUsd());
-    if (m.netEurCents < 100) throw new EsimError(409, `At this price the plan nets ${(m.netEurCents / 100).toFixed(2)} € after the supplier and PayPal. Raise the price first.`);
+    if (willSell && m.netEurCents < 100) {
+      throw new EsimError(409, `At this price the plan nets ${(m.netEurCents / 100).toFixed(2)} € after the supplier and PayPal. Raise the price first.`);
+    }
   }
   const { error } = await db.from("esim_plans").update(clean).eq("id", id);
   if (error) throw error;
@@ -235,8 +317,7 @@ export async function customerLink(id: string) {
 /**
  * Refunds the customer in full, and — if the eSIM was never installed —
  * cancels the profile so the wholesaler refunds OUR balance too. An installed
- * profile cannot be cancelled; that refund is then the platform's cost, and
- * the desk says so.
+ * profile cannot be cancelled; that refund is then the platform's cost.
  */
 export async function refundOrder(db: SupabaseClient, id: string) {
   const o = await loadOrder(id);
@@ -256,10 +337,7 @@ export async function refundOrder(db: SupabaseClient, id: string) {
     }
   }
   await refundCapture(o.paypal_capture_id, `Refund for eSIM order ${o.ref} — Roulé Rodrigues`);
-  await db
-    .from("esim_orders")
-    .update({ status: "refunded", refunded_at: new Date().toISOString() })
-    .eq("id", o.id);
+  await db.from("esim_orders").update({ status: "refunded", refunded_at: new Date().toISOString() }).eq("id", o.id);
   return { refunded: true, profileCancelled };
 }
 

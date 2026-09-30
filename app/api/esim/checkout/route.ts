@@ -10,6 +10,9 @@ import { startCheckout, EsimError } from "@/lib/esim/service";
 
 const body = z.object({
   planId: z.string().uuid(),
+  // ISO-2 of the shelf the plan was chosen on. Optional for the M223 client
+  // still cached in someone's tab: it only ever sold Mauritius.
+  destination: z.string().regex(/^[A-Za-z]{2}$/).optional(),
   email: z.string().trim().toLowerCase().email().max(254),
   language: z.enum(["en", "fr", "cr"]).default("en"),
   // Attribution only (utm_*, referrer, landing path). Never trusted for money.

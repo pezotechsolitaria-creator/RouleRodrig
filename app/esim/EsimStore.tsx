@@ -5,14 +5,16 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowRight, Check, ChevronDown, Signal, Wifi, Zap, MessageCircle } from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
-import type { PublicPlan } from "@/lib/esim/service";
+import type { PublicPlan, LiveDestination } from "@/lib/esim/service";
 import { dataLabel, daysLabel, usageHint } from "@/lib/esim/format";
 import { formatEur, eurCentsPerGb } from "@/lib/esim/pricing";
 import { displayNetworks } from "@/lib/esim/networks";
-import { esimFaq } from "@/lib/esim/content";
+import { esimFaq, worldFaq } from "@/lib/esim/content";
+import { DESTINATIONS, HOME_CODE, type Destination } from "@/lib/esim/destinations";
 import { esimTrack } from "@/lib/esim/analytics";
 import CheckoutSheet from "./CheckoutSheet";
 import CompatChecker from "./CompatChecker";
+import DestinationGrid from "./DestinationGrid";
 import { COPY, toUiLang, type UiLang } from "./copy";
 
 // ── The eSIM store ───────────────────────────────────────────────────────────
@@ -26,18 +28,49 @@ import { COPY, toUiLang, type UiLang } from "./copy";
 //
 // `lang` is passed by the French page so its SERVER render is French; the
 // English page lets the visitor's language choice take over after hydration.
+//
+// ONE COMPONENT, TWO KINDS OF SHELF (M224). The home shelf — Mauritius &
+// Rodrigues — keeps everything that makes it the store's reason to exist: the
+// Rodrigues network explainer and the my.t story. Another destination gets the
+// same buying experience with facts of its own: the networks its plans use
+// there, and its own FAQ, both computed from its shelf.
+
+/** "Orange, SFR and Bouygues" / "Orange, SFR et Bouygues". */
+function listOf(items: string[], lang: UiLang): string {
+  if (items.length <= 1) return items.join("");
+  return `${items.slice(0, -1).join(", ")} ${lang === "en" ? "and" : "et"} ${items[items.length - 1]}`;
+}
+
+/** Operator names for a non-home shelf, as the plans report them there. */
+function worldNetworks(plans: PublicPlan[] | null): string[] {
+  const seen = new Map<string, string>();
+  for (const p of plans ?? []) {
+    for (const n of p.networks ?? []) {
+      const key = n.name.trim().toLowerCase();
+      if (key && !seen.has(key)) seen.set(key, n.name.trim());
+    }
+  }
+  return [...seen.values()];
+}
 
 export default function EsimStore({
   plans,
   selling,
   lang: forced,
   whatsapp,
+  destination = DESTINATIONS[0],
+  live = [],
 }: {
   plans: PublicPlan[] | null;
   selling: boolean;
   lang?: UiLang;
   whatsapp?: string | null;
+  /** The shelf being shown. Defaults to Mauritius & Rodrigues. */
+  destination?: Destination;
+  /** Destinations with plans on sale, for the "other destinations" grid. */
+  live?: LiveDestination[];
 }) {
+  const home = destination.code === HOME_CODE;
   const { language } = useLanguage();
   const lang: UiLang = forced ?? toUiLang(language);
   const t = COPY[lang];
@@ -51,12 +84,15 @@ export default function EsimStore({
 
   const fromPrice = plans && plans.length ? formatEur(Math.min(...plans.map((p) => p.retail_eur_cents)), lang) : null;
   const widest = plans?.reduce<string[] | null>((acc, p) => (!acc || p.country_codes.length > acc.length ? p.country_codes : acc), null) ?? null;
-  const faq = useMemo(() => esimFaq(lang, fromPrice, widest), [lang, fromPrice, widest]);
-  const bestPerGb = useMemo(() => {
-    const fixed = (plans ?? []).filter((p) => !p.per_day);
-    return fixed.length ? Math.min(...fixed.map((p) => eurCentsPerGb(p.retail_eur_cents, p.data_mb) ?? Infinity)) : null;
-  }, [plans]);
-
+  const place = { name: lang === "en" ? destination.en : destination.fr, inPlace: lang === "en" ? destination.enIn : destination.frIn };
+  const nets = useMemo(() => (home ? [] : worldNetworks(plans)), [home, plans]);
+  const faq = useMemo(
+    () => (home ? esimFaq(lang, fromPrice, widest) : worldFaq(lang, place, fromPrice, nets)),
+    // place is derived from destination + lang.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [home, lang, fromPrice, widest, nets, destination.code],
+  );
+  const trust = home ? t.trust : [t.trust[0], nets.length ? nets.slice(0, 2).join(" · ") : t.world.localNetworks, t.trust[2], t.trust[3]];
   function choose(p: PublicPlan) {
     esimTrack.planChosen({ plan: p.name, price_eur: p.retail_eur_cents / 100, badge: p.badge });
     setChosen(p);
@@ -70,13 +106,15 @@ export default function EsimStore({
       <header className="relative overflow-hidden border-b border-dark-border px-5 pb-10 pt-6">
         <div aria-hidden className="pointer-events-none absolute -bottom-24 left-1/2 h-64 w-[36rem] -translate-x-1/2 rounded-full bg-[#f97316]/10 blur-3xl" />
         <div className="relative mx-auto max-w-2xl">
-          <p className="font-bebas text-xs tracking-[0.3em] text-yellow">{t.eyebrow}</p>
+          <p className="font-bebas text-xs tracking-[0.3em] text-yellow">
+            {home ? t.eyebrow : <><span aria-hidden className="mr-1.5">{destination.flag}</span>{t.world.eyebrow(place.name)}</>}
+          </p>
           <h1 className="mt-2 font-syne text-[clamp(1.875rem,8vw,2.75rem)] font-extrabold leading-[1.05] text-offwhite [hyphens:none] [word-break:keep-all]">
-            {t.h1}
+            {home ? t.h1 : t.world.h1(place.inPlace)}
           </h1>
-          <p className="mt-4 max-w-xl font-dm text-[15px] leading-relaxed text-muted">{t.sub}</p>
+          <p className="mt-4 max-w-xl font-dm text-[15px] leading-relaxed text-muted">{home ? t.sub : t.world.sub(place.name)}</p>
           <ul className="mt-6 grid grid-cols-2 gap-2.5">
-            {t.trust.map((item, i) => {
+            {trust.map((item, i) => {
               const Icon = [Zap, Signal, Wifi, MessageCircle][i] ?? Check;
               return (
                 <li key={item} className="flex items-center gap-2 font-dm text-[13px] text-offwhite/90">
@@ -112,7 +150,7 @@ export default function EsimStore({
                     <button
                       type="button"
                       onClick={() => choose(p)}
-                      aria-label={`${dataLabel(p.data_mb, lang)}, ${daysLabel(p.validity_days, lang)}, ${formatEur(p.retail_eur_cents, lang)}`}
+                      aria-label={`${dataLabel(p.data_mb, lang)}${p.per_day ? (lang === "en" ? " per day" : " par jour") : ""}, ${daysLabel(p.validity_days, lang)}, ${formatEur(p.retail_eur_cents, lang)}`}
                       className={`group flex h-full w-full flex-col rounded-2xl border p-4 text-left transition-all hover:-translate-y-0.5 focus-visible:ring-2 focus-visible:ring-yellow/60 ${
                         featured
                           ? "border-yellow/50 bg-gradient-to-b from-yellow/[0.10] to-yellow/[0.02]"
@@ -130,17 +168,30 @@ export default function EsimStore({
                           </span>
                         )}
                       </span>
-                      <span className="mt-3 whitespace-nowrap font-syne text-[1.625rem] font-extrabold leading-none text-offwhite">
+                      <span
+                        className={`mt-3 whitespace-nowrap font-syne font-extrabold leading-none text-offwhite ${
+                          // MEASURED at 375px: "500 MB" is 158px of Syne at
+                          // 1.625rem in a 128px card column. Longer labels
+                          // step down so the figure never leaves its card.
+                          dataLabel(p.data_mb, lang).length > 5 ? "text-[1.25rem]" : "text-[1.625rem]"
+                        }`}
+                      >
                         {dataLabel(p.data_mb, lang)}
-                        {p.per_day && <span className="text-base font-bold text-muted"> /{lang === "en" ? "day" : "jour"}</span>}
                       </span>
-                      <span className="mt-1.5 font-dm text-sm text-offwhite/80">{daysLabel(p.validity_days, lang)}</span>
+                      {/* "per day" rides on the days line: beside the figure it
+                          made "500 MB /day" wider than a half-width card and it
+                          ran into the next one (measured at 375px). */}
+                      <span className="mt-1.5 font-dm text-sm text-offwhite/80">
+                        {p.per_day ? `${lang === "en" ? "per day" : "par jour"} · ` : ""}
+                        {daysLabel(p.validity_days, lang)}
+                      </span>
                       <span className="mt-2 font-dm text-xs leading-snug text-muted">{usageHint(p, lang)}</span>
                       <span className="mt-auto pt-4">
                         <span className="block font-syne text-xl font-extrabold text-offwhite">{formatEur(p.retail_eur_cents, lang)}</span>
                         <span className="mt-0.5 block font-dm text-[11px] text-muted">
-                          {perGb && !p.per_day ? `${formatEur(perGb, lang)} ${t.perGb}` : displayNetworks(p.networks).join(" · ")}
-                          {perGb && !p.per_day && perGb === bestPerGb ? " ✓" : ""}
+                          {perGb && !p.per_day
+                            ? `${formatEur(perGb, lang)} ${t.perGb}`
+                            : (home ? displayNetworks(p.networks) : worldNetworks([p]).slice(0, 2)).join(" · ")}
                         </span>
                         {abroad > 0 && <span className="mt-0.5 block font-dm text-[11px] text-muted">{t.abroad(abroad)}</span>}
                         <span
@@ -180,16 +231,20 @@ export default function EsimStore({
         </section>
 
         {/* ── Why the network matters ───────────────────────────────────── */}
-        <section aria-labelledby="esim-net" className="pt-12">
-          <div className="rounded-3xl border border-white/10 bg-gradient-to-b from-white/[0.04] to-white/[0.01] p-6">
-            <Signal size={22} className="text-yellow" aria-hidden />
-            <h2 id="esim-net" className="mt-3 font-syne text-xl font-bold text-offwhite">
-              {t.netTitle}
-            </h2>
-            <p className="mt-2 font-dm text-sm leading-relaxed text-offwhite/85">{t.netBody}</p>
-            <p className="mt-3 font-dm text-sm leading-relaxed text-muted">{t.netCoverage}</p>
-          </div>
-        </section>
+        {(home || nets.length > 0) && (
+          <section aria-labelledby="esim-net" className="pt-12">
+            <div className="rounded-3xl border border-white/10 bg-gradient-to-b from-white/[0.04] to-white/[0.01] p-6">
+              <Signal size={22} className="text-yellow" aria-hidden />
+              <h2 id="esim-net" className="mt-3 font-syne text-xl font-bold text-offwhite">
+                {home ? t.netTitle : t.world.netTitle(place.inPlace)}
+              </h2>
+              <p className="mt-2 font-dm text-sm leading-relaxed text-offwhite/85">
+                {home ? t.netBody : t.world.netBody(listOf(nets.slice(0, 4), lang), place.inPlace)}
+              </p>
+              {home && <p className="mt-3 font-dm text-sm leading-relaxed text-muted">{t.netCoverage}</p>}
+            </div>
+          </section>
+        )}
 
         {/* ── Compatibility ─────────────────────────────────────────────── */}
         <section aria-labelledby="esim-compat" className="pt-12">
@@ -219,16 +274,19 @@ export default function EsimStore({
           </div>
         </section>
 
+        {/* ── Other destinations — Mauritius first, the world second ──────── */}
+        <DestinationGrid lang={lang} live={live} current={destination} />
+
         {/* ── Lost link ─────────────────────────────────────────────────── */}
         <FindMyEsim lang={lang} />
 
         {/* ── Next steps of the arrival ─────────────────────────────────── */}
         <nav aria-labelledby="esim-also" className="mt-12 rounded-3xl border border-dark-border bg-white/[0.02] p-6">
           <p id="esim-also" className="font-syne text-lg font-bold text-offwhite">
-            {t.alsoTitle}
+            {home ? t.alsoTitle : t.world.alsoTitle}
           </p>
           <ul className="mt-3 space-y-1">
-            {t.also.map((l) => (
+            {(home ? t.also : t.world.also).map((l) => (
               <li key={l.href}>
                 <Link href={l.href} className="inline-flex min-h-11 items-center gap-1.5 font-dm text-sm text-yellow/80 transition-colors hover:text-yellow">
                   {l.label} <ArrowRight size={14} aria-hidden />
@@ -251,7 +309,9 @@ export default function EsimStore({
         </nav>
       </div>
 
-      {chosen && <CheckoutSheet plan={chosen} lang={lang} selling={selling} onClose={() => setChosen(null)} />}
+      {chosen && (
+        <CheckoutSheet plan={chosen} lang={lang} selling={selling} destination={destination} onClose={() => setChosen(null)} />
+      )}
     </>
   );
 }

@@ -149,8 +149,30 @@ process.env.ESIM_CAPTURE_WAIT_MS = "0";
 const { startCheckout, completePayment, provisionOrder, viewOrder, lookupOrder, handleWebhook, loadOrder } = await import("./service");
 
 const PLAN_ID = "11111111-1111-4111-8111-111111111111";
+const FR_PLAN_ID = "22222222-2222-4222-8222-222222222222";
 function seedPlan(over: Row = {}) {
+  tables.esim_listings = [
+    { country_code: "MU", plan_id: PLAN_ID, badge: "popular", sort_order: 10, auto: false },
+    { country_code: "FR", plan_id: FR_PLAN_ID, badge: null, sort_order: 10, auto: true },
+  ];
   tables.esim_plans = [
+    {
+      id: FR_PLAN_ID,
+      name: "France 1GB/Day × 7 days",
+      provider_code: "FR_1_Daily",
+      period_num: 7,
+      data_mb: 1024,
+      per_day: true,
+      validity_days: 7,
+      country_codes: ["FR"],
+      networks: [],
+      networks_by_country: { FR: [{ name: "Orange", type: "5G" }] },
+      wholesale_usd_micros: 4_550_000,
+      retail_eur_cents: 990,
+      active: true,
+      available: true,
+      covers_rodrigues: false,
+    },
     {
       id: PLAN_ID,
       name: "Global 3GB 30Days",
@@ -159,7 +181,9 @@ function seedPlan(over: Row = {}) {
       data_mb: 3072,
       per_day: false,
       validity_days: 30,
+      country_codes: ["MU", "FR", "ZA"],
       networks: [{ name: "my.t", type: "4G" }],
+      networks_by_country: { MU: [{ name: "my.t", type: "4G" }] },
       wholesale_usd_micros: 11_400_000,
       retail_eur_cents: 1590,
       active: true,
@@ -169,9 +193,10 @@ function seedPlan(over: Row = {}) {
     },
   ];
 }
+const muPlan = () => tables.esim_plans.find((p) => p.id === PLAN_ID)!;
 
-async function buy() {
-  const c = await startCheckout({ planId: PLAN_ID, email: "guest@example.com", language: "en", source: {} });
+async function buy(planId = PLAN_ID, destination?: string) {
+  const c = await startCheckout({ planId, destination, email: "guest@example.com", language: "en", source: {} });
   return c;
 }
 
@@ -264,7 +289,7 @@ describe("money guards", () => {
   it("hides a plan the wholesaler has withdrawn, before anyone pays", async () => {
     seedPlan({ provider_code: "GONE" });
     await expect(buy()).rejects.toMatchObject({ status: 409 });
-    expect(tables.esim_plans[0].available).toBe(false);
+    expect(muPlan().available).toBe(false);
   });
 
   it("never sells a plan that does not cover Rodrigues, even if marked active", async () => {
@@ -339,6 +364,50 @@ describe("webhooks", () => {
     expect((await loadOrder(c.orderId))!.used_bytes).toBe(0);
     await handleWebhook("esimaccess", { __ev: usage("u2") }, { trustedSender: true });
     expect((await loadOrder(c.orderId))!.used_bytes).toBe(99);
+  });
+});
+
+describe("destinations (M224)", () => {
+  it("sells a France plan on the France shelf, without the Rodrigues rule, and records where it is for", async () => {
+    const getPackage = fakeProvider.getPackage;
+    fakeProvider.getPackage = async (code: string) => ({ code, wholesaleUsdMicros: 650_000 }); // $0.65/day
+    try {
+      const c = await buy(FR_PLAN_ID, "FR");
+      const o = tables.esim_orders.find((r) => r.id === c.orderId)!;
+      expect(o.destination).toBe("FR");
+      expect((o.plan_snapshot as { destination: string; networks: { name: string }[] }).destination).toBe("FR");
+      expect((o.plan_snapshot as { networks: { name: string }[] }).networks[0].name).toBe("Orange");
+      const r = await completePayment(c.orderId, c.paypalOrderId);
+      expect(r.status).toBe("delivered");
+      const key = new URL(`https://x${r.url}`).searchParams.get("k");
+      const view = await viewOrder(r.ref, key);
+      expect(view?.destination).toMatchObject({ code: "FR", en: "France", home: false });
+    } finally {
+      fakeProvider.getPackage = getPackage;
+    }
+  });
+
+  it("refuses a plan bought through a shelf it is not on", async () => {
+    // The MU plan also works in South Africa, but it is not on the ZA shelf.
+    await expect(buy(PLAN_ID, "ZA")).rejects.toMatchObject({ status: 404 });
+  });
+
+  it("refuses a plan for a country it does not cover", async () => {
+    await expect(buy(FR_PLAN_ID, "MU")).rejects.toMatchObject({ status: 404 });
+  });
+
+  it("refuses an unknown destination", async () => {
+    await expect(buy(PLAN_ID, "ZZ")).rejects.toMatchObject({ status: 400 });
+  });
+
+  it("orders from before M224 read as Mauritius", async () => {
+    const c = await buy();
+    const o = tables.esim_orders.find((r) => r.id === c.orderId)!;
+    delete o.destination;
+    delete (o.plan_snapshot as Row).destination;
+    await completePayment(c.orderId, c.paypalOrderId);
+    const view = await viewOrder(c.ref, new URL(`https://x${(await lookupOrder(c.ref, "guest@example.com"))!}`).searchParams.get("k"));
+    expect(view?.destination.code).toBe("MU");
   });
 });
 

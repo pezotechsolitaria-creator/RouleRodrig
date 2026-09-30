@@ -26,14 +26,14 @@ export const IOS_STEPS: Record<Lang, Step[]> = {
     { title: "Add the eSIM", body: "On iOS 17.4 or later, tap “Install on this iPhone” on your order page and follow the prompt. Otherwise open Settings → Mobile Service (or Cellular) → Add eSIM → Use QR Code, and scan the code from another screen." },
     { title: "No second screen? Enter it by hand", body: "In the same Add eSIM screen choose “Enter Details Manually” and paste the SM-DP+ address and activation code shown on your order page." },
     { title: "Label it and choose its jobs", body: "Name it “Rodrigues”. Keep your usual line for calls, texts and iMessage; choose the Rodrigues eSIM for Mobile Data. Turn off “Allow Mobile Data Switching” so your home plan is never used." },
-    { title: "When you land", body: "Settings → Mobile Service → Rodrigues: make sure the line is on and turn on Data Roaming. Roaming is how this eSIM works and costs nothing extra. It connects to my.t within a minute or two." },
+    { title: "When you land", body: "Settings → Mobile Service → Rodrigues: make sure the line is on and turn on Data Roaming. Roaming is how this eSIM works and costs nothing extra. It connects to the local network (my.t in Mauritius and Rodrigues) within a minute or two." },
   ],
   fr: [
     { title: "Connectez-vous au Wi-Fi", body: "À la maison ou à l'aéroport, avant le départ. L'eSIM se télécharge par internet : il lui faut une connexion qui n'est pas elle-même." },
     { title: "Ajoutez l'eSIM", body: "Sous iOS 17.4 ou plus récent, touchez « Installer sur cet iPhone » sur votre page de commande et suivez les instructions. Sinon : Réglages → Données cellulaires → Ajouter une eSIM → Utiliser un code QR, et scannez le code affiché sur un autre écran." },
     { title: "Pas de second écran ? Saisie manuelle", body: "Dans le même écran, choisissez « Saisir les informations manuellement » et collez l'adresse SM-DP+ et le code d'activation affichés sur votre page de commande." },
     { title: "Nommez-la et choisissez son rôle", body: "Appelez-la « Rodrigues ». Gardez votre ligne habituelle pour les appels, SMS et iMessage ; choisissez l'eSIM Rodrigues pour les données cellulaires. Désactivez « Autoriser le changement de données cellulaires » pour ne jamais consommer votre forfait habituel." },
-    { title: "À l'arrivée", body: "Réglages → Données cellulaires → Rodrigues : vérifiez que la ligne est activée et activez l'itinérance des données. C'est ainsi que fonctionne l'eSIM, sans frais supplémentaires. Elle se connecte à my.t en une minute ou deux." },
+    { title: "À l'arrivée", body: "Réglages → Données cellulaires → Rodrigues : vérifiez que la ligne est activée et activez l'itinérance des données. C'est ainsi que fonctionne l'eSIM, sans frais supplémentaires. Elle se connecte au réseau local (my.t à Maurice et Rodrigues) en une minute ou deux." },
   ],
 };
 
@@ -43,14 +43,14 @@ export const ANDROID_STEPS: Record<Lang, Step[]> = {
     { title: "Samsung Galaxy", body: "Settings → Connections → SIM manager → Add eSIM → Scan QR code from service provider. Or choose “Enter activation code” and paste the full code starting with LPA:1$ from your order page." },
     { title: "Google Pixel and most others", body: "Settings → Network & internet → SIMs → Add SIM (or “Download a SIM instead?”) → scan the QR code. On a Pixel you can also tap “Install on this phone” on your order page." },
     { title: "Set it for data", body: "In the SIM settings, choose the new eSIM for Mobile data and keep your usual SIM for calls and texts." },
-    { title: "When you land", body: "Turn the eSIM on and enable Roaming for it (Settings → Connections → Mobile networks → Data roaming on Samsung). It connects to my.t within a minute or two." },
+    { title: "When you land", body: "Turn the eSIM on and enable Roaming for it (Settings → Connections → Mobile networks → Data roaming on Samsung). It connects to the local network (my.t in Mauritius and Rodrigues) within a minute or two." },
   ],
   fr: [
     { title: "Connectez-vous au Wi-Fi", body: "Avant le départ. L'eSIM se télécharge par internet." },
     { title: "Samsung Galaxy", body: "Paramètres → Connexions → Gestionnaire de carte SIM → Ajouter une eSIM → Scanner le code QR de l'opérateur. Ou choisissez « Saisir le code d'activation » et collez le code complet commençant par LPA:1$ depuis votre page de commande." },
     { title: "Google Pixel et la plupart des autres", body: "Paramètres → Réseau et Internet → SIM → Ajouter une SIM (ou « Télécharger une SIM à la place ? ») → scannez le code QR. Sur Pixel, vous pouvez aussi toucher « Installer sur ce téléphone » sur votre page de commande." },
     { title: "Choisissez-la pour les données", body: "Dans les réglages SIM, choisissez la nouvelle eSIM pour les données mobiles et gardez votre SIM habituelle pour les appels et SMS." },
-    { title: "À l'arrivée", body: "Activez l'eSIM et l'itinérance pour elle (Paramètres → Connexions → Réseaux mobiles → Itinérance des données sur Samsung). Elle se connecte à my.t en une minute ou deux." },
+    { title: "À l'arrivée", body: "Activez l'eSIM et l'itinérance pour elle (Paramètres → Connexions → Réseaux mobiles → Itinérance des données sur Samsung). Elle se connecte au réseau local (my.t à Maurice et Rodrigues) en une minute ou deux." },
   ],
 };
 
@@ -155,4 +155,51 @@ function baseFaq(lang: Lang, from: string): Faq[] {
       a: "Usually in under a minute after payment: the QR code appears on screen and arrives by email. If our supplier is slow, you receive the eSIM or a full refund within 24 hours.",
     },
   ];
+}
+
+// ── Other destinations (M224) ────────────────────────────────────────────────
+// Two answers are specific to the country and computed from its shelf — the
+// networks the plans actually use there, and the real "from" price — and the
+// rest are the store's general answers, which are true everywhere. A page of
+// country-name templating with no facts in it is exactly the thin content
+// Google discards; these are facts, drawn from the same rows the page sells.
+
+export type WorldPlace = { name: string; inPlace: string };
+
+function joinList(items: string[], lang: Lang): string {
+  if (items.length <= 1) return items.join("");
+  return `${items.slice(0, -1).join(", ")} ${lang === "en" ? "and" : "et"} ${items[items.length - 1]}`;
+}
+
+export function worldFaq(lang: Lang, place: WorldPlace, fromPrice: string | null, networks: string[]): Faq[] {
+  const from = fromPrice ?? (lang === "en" ? "a few euros" : "quelques euros");
+  const nets = networks.length ? joinList(networks.slice(0, 4), lang) : null;
+  const specific: Faq[] =
+    lang === "fr"
+      ? [
+          {
+            q: `Quelle eSIM choisir ${place.inPlace} ?`,
+            a: nets
+              ? `Les eSIM Roulé Rodrigues pour ${place.name} se connectent à ${nets} ${place.inPlace}. Elles fournissent des données mobiles avec partage de connexion, livrées en quelques secondes par QR code.`
+              : `Les eSIM Roulé Rodrigues pour ${place.name} se connectent aux réseaux locaux 4G/5G ${place.inPlace}. Elles fournissent des données mobiles avec partage de connexion, livrées en quelques secondes par QR code.`,
+          },
+          {
+            q: `Combien coûte une eSIM ${place.inPlace} ?`,
+            a: `Les forfaits eSIM de Roulé Rodrigues ${place.inPlace} commencent à ${from}, prix final payé par carte ou PayPal, sans frais ajoutés au paiement. Chaque forfait indique ses données et sa durée.`,
+          },
+        ]
+      : [
+          {
+            q: `Which eSIM works ${place.inPlace}?`,
+            a: nets
+              ? `Roulé Rodrigues eSIMs for ${place.name} connect to ${nets} ${place.inPlace}. They are data eSIMs with hotspot sharing, delivered by QR code in seconds.`
+              : `Roulé Rodrigues eSIMs for ${place.name} connect to local 4G/5G networks ${place.inPlace}. They are data eSIMs with hotspot sharing, delivered by QR code in seconds.`,
+          },
+          {
+            q: `How much is an eSIM ${place.inPlace}?`,
+            a: `Roulé Rodrigues eSIM plans ${place.inPlace} start at ${from}, the final price paid by card or PayPal with nothing added at checkout. Every plan states its data and days.`,
+          },
+        ];
+  // install · compatibility · number · delivery — true for every destination.
+  return [...specific, ...baseFaq(lang, from).slice(2)];
 }

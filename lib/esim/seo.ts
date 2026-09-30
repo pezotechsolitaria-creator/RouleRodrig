@@ -29,8 +29,17 @@ export function esimJsonLd(opts: {
   plans: PlanLike[];
   faq: Faq[];
   selling: boolean;
+  /** A destination other than the home shelf (M224); absent = Mauritius & Rodrigues. */
+  place?: { name: string; inPlace: string };
 }): Record<string, unknown>[] {
-  const { lang, url, plans, faq, selling } = opts;
+  const { lang, url, plans, faq, selling, place } = opts;
+  const productName = place
+    ? lang === "fr"
+      ? `eSIM ${place.name}`
+      : `${place.name} eSIM`
+    : lang === "fr"
+      ? "eSIM Maurice & Rodrigues"
+      : "Mauritius & Rodrigues eSIM";
   const out: Record<string, unknown>[] = [];
   const availability = selling ? "https://schema.org/InStock" : "https://schema.org/PreOrder";
 
@@ -40,9 +49,12 @@ export function esimJsonLd(opts: {
       "@context": "https://schema.org",
       "@type": "Product",
       "@id": `${url}#product`,
-      name: lang === "fr" ? "eSIM Maurice & Rodrigues" : "Mauritius & Rodrigues eSIM",
-      description:
-        lang === "fr"
+      name: productName,
+      description: place
+        ? lang === "fr"
+          ? `eSIM de données instantanée ${place.inPlace}. QR code livré en quelques secondes, partage de connexion inclus.`
+          : `Instant data eSIM for use ${place.inPlace}. QR code delivered in seconds, hotspot included.`
+        : lang === "fr"
           ? "eSIM de données instantanée pour Maurice et Rodrigues, sur le réseau my.t 4G qui couvre Rodrigues. QR code livré en quelques secondes, partage de connexion inclus."
           : "Instant data eSIM for Mauritius and Rodrigues on the my.t 4G network, which covers Rodrigues. QR code delivered in seconds, hotspot included.",
       category: "Mobile data eSIM",
@@ -85,7 +97,15 @@ export function esimJsonLd(opts: {
   out.push(
     breadcrumbLd([
       { name: lang === "fr" ? "Accueil" : "Home", url: SITE_URL },
-      { name: lang === "fr" ? "eSIM Maurice & Rodrigues" : "Mauritius & Rodrigues eSIM", url },
+      ...(place
+        ? [
+            {
+              name: lang === "fr" ? "eSIM Maurice & Rodrigues" : "Mauritius & Rodrigues eSIM",
+              url: lang === "fr" ? `${SITE_URL}/fr/esim-maurice-rodrigues` : `${SITE_URL}/esim`,
+            },
+          ]
+        : []),
+      { name: productName, url },
     ]),
   );
   return out;
