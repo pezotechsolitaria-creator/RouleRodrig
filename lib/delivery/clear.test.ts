@@ -107,3 +107,26 @@ describe("the device remembers a Clear", () => {
     expect(readSaved(store).map((r) => [r.id, r.email])).toEqual([["a", "x@y.z"]]);
   });
 });
+
+describe("the admin sees what a customer hid (M228)", () => {
+  const M228 = readFileSync(
+    join(process.cwd(), "supabase/migrations/20260930190000_m228_admin_sees_hidden_by_customer.sql"),
+    "utf8",
+  ).replace(/^\s*--.*$/gm, "");
+  const BOARD = readFileSync(join(process.cwd(), "app/admin/deliveries/DeliveryBoard.tsx"), "utf8");
+  const ERRANDS = readFileSync(join(process.cwd(), "app/admin/marketplace/ServicesPanel.tsx"), "utf8");
+
+  it("adds the key to both admin views, and refuses to guess at an anchor", () => {
+    expect(M228).toContain("pg_get_functiondef('public.admin_delivery_board'::regproc)");
+    expect(M228).toContain("pg_get_functiondef('public.admin_service_board'::regproc)");
+    expect(M228.match(/raise exception 'M228:/g)?.length).toBe(3);
+    // Idempotent: a re-run must not insert the key twice.
+    expect(M228.match(/position\('customerHiddenAt' in v_def\) = 0/g)?.length).toBe(2);
+  });
+
+  it("shows the tag on live jobs, open requests and open errands", () => {
+    expect(BOARD).toContain("<HiddenByCustomerTag at={d.customerHiddenAt}");
+    expect(BOARD).toContain("<HiddenByCustomerTag at={r.customerHiddenAt}");
+    expect(ERRANDS).toContain("<HiddenByCustomerTag at={r.customerHiddenAt}");
+  });
+});

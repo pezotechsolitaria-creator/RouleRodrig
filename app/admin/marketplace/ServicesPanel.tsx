@@ -12,6 +12,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { centsToDecimalString } from "@/lib/money";
+import HiddenByCustomerTag from "@/components/admin/HiddenByCustomerTag";
 import { ERRAND_LABEL, isErrandKind } from "@/lib/delivery/kind";
 
 // ── The Do It For Me desk ───────────────────────────────────────────────────
@@ -50,6 +51,8 @@ type Live = {
   waitingMinutes: number;
   quoteCount: number;
   bestQuote: number | null;
+  /** M228: the customer cleared this from their own /deliver list. */
+  customerHiddenAt?: string | null;
 };
 
 type Totals = {
@@ -287,9 +290,10 @@ export default function ServicesPanel() {
                     }`}
                   >
                     <div className="flex flex-wrap items-start justify-between gap-2">
-                      <p className="min-w-0 font-syne text-base font-bold text-offwhite">
-                        {r.what}
-                      </p>
+                      <div className="min-w-0">
+                        <p className="font-syne text-base font-bold text-offwhite">{r.what}</p>
+                        <HiddenByCustomerTag at={r.customerHiddenAt} className="mt-1" />
+                      </div>
                       <span
                         className={`shrink-0 font-dm text-xs tabular-nums ${
                           r.quoteCount === 0 ? "text-amber-300" : "text-muted"

@@ -2,6 +2,7 @@
 
 import { useCallback, useState } from "react";
 import { PlaceLink, RouteLink } from "@/components/admin/PlaceLink";
+import HiddenByCustomerTag from "@/components/admin/HiddenByCustomerTag";
 import { usePolling } from "@/lib/use-polling";
 import { KIND_LABEL, toRequestKind } from "@/lib/delivery/kind";
 import Link from "next/link";
@@ -38,6 +39,8 @@ type Live = {
    *  request id. Everything else on the card reads identically. */
   jobKind?: "store" | "direct";
   what?: string | null; requestKind?: string | null; spendCap?: number | null;
+  /** M228: the customer cleared the request from their own /deliver list. */
+  customerHiddenAt?: string | null;
 };
 type Driver = {
   id: string; name: string; phone: string; status: string; availability: string;
@@ -64,6 +67,9 @@ type Req = {
    *  "why has nobody quoted", and without it the owner cannot tell a quiet
    *  marketplace from a broken one. */
   eligibleDrivers: number;
+  /** M228: the customer cleared this from their own /deliver list. It is
+   *  still open to drivers — worth a call rather than another quote. */
+  customerHiddenAt?: string | null;
 };
 type Board = {
   live: Live[]; drivers: Driver[]; requests?: Req[];
@@ -278,6 +284,7 @@ export default function DeliveryBoard() {
                       {d.jobKind === "direct" && d.what && (
                         <p className="font-dm text-xs text-muted">{d.what}</p>
                       )}
+                      <HiddenByCustomerTag at={d.customerHiddenAt} className="mt-1" />
                       {d.dropoffNote && (
                         <p className="font-dm text-xs text-muted">
                           {"→ "}
@@ -444,6 +451,7 @@ export default function DeliveryBoard() {
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="min-w-0">
                       <p className="font-syne text-base font-bold">{r.what}</p>
+                      <HiddenByCustomerTag at={r.customerHiddenAt} className="mt-1" />
                       <p className="mt-0.5 font-dm text-xs text-muted">
                         {KIND_LABEL[toRequestKind(r.kind)]}
                         {r.sizeClass === "large" && " · Large item"}
