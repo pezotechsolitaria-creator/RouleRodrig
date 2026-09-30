@@ -140,6 +140,11 @@ export default function EsimStore({
       <header id="esim-hero" className="relative overflow-hidden px-5 pb-5 pt-5">
         <div aria-hidden className="pointer-events-none absolute -top-32 left-1/2 h-64 w-[34rem] -translate-x-1/2 rounded-full bg-yellow/[0.07] blur-3xl" />
         <div className="relative mx-auto max-w-2xl">
+          {!selling && (
+            <p className="mb-3 inline-flex rounded-full border border-yellow/40 bg-yellow/10 px-3 py-1 font-bebas text-[13px] leading-none tracking-[0.2em] text-yellow">
+              {t.soonPill.toUpperCase()}
+            </p>
+          )}
           <h1 className="font-syne text-offwhite">
             <span className="block font-bebas text-[14px] font-normal leading-none tracking-[0.22em] text-yellow">
               {home ? t.h1Kicker : t.world.h1Kicker(place.name)}
@@ -170,7 +175,7 @@ export default function EsimStore({
         <section id="esim-plans" aria-labelledby="esim-plans-title" className="scroll-mt-20 pt-1">
           <div className="flex flex-wrap items-baseline justify-between gap-x-3">
             <h2 id="esim-plans-title" className="font-syne text-[1.125rem] font-bold leading-tight text-offwhite">
-              {t.plansTitle}
+              {selling ? t.plansTitle : t.plansTitleSoon}
             </h2>
             <button
               type="button"
@@ -190,11 +195,11 @@ export default function EsimStore({
               {/* 14px between passes: a badge tab rises 8px above its pass. */}
               <ul className="mt-4 space-y-3.5">
                 {plans.map((p) => (
-                  <Ticket key={p.id} plan={p} lang={lang} featured={p.id === featuredId} onChoose={choose} />
+                  <Ticket key={p.id} plan={p} lang={lang} featured={p.id === featuredId} onChoose={choose} cta={selling ? undefined : t.soonCta} />
                 ))}
               </ul>
               <p className="mt-3 flex items-center gap-1.5 font-dm text-[12px] text-muted">
-                <Lock size={12} aria-hidden /> {t.plansNote}
+                <Lock size={12} aria-hidden /> {selling ? t.plansNote : t.plansNoteSoon}
               </p>
             </>
           )}
@@ -268,7 +273,8 @@ export default function EsimStore({
         <DestinationGrid lang={lang} live={live} current={destination} />
 
         {/* ── Lost link, folded ──────────────────────────────────────────── */}
-        <FindMyEsim lang={lang} />
+        {/* Nobody can have bought one before sales open (M229). */}
+        {selling && <FindMyEsim lang={lang} />}
 
         {/* ── Onward ────────────────────────────────────────────────────── */}
         <nav aria-labelledby="esim-also" className="mt-8">
@@ -303,9 +309,9 @@ export default function EsimStore({
       </div>
 
       <StickyBar
-        from={fromPrice ? t.barFrom(fromPrice) : t.heroCtaNoPrice}
+        from={!selling ? t.soonPill : fromPrice ? t.barFrom(fromPrice) : t.heroCtaNoPrice}
         sub={home ? `my.t 4G · ${t.barQr}` : t.barSub}
-        cta={t.barCta}
+        cta={selling ? t.barCta : t.soonCta}
         helpHref={helpHref}
         helpLabel={t.help}
         hidden={chosen !== null}

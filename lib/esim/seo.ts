@@ -41,7 +41,8 @@ export function esimJsonLd(opts: {
       ? "eSIM Maurice & Rodrigues"
       : "Mauritius & Rodrigues eSIM";
   const out: Record<string, unknown>[] = [];
-  const availability = selling ? "https://schema.org/InStock" : "https://schema.org/PreOrder";
+  // Not "PreOrder": nothing can be ordered before sales open (M229).
+  const availability = selling ? "https://schema.org/InStock" : "https://schema.org/OutOfStock";
 
   if (plans.length) {
     const prices = plans.map((p) => p.retail_eur_cents);

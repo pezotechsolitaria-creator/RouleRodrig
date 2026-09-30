@@ -145,6 +145,9 @@ vi.mock("./providers", async () => {
 
 process.env.ESIM_LINK_SECRET = "test-secret";
 process.env.ESIM_CAPTURE_WAIT_MS = "0";
+// These tests are the engine of an OPEN store; sales are closed by default
+// until the owner is licensed (M229, lib/esim/state.ts).
+process.env.ESIM_SALES_OPEN = "true";
 
 const { startCheckout, completePayment, provisionOrder, viewOrder, lookupOrder, handleWebhook, loadOrder } = await import("./service");
 

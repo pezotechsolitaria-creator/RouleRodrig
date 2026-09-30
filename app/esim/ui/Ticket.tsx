@@ -23,11 +23,14 @@ export default function Ticket({
   lang,
   featured,
   onChoose,
+  cta,
 }: {
   plan: PublicPlan;
   lang: UiLang;
   featured: boolean;
   onChoose: (p: PublicPlan) => void;
+  /** The stub's action label; "Notify me" while sales are closed (M229). */
+  cta?: string;
 }) {
   const t = COPY[lang];
   const data = dataLabel(p.data_mb, lang);
@@ -84,7 +87,7 @@ export default function Ticket({
               featured ? "bg-yellow text-dark group-hover:bg-yellow-dark" : "border border-yellow/35 text-yellow group-hover:bg-yellow/10"
             }`}
           >
-            {t.choose} <ArrowRight size={13} aria-hidden className="transition-transform duration-200 group-hover:translate-x-0.5" />
+            {cta ?? t.choose} <ArrowRight size={13} aria-hidden className="transition-transform duration-200 group-hover:translate-x-0.5" />
           </span>
         </span>
       </button>
