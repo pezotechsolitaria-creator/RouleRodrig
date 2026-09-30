@@ -306,8 +306,12 @@ export default function CheckoutSheet({
             <p className="font-bebas text-[11px] leading-none tracking-[0.24em] text-muted">
               {t.pass} · {code}
             </p>
+            {/* The duration is unbreakable, so the 180px column breaks at the dot —
+                never "1 GB · 7" / "days" (seen live at 375px). Only the duration:
+                a nowrap "500 MB / day" is 231px and would overflow. MEASURED. */}
             <h2 id="esim-sheet-title" className="mt-2 font-syne text-[1.4rem] font-extrabold leading-tight text-offwhite">
-              {label}
+              {label.slice(0, label.lastIndexOf(" · ") + 3)}
+              <span className="whitespace-nowrap">{label.slice(label.lastIndexOf(" · ") + 3)}</span>
             </h2>
             <p className="mt-1.5 font-dm text-[13px] leading-snug text-offwhite/65">{[...networks, usageHint(plan, lang)].join(" · ")}</p>
           </div>
