@@ -24,14 +24,21 @@ export async function GET() {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ requests: [] });
+  if (!user) return NextResponse.json({ requests: [], hidden: [] });
 
-  const { data, error } = await supabase.rpc("my_delivery_requests");
+  // `hidden` (M227): the ids this customer cleared, so a copy remembered on
+  // another device (lib/delivery/my-requests.ts) does not bring one back.
+  const [{ data, error }, hiddenRes] = await Promise.all([
+    supabase.rpc("my_delivery_requests"),
+    supabase.rpc("my_hidden_delivery_requests"),
+  ]);
+  if (hiddenRes.error) console.error("my_hidden_delivery_requests failed", hiddenRes.error);
+  const hidden = Array.isArray(hiddenRes.data) ? hiddenRes.data : [];
   if (error) {
     console.error("my_delivery_requests failed", error);
     // The list is an aid, not the page. A failure here must not stop somebody
     // posting a new request, so it degrades to "nothing to show".
-    return NextResponse.json({ requests: [] });
+    return NextResponse.json({ requests: [], hidden });
   }
-  return NextResponse.json({ requests: data ?? [] });
+  return NextResponse.json({ requests: data ?? [], hidden });
 }

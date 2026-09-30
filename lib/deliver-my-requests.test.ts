@@ -92,3 +92,39 @@ describe("it says something when nothing is waiting", () => {
     expect(new Set([en.pastTitle(1), fr.pastTitle(1), cr.pastTitle(1)]).size).toBe(3);
   });
 });
+
+describe("the list is one line until tapped (M227)", () => {
+  it("folds the whole list into a closed <details>", () => {
+    // MEASURED: two requests pushed the form's first question from 232px to
+    // 440px at 375x812. Collapsed, the list is one 48px line.
+    expect(SRC).toContain('<details className="group/mine">');
+    expect(SRC).not.toMatch(/<details[^>]*\sopen[\s>=]/);
+  });
+
+  it("never lets collapsing hide a price waiting on the customer", () => {
+    expect(SRC).toContain("statusOf(r)?.needsCustomer === true");
+    expect(SRC).toContain("c.mine.needsYou(needsYou)");
+  });
+
+  it("offers Clear only where the shared rule allows it", () => {
+    expect(SRC).toContain('import { canClear } from "@/lib/delivery/clear"');
+    expect(SRC).toContain("canClear(r.live) && (");
+  });
+
+  it("hides through the API and offers Undo", () => {
+    expect(SRC).toContain('fetch("/api/delivery-requests/hide"');
+    expect(SRC).toContain("label: c.mine.undo");
+  });
+
+  it("is written in all three languages", () => {
+    const [en, fr, cr] = (["en", "fr", "cr"] as const).map((l) => DELIVER_COPY[l].mine);
+    for (const m of [en, fr, cr]) {
+      expect(m.openCount(2)).toContain("2");
+      expect(m.needsYou(1)).toContain("1");
+      expect(m.clearAria("Fridge")).toContain("Fridge");
+      expect(m.clear.length).toBeGreaterThan(2);
+      expect(m.undo.length).toBeGreaterThan(2);
+    }
+    expect(new Set([en.clear, fr.clear, cr.clear]).size).toBe(3);
+  });
+});

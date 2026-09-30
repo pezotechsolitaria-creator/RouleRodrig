@@ -44,9 +44,11 @@ const EN = {
       "Fields marked * are required — drivers need them to price accurately.",
     /** Read out by screen readers in place of the asterisk glyph. */
     srMark: "required",
-    /** The sticky-bar version: one line at the 16px floor. The long one is
-     *  said once, on screen one, where the asterisk is first met. */
-    short: "= required for an accurate price",
+    /** The sticky step row's tag after the red asterisk (M227; it was a
+     *  line of its own, "= required for an accurate price", 24px on every
+     *  screen). The long one is said once, on screen one, where the asterisk
+     *  is first met. */
+    tag: "required",
   },
 
   progress: (step: number, total: number) => `Step ${step} of ${total}`,
@@ -335,6 +337,18 @@ const EN = {
     // quote today.
     pastTitle: (n: number) => `Earlier (${n})`,
     empty: "Nothing waiting on you.",
+    // ── One line until tapped (M227) ──
+    openCount: (n: number) => `${n} open`,
+    earlierCount: (n: number) => `${n} earlier`,
+    // The one state that needs the customer is "prices are in" (request-status
+    // needsCustomer), so the line says so. Measured to fit 249px at 375px.
+    needsYou: (n: number) => (n === 1 ? "1 has prices" : `${n} have prices`),
+    clear: "Clear",
+    clearAria: (what: string) => `Clear “${what}” from your list`,
+    cleared: "Cleared from your list.",
+    clearedOpen: "Cleared from your list. It stays open for drivers until it expires.",
+    undo: "Undo",
+    inProgress: "A driver is on this one, so it can't be cleared yet.",
   },
 
   // ── The screen where the money is actually agreed ────────────────────────
@@ -517,7 +531,7 @@ const FR: DeliverCopy = {
     warning:
       "Les champs marqués * sont obligatoires — les chauffeurs en ont besoin pour un prix juste.",
     srMark: "obligatoire",
-    short: "= obligatoire pour un prix juste",
+    tag: "obligatoire",
   },
 
   progress: (step: number, total: number) => `Étape ${step} sur ${total}`,
@@ -790,6 +804,15 @@ const FR: DeliverCopy = {
     fromPrice: (fee: string) => `à partir de ${fee}`,
     pastTitle: (n: number) => `Précédentes (${n})`,
     empty: "Rien n’attend après vous.",
+    openCount: (n: number) => `${n} en cours`,
+    earlierCount: (n: number) => `${n} précédente${n === 1 ? "" : "s"}`,
+    needsYou: (n: number) => `${n} avec des prix`,
+    clear: "Retirer",
+    clearAria: (what: string) => `Retirer « ${what} » de votre liste`,
+    cleared: "Retirée de votre liste.",
+    clearedOpen: "Retirée de votre liste. Elle reste ouverte aux chauffeurs jusqu’à son expiration.",
+    undo: "Annuler",
+    inProgress: "Un chauffeur s’en occupe : impossible de la retirer pour l’instant.",
   },
 
   tracker: {
@@ -924,7 +947,7 @@ const CR: DeliverCopy = {
     warning:
       "Bann kaz ar * obligatwar — bann sofer bizin sa pou donn enn bon pri.",
     srMark: "obligatwar",
-    short: "= obligatwar pou enn bon pri",
+    tag: "obligatwar",
   },
 
   progress: (step: number, total: number) => `Etap ${step} lor ${total}`,
@@ -1173,6 +1196,15 @@ const CR: DeliverCopy = {
     fromPrice: (fee: string) => `apartir ${fee}`,
     pastTitle: (n: number) => `Avan (${n})`,
     empty: "Nanye pe atann ou.",
+    openCount: (n: number) => `${n} an kour`,
+    earlierCount: (n: number) => `${n} avan`,
+    needsYou: (n: number) => `${n} ena pri`,
+    clear: "Tire",
+    clearAria: (what: string) => `Tir « ${what} » dan ou lis`,
+    cleared: "Tire dan ou lis.",
+    clearedOpen: "Tire dan ou lis. Li res ouver pou bann sofer ziska li expire.",
+    undo: "Anile",
+    inProgress: "Enn sofer pe okip sa, pa kapav tir li aster.",
   },
 
   tracker: {

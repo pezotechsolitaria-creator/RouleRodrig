@@ -861,6 +861,7 @@ export default function DeliverForm({
             current={screen}
             total={SCREENS}
             label={c.progress(screen, SCREENS)}
+            requiredTag={c.required.tag}
           />
           {/* Always reachable, never blocking. Somebody the form is failing
               does not file a complaint — they close the tab, and nothing
@@ -888,16 +889,10 @@ export default function DeliverForm({
             </a>
           )}
         </div>
-        {/* The permanent required-field rule the owner asked for, kept as one
-            line at the 16px floor. The long version is said once, on screen
-            one, under the first question — repeated four times it was 74px of
-            box on every screen for a sentence people read once. */}
-        <p className={cn(t.meta, "mt-1.5 text-[#B0B0B0]")}>
-          <span className="font-bold text-red-400" aria-hidden>
-            *
-          </span>{" "}
-          {c.required.short}
-        </p>
+        {/* The permanent required-field rule the owner asked for now rides in
+            the step row as "* required" (M227): its own line cost 24px on
+            every screen. The full sentence is still said once, on screen one,
+            under the first question, where the asterisk is first met. */}
       </div>
 
       {restored && (
@@ -1971,64 +1966,52 @@ export default function DeliverForm({
 }
 
 /**
- * Where you are, as four numbers you can see without reading.
+ * Where you are: "Step 2 of 4", said in words, over a thin four-part bar.
  *
- * The bar this sits in used to be a row of four flat dashes — honest, and
- * completely unnoticeable at 4px tall. The owner's words were "make step easily
- * noticeable", so: the current step is a filled amber disc a third larger than
- * the others and carries its number; finished steps carry a check; the ones
- * ahead are outlined. Three states, distinguishable by SHAPE and not only by
- * colour, because roughly one man in twelve here cannot rely on the amber.
+ * M227: the owner asked for "a thin progress bar + Step 1 of 4 instead of
+ * large numbered circles". The circles were there because an earlier brief
+ * said "make the step easily noticeable" — and it still is: the position is
+ * now WRITTEN, in bold at the 16px floor, which is more legible than a
+ * numbered disc and is what a screen reader already heard. The bar beneath is
+ * the at-a-glance half, four segments filled in the accent up to the current
+ * step, so progress reads by LENGTH and not only by colour.
  *
- * `aria-hidden` on the whole thing, with a single sentence for a screen reader
- * instead: "Step 2 of 4" said once is worth more than four list items whose
- * numbers have to be reassembled into a position.
+ * The strip went from 87px to 56px (measured, 375×812) on every screen.
  */
 function Stepper({
   current,
   total,
   label,
+  requiredTag,
 }: {
   current: number;
   total: number;
   /** Translated. This said "Step 4 of 4" in English to a French reader. */
   label: string;
+  /** "required" — shown after a red asterisk, the rule the owner asked for. */
+  requiredTag: string;
 }) {
   return (
-    <div className="flex min-w-0 flex-1 items-center">
-      <span className="sr-only">{label}</span>
-      <span className="flex flex-1 items-center" aria-hidden>
-        {Array.from({ length: total }, (_, i) => i + 1).map((n) => {
-          const done = n < current;
-          const now = n === current;
-          return (
-            <span
-              key={n}
-              className={cn("flex items-center", n < total && "flex-1")}
-            >
-              <span
-                className={cn(
-                  "flex shrink-0 items-center justify-center rounded-full font-dm font-bold transition-all",
-                  now
-                    ? "h-8 w-8 bg-yellow text-[15px] text-dark shadow-[0_0_16px_-4px] shadow-yellow/60"
-                    : done
-                      ? "h-6 w-6 bg-yellow/85 text-dark"
-                      : "h-6 w-6 border border-[#6E6E6E] text-[13px] text-[#B0B0B0]",
-                )}
-              >
-                {done ? <Check size={13} strokeWidth={3} /> : n}
-              </span>
-              {n < total && (
-                <span
-                  className={cn(
-                    "mx-1 h-0.5 flex-1 rounded-full transition-colors",
-                    done ? "bg-yellow/85" : "bg-white/15",
-                  )}
-                />
-              )}
-            </span>
-          );
-        })}
+    <div className="min-w-0 flex-1">
+      <p className={cn(t.meta, "flex items-baseline justify-between gap-2 leading-6")}>
+        <span className="font-semibold text-offwhite">{label}</span>
+        <span className="truncate text-[#B0B0B0]">
+          <span className="font-bold text-red-400" aria-hidden>
+            *
+          </span>{" "}
+          {requiredTag}
+        </span>
+      </p>
+      <span className="mt-1.5 flex gap-1" aria-hidden>
+        {Array.from({ length: total }, (_, i) => i + 1).map((n) => (
+          <span
+            key={n}
+            className={cn(
+              "h-1 flex-1 rounded-full transition-colors duration-300",
+              n <= current ? "bg-yellow" : "bg-white/15",
+            )}
+          />
+        ))}
       </span>
     </div>
   );

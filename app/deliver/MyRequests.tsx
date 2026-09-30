@@ -3,10 +3,12 @@
 import { useEffect, useState } from "react";
 import { toRequestKind, type RequestKind } from "@/lib/delivery/kind";
 import Link from "next/link";
-import { ChevronRight, ClipboardCheck, Package, ShoppingBasket } from "lucide-react";
+import { toast } from "sonner";
+import { ChevronRight, ClipboardCheck, ListChecks, Package, ShoppingBasket } from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
 import { cn } from "@/lib/utils";
-import { readSaved } from "@/lib/delivery/my-requests";
+import { clearRequest, forgetRequest, readCleared, readSaved, unclearRequest } from "@/lib/delivery/my-requests";
+import { canClear } from "@/lib/delivery/clear";
 import { DELIVER_COPY } from "@/lib/delivery/copy.i18n";
 import { requestStatusCopy, formatFee } from "@/lib/delivery/request-status";
 import { type as t } from "@/lib/delivery/tokens";
@@ -17,6 +19,23 @@ import { type as t } from "@/lib/delivery/tokens";
 // back to a posted request is a link they still have open. Somebody who closed
 // the tab had lost it — which, on a surface whose whole value arrives MINUTES
 // LATER as quotes, meant the wait was the end of the journey.
+//
+// ── ONE LINE UNTIL TAPPED (M227) ────────────────────────────────────────────
+// MEASURED at 375×812: two requests put the list at 172px plus a 36px margin,
+// and the first question of the form dropped from 232px to 440px — about 496px
+// with an "Earlier" row, leaving one of the three answers above the pinned
+// Continue bar. The owner asked for the list to fold into "Your requests · 2
+// open ›". It does, in a native <details> (no state, keyboard and screen
+// reader for free), and the one thing collapsing must never hide is kept ON
+// the line: when a driver's price is waiting on the customer, the summary says
+// "1 needs you" in the accent.
+//
+// ── CLEAR, WHICH HIDES AND NEVER DELETES ────────────────────────────────────
+// Each row can be cleared from THIS list (set_delivery_request_hidden, M227):
+// the admin board and every record keep the untouched request. A job with a
+// driver on it cannot be cleared (lib/delivery/clear.ts). Undo is offered in
+// the toast, because a hide nobody meant is only a tap away from a hide
+// somebody regrets.
 //
 // ── Two sources, on purpose ────────────────────────────────────────────────
 // SERVER (my_delivery_requests, signed-in only) is authoritative and crosses
@@ -68,6 +87,21 @@ type Row = {
   };
 };
 
+const dead = new Set(["cancelled", "expired"]);
+const finished = new Set([
+  "delivered", "cancelled", "failed_delivery", "returned_to_merchant",
+]);
+const isDone = (r: Row) =>
+  !!r.live && (dead.has(r.live.status) || finished.has(r.live.deliveryStatus ?? ""));
+
+/** Whoever is waiting on the CUSTOMER comes first. A device-only row (no live
+ *  status) sorts last: it is a hint, not news. */
+const byUrgency = (a: Row, b: Row) => {
+  const wants = (r: Row) =>
+    r.live && r.live.status === "open" && r.live.quoteCount > 0 ? 0 : 1;
+  return wants(a) - wants(b);
+};
+
 export default function MyRequests() {
   const { language } = useLanguage();
   const c = DELIVER_COPY[language];
@@ -80,11 +114,13 @@ export default function MyRequests() {
       const device = readSaved();
 
       let server: ServerRow[] = [];
+      let serverHidden: string[] = [];
       try {
         const res = await fetch("/api/delivery-requests/mine", { cache: "no-store" });
         if (res.ok) {
-          const json = (await res.json()) as { requests?: ServerRow[] };
+          const json = (await res.json()) as { requests?: ServerRow[]; hidden?: string[] };
           server = json.requests ?? [];
+          serverHidden = json.hidden ?? [];
         }
       } catch {
         // Offline, or signed out. The device list still stands on its own —
@@ -92,10 +128,16 @@ export default function MyRequests() {
       }
       if (cancelled) return;
 
+      // Cleared here, or cleared on another device by the same account: a
+      // copy remembered on this phone must not bring it back.
+      const hidden = new Set([...readCleared(), ...serverHidden]);
+      for (const id of serverHidden) forgetRequest(id);
+
       const merged = new Map<string, Row>();
       // Device first, so the server overwrites rather than the other way round.
-      for (const d of device) merged.set(d.id, { id: d.id, what: d.what });
+      for (const d of device) if (!hidden.has(d.id)) merged.set(d.id, { id: d.id, what: d.what });
       for (const s of server) {
+        if (hidden.has(s.id)) continue;
         merged.set(s.id, {
           id: s.id,
           what: s.what,
@@ -122,23 +164,9 @@ export default function MyRequests() {
       // than deleted, because a customer still needs to find what a driver
       // charged them last month — just not while they are waiting on a price.
       const all = [...merged.values()];
-      const dead = new Set(["cancelled", "expired"]);
-      const finished = new Set([
-        "delivered", "cancelled", "failed_delivery", "returned_to_merchant",
-      ]);
-      const isDone = (r: Row) =>
-        !!r.live && (dead.has(r.live.status) || finished.has(r.live.deliveryStatus ?? ""));
-
       const live = all.filter((r) => !isDone(r));
       const past = all.filter(isDone);
-
-      // Within the live list, whoever is waiting on the CUSTOMER comes first.
-      // A device-only row (no live status) sorts last: it is a hint, not news.
-      live.sort((a, b) => {
-        const wants = (r: Row) =>
-          r.live && r.live.status === "open" && r.live.quoteCount > 0 ? 0 : 1;
-        return wants(a) - wants(b);
-      });
+      live.sort(byUrgency);
 
       setRows({ live, past });
     })();
@@ -150,17 +178,8 @@ export default function MyRequests() {
 
   if (!rows || (rows.live.length === 0 && rows.past.length === 0)) return null;
 
-  // Records, not ternaries — see lib/delivery/kind.ts. With three kinds the
-  // ternary form is silently wrong rather than broken, which is worse.
-  const ROW_ICON: Record<RequestKind, typeof Package> = {
-    package: Package,
-    shop_and_deliver: ShoppingBasket,
-    errand: ClipboardCheck,
-  };
-
-  const row = (r: Row, muted: boolean) => {
-    const Icon = ROW_ICON[toRequestKind(r.kind)];
-    const copy = r.live
+  const statusOf = (r: Row) =>
+    r.live
       ? requestStatusCopy(
           {
             status: r.live.status,
@@ -171,16 +190,86 @@ export default function MyRequests() {
           language,
         )
       : null;
+
+  const needsYou = rows.live.filter((r) => statusOf(r)?.needsCustomer === true).length;
+
+  function drop(id: string) {
+    setRows((prev) => prev && { live: prev.live.filter((x) => x.id !== id), past: prev.past.filter((x) => x.id !== id) });
+  }
+  /** Put a row back where it was: Undo should undo, not reshuffle. */
+  function restore(r: Row, at: number) {
+    setRows((prev) => {
+      if (!prev || prev.live.some((x) => x.id === r.id) || prev.past.some((x) => x.id === r.id)) return prev;
+      const key = isDone(r) ? "past" : "live";
+      const list = [...prev[key]];
+      list.splice(Math.max(0, Math.min(at, list.length)), 0, r);
+      return { ...prev, [key]: list };
+    });
+  }
+
+  async function hide(id: string, hidden: boolean, email: string | undefined) {
+    return fetch("/api/delivery-requests/hide", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, hidden, email }),
+    });
+  }
+
+  async function clear(r: Row) {
+    const saved = readSaved().find((s) => s.id === r.id) ?? null;
+    const at = rows ? (isDone(r) ? rows.past : rows.live).findIndex((x) => x.id === r.id) : 0;
+    // Gone from the screen at once; the server is told behind it.
+    clearRequest(r.id);
+    drop(r.id);
+    try {
+      const res = await hide(r.id, true, saved?.email);
+      if (res.status === 409) {
+        // A driver took it between this list loading and the tap.
+        unclearRequest(saved, r.id);
+        restore(r, at);
+        toast.error(c.mine.inProgress);
+        return;
+      }
+      // 404 is a row this device cannot prove on the server (a request posted
+      // while signed in, viewed here signed out): forgetting it HERE was the
+      // whole of what could be done, and it is done.
+    } catch {
+      // Offline: the device has forgotten it; the server is told next time
+      // nothing — which only means another device may still list it.
+    }
+    toast(r.live?.status === "open" ? c.mine.clearedOpen : c.mine.cleared, {
+      action: {
+        label: c.mine.undo,
+        onClick: () => {
+          unclearRequest(saved, r.id);
+          restore(r, at);
+          void hide(r.id, false, saved?.email).catch(() => {});
+        },
+      },
+    });
+  }
+
+  // Records, not ternaries — see lib/delivery/kind.ts. With three kinds the
+  // ternary form is silently wrong rather than broken, which is worse.
+  const ROW_ICON: Record<RequestKind, typeof Package> = {
+    package: Package,
+    shop_and_deliver: ShoppingBasket,
+    errand: ClipboardCheck,
+  };
+
+  const row = (r: Row, muted: boolean) => {
+    const Icon = ROW_ICON[toRequestKind(r.kind)];
+    const copy = statusOf(r);
     // Only the state that is WAITING ON THEM earns the accent, and nothing in
     // history ever does. Everything lit up is nothing lit up.
     const wants = !muted && copy?.needsCustomer === true;
 
     return (
-      <li key={r.id}>
+      <li key={r.id} className="flex items-stretch gap-2">
         <Link
           href={`/deliver/${r.id}`}
           className={cn(
-            "group flex items-center gap-3 rounded-xl border p-3.5 transition-colors",
+            "group flex min-w-0 flex-1 items-center gap-3 rounded-xl border p-3 transition-colors",
             wants
               ? "border-yellow/45 bg-yellow/[0.06] hover:border-yellow/70"
               : "border-white/10 bg-white/[0.02] hover:border-white/20",
@@ -216,49 +305,94 @@ export default function MyRequests() {
             )}
           />
         </Link>
+        {canClear(r.live) && (
+          <button
+            type="button"
+            onClick={() => void clear(r)}
+            aria-label={c.mine.clearAria(r.what)}
+            className={cn(
+              t.meta,
+              "min-h-11 shrink-0 rounded-xl border border-white/10 px-3 text-[#B0B0B0] transition-colors hover:border-white/25 hover:text-offwhite",
+            )}
+          >
+            {c.mine.clear}
+          </button>
+        )}
       </li>
     );
   };
 
+  const count = rows.live.length > 0 ? c.mine.openCount(rows.live.length) : c.mine.earlierCount(rows.past.length);
+
   return (
-    <section className="mb-9">
-      <h2 className={cn(t.heading, "text-offwhite")}>{c.mine.title}</h2>
-
-      {rows.live.length > 0 ? (
-        <ul className="mt-3 flex flex-col gap-2">
-          {rows.live.slice(0, 5).map((r) => row(r, false))}
-        </ul>
-      ) : (
-        // Everything is finished. Saying so is kinder than an empty gap, and it
-        // keeps the heading from looking like a list that failed to load.
-        <p className={cn(t.meta, "mt-3 text-[#B0B0B0]")}>{c.mine.empty}</p>
-      )}
-
-      {/* ── History, closed by default ──────────────────────────────────────
-          <details> rather than a tab or a filter chip: it needs no state, no
-          JavaScript and no second render path, it is keyboard-accessible for
-          free, and a screen reader announces it as expandable. The cheapest
-          correct control is the right one on a screen whose job is to be
-          reassuring. */}
-      {rows.past.length > 0 && (
-        <details className="group mt-3">
-          <summary
-            className={cn(
-              t.meta,
-              "flex min-h-11 cursor-pointer list-none items-center gap-1.5 text-[#B0B0B0] transition-colors hover:text-offwhite",
+    <section className="mb-3">
+      {/* ── The whole list is one line until tapped ─────────────────────────
+          `group/mine`, named, so the history <details> below keeps its own
+          plain `group` and the two chevrons never answer to each other. */}
+      <details className="group/mine">
+        <summary
+          className={cn(
+            "flex min-h-12 cursor-pointer list-none items-center gap-3 rounded-xl border px-3.5 py-2 transition-colors [&::-webkit-details-marker]:hidden",
+            needsYou > 0 ? "border-yellow/45 bg-yellow/[0.05]" : "border-white/10 bg-white/[0.02] hover:border-white/20",
+          )}
+        >
+          <ListChecks size={17} className={needsYou > 0 ? "shrink-0 text-yellow" : "shrink-0 text-[#B0B0B0]"} aria-hidden />
+          {/* When a price is waiting on them, THAT is the line — it replaces
+              the count rather than sitting beside it, so the summary stays one
+              line at 375px in all three languages. */}
+          <span className={cn(t.meta, "min-w-0 flex-1 text-offwhite")}>
+            <span className="font-semibold">{c.mine.title}</span>
+            {needsYou > 0 ? (
+              <span className="font-semibold text-yellow"> · {c.mine.needsYou(needsYou)}</span>
+            ) : (
+              <span className="text-[#B0B0B0]"> · {count}</span>
             )}
-          >
-            <ChevronRight
-              size={13}
-              className="shrink-0 transition-transform group-open:rotate-90"
-            />
-            {c.mine.pastTitle(rows.past.length)}
-          </summary>
-          <ul className="mt-2 flex flex-col gap-2">
-            {rows.past.slice(0, 10).map((r) => row(r, true))}
-          </ul>
-        </details>
-      )}
+          </span>
+          <ChevronRight
+            size={16}
+            className="shrink-0 text-[#B0B0B0] transition-transform duration-200 group-open/mine:rotate-90"
+            aria-hidden
+          />
+        </summary>
+
+        <div className="pt-2">
+          {rows.live.length > 0 ? (
+            <ul className="flex flex-col gap-2">
+              {rows.live.slice(0, 5).map((r) => row(r, false))}
+            </ul>
+          ) : (
+            // Everything is finished. Saying so is kinder than an empty gap, and
+            // it keeps the list from looking like one that failed to load.
+            <p className={cn(t.meta, "text-[#B0B0B0]")}>{c.mine.empty}</p>
+          )}
+
+          {/* ── History, closed by default ────────────────────────────────────
+              <details> rather than a tab or a filter chip: it needs no state, no
+              JavaScript and no second render path, it is keyboard-accessible for
+              free, and a screen reader announces it as expandable. The cheapest
+              correct control is the right one on a screen whose job is to be
+              reassuring. */}
+          {rows.past.length > 0 && (
+            <details className="group mt-3">
+              <summary
+                className={cn(
+                  t.meta,
+                  "flex min-h-11 cursor-pointer list-none items-center gap-1.5 text-[#B0B0B0] transition-colors hover:text-offwhite",
+                )}
+              >
+                <ChevronRight
+                  size={13}
+                  className="shrink-0 transition-transform group-open:rotate-90"
+                />
+                {c.mine.pastTitle(rows.past.length)}
+              </summary>
+              <ul className="mt-2 flex flex-col gap-2">
+                {rows.past.slice(0, 10).map((r) => row(r, true))}
+              </ul>
+            </details>
+          )}
+        </div>
+      </details>
     </section>
   );
 }

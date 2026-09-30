@@ -31,11 +31,13 @@ const T = {
     preparing: "Preparing your eSIM…",
     preparingSub: "Payment received. Our supplier is issuing your eSIM — usually under a minute. This page updates by itself, and it will also arrive by email.",
     ready: "Your eSIM is ready",
-    readySub: (email: string, inPlace: string) => `Also sent to ${email}. Install it now, on Wi-Fi — the days start only when it first connects ${inPlace}.`,
+    // Two lines at 375px (it was three): where the days start is the FAQ's
+    // job; here the one instruction is "install now, on Wi-Fi".
+    readySub: (email: string) => `Also sent to ${email}. Install it now, on Wi-Fi — your days start when you land.`,
     installIphone: "Install on this iPhone",
     installIphoneNote: "iOS 17.4 or later. Opens the iPhone's own eSIM screen.",
     installAndroid: "Install on this phone",
-    installAndroidNote: "Pixel and recent Samsung. If nothing happens, open “Enter it by hand” below.",
+    installAndroidNote: "Pixel & recent Samsung. Nothing opened? Use “Enter it by hand”.",
     otherPhone: "Other phone? Show the QR code",
     scanTitle: "Scan with the phone you're travelling with",
     scanSub: "Settings → Mobile / Cellular → Add eSIM → Use QR code.",
@@ -56,11 +58,11 @@ const T = {
     android: "Android",
     landTitle: "When you land",
     land: [
-      "Turn on the Roulé Rodrigues eSIM and its Data Roaming. That's normal and free.",
-      "Choose it for mobile data; keep your usual SIM for calls and texts.",
-      "Give it a minute or two to find the network. Restarting the phone once helps if it doesn't.",
+      "Switch the eSIM on, with Data Roaming — normal and free.",
+      "Use it for mobile data; keep your SIM for calls and texts.",
+      "Give it a minute to connect. If it doesn't, restart once.",
     ],
-    once: "An eSIM installs only once. Don't delete it after installing — you can switch it off instead.",
+    once: "An eSIM installs only once: never delete it — switch it off instead.",
     order: "Order",
     plan: "Plan",
     paid: "Paid",
@@ -86,11 +88,11 @@ const T = {
     preparing: "Préparation de votre eSIM…",
     preparingSub: "Paiement reçu. Notre fournisseur émet votre eSIM — généralement en moins d'une minute. Cette page se met à jour toute seule, et l'eSIM arrive aussi par email.",
     ready: "Votre eSIM est prête",
-    readySub: (email: string, inPlace: string) => `Envoyée aussi à ${email}. Installez-la maintenant, en Wi-Fi — les jours ne comptent qu'à la première connexion ${inPlace}.`,
+    readySub: (email: string) => `Envoyée aussi à ${email}. Installez-la maintenant, en Wi-Fi — vos jours démarrent à l'arrivée.`,
     installIphone: "Installer sur cet iPhone",
     installIphoneNote: "iOS 17.4 ou plus récent. Ouvre l'écran eSIM de l'iPhone.",
     installAndroid: "Installer sur ce téléphone",
-    installAndroidNote: "Pixel et Samsung récents. Si rien ne se passe, ouvrez « Saisir à la main » ci-dessous.",
+    installAndroidNote: "Pixel et Samsung récents. Rien ne s'ouvre ? « Saisir à la main ».",
     otherPhone: "Autre téléphone ? Afficher le QR code",
     scanTitle: "Scannez avec le téléphone du voyage",
     scanSub: "Réglages → Données cellulaires → Ajouter une eSIM → Code QR.",
@@ -111,11 +113,11 @@ const T = {
     android: "Android",
     landTitle: "À l'arrivée",
     land: [
-      "Activez l'eSIM Roulé Rodrigues et son itinérance des données. C'est normal et sans frais.",
-      "Choisissez-la pour les données mobiles ; gardez votre SIM habituelle pour les appels et SMS.",
-      "Laissez-lui une ou deux minutes pour trouver le réseau. Redémarrer le téléphone une fois aide si besoin.",
+      "Activez l'eSIM et son itinérance des données — normal et gratuit.",
+      "Données mobiles : l'eSIM ; appels et SMS : votre SIM.",
+      "Laissez-lui une minute. Sinon, redémarrez une fois.",
     ],
-    once: "Une eSIM ne s'installe qu'une fois. Ne la supprimez pas après l'installation — désactivez-la plutôt.",
+    once: "Une eSIM ne s'installe qu'une fois : ne la supprimez jamais, désactivez-la.",
     order: "Commande",
     plan: "Forfait",
     paid: "Payé",
@@ -254,33 +256,42 @@ export default function OrderInstall({
 
   // ── The pass itself: the page opens on the document you just bought ─────
   const home = view.destination.home;
+  // Phone (M227): the title stands ABOVE a one-row pass. Inside the pass,
+  // beside its stub, it wrapped to two lines of 1.55rem, and with the plan
+  // line under it the header was 152px — MEASURED at 375×812, and the reason
+  // "When you land" ended under the bottom nav.
   const passHeader = (title: string, stamp: string, live: boolean) => (
-    <div className="relative flex overflow-hidden rounded-2xl border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.01)_60%),#111111]">
-      <div className="min-w-0 flex-1 px-4 py-4">
-        <p className="font-bebas text-[11px] leading-none tracking-[0.24em] text-muted">
-          {t.pass} · {home ? "RRG" : view.destination.code}
-        </p>
-        <h1 className="mt-2 font-syne text-[1.55rem] font-extrabold leading-[1.1] text-offwhite [text-wrap:balance]">{title}</h1>
-        <p className="mt-1.5 font-dm text-[13px] text-offwhite/65">
-          {lang === "en" ? view.destination.en : view.destination.fr} · {lang === "en" ? view.planLabelEn : view.planLabelFr}
-        </p>
+    <>
+      <h1 className="font-syne text-[1.5rem] font-extrabold leading-tight text-offwhite [text-wrap:balance]">{title}</h1>
+      <div className="relative mt-3 flex overflow-hidden rounded-2xl border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.01)_60%),#111111]">
+        <div className="min-w-0 flex-1 px-4 py-3">
+          <p className="font-bebas text-[11px] leading-none tracking-[0.24em] text-muted">
+            {t.pass} · {home ? "RRG" : view.destination.code}
+          </p>
+          <p className="mt-1.5 font-syne text-base font-bold leading-snug text-offwhite">
+            {!home && <>{lang === "en" ? view.destination.en : view.destination.fr} · </>}
+            {lang === "en" ? view.planLabelEn : view.planLabelFr}
+          </p>
+        </div>
+        <span aria-hidden className="pointer-events-none absolute bottom-2.5 right-[6.5rem] top-2.5 border-l border-dashed border-white/15" />
+        <span aria-hidden className="pointer-events-none absolute right-[6.5rem] top-0 h-3.5 w-3.5 -translate-y-1/2 translate-x-1/2 rounded-full border border-white/10 bg-dark" />
+        <span aria-hidden className="pointer-events-none absolute bottom-0 right-[6.5rem] h-3.5 w-3.5 translate-x-1/2 translate-y-1/2 rounded-full border border-white/10 bg-dark" />
+        <div className="flex w-[6.5rem] shrink-0 flex-col items-center justify-center gap-1.5 px-2 py-3 text-center">
+          <span className="font-bebas text-[15px] leading-none tracking-[0.1em] text-offwhite">
+            <span className="sr-only">{t.order} </span>
+            {view.ref}
+          </span>
+          <span
+            className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 font-bebas text-[11px] leading-none tracking-[0.18em] ${
+              live ? "border-yellow/50 text-yellow" : "border-white/20 text-offwhite/80"
+            }`}
+          >
+            {!live && stamp === t.stampPreparing && <Loader2 size={10} className="animate-spin" aria-hidden />}
+            {stamp}
+          </span>
+        </div>
       </div>
-      <span aria-hidden className="pointer-events-none absolute bottom-3 right-[6.25rem] top-3 border-l border-dashed border-white/15" />
-      <span aria-hidden className="pointer-events-none absolute right-[6.25rem] top-0 h-4 w-4 -translate-y-1/2 translate-x-1/2 rounded-full border border-white/10 bg-dark" />
-      <span aria-hidden className="pointer-events-none absolute bottom-0 right-[6.25rem] h-4 w-4 translate-x-1/2 translate-y-1/2 rounded-full border border-white/10 bg-dark" />
-      <div className="flex w-[6.25rem] shrink-0 flex-col items-center justify-center gap-2 px-2 text-center">
-        <span className="font-bebas text-[11px] tracking-[0.2em] text-muted">REF</span>
-        <span className="font-bebas text-[15px] leading-none tracking-[0.1em] text-offwhite">{view.ref}</span>
-        <span
-          className={`mt-1 inline-flex items-center gap-1 rounded-md border px-2 py-1 font-bebas text-[11px] leading-none tracking-[0.18em] ${
-            live ? "border-yellow/50 text-yellow" : "border-white/20 text-offwhite/80"
-          }`}
-        >
-          {!live && stamp === t.stampPreparing && <Loader2 size={10} className="animate-spin" aria-hidden />}
-          {stamp}
-        </span>
-      </div>
-    </div>
+    </>
   );
   const waHref = waLink(whatsapp, t.waMsg(view.ref));
 
@@ -360,8 +371,8 @@ export default function OrderInstall({
   return (
     <div className="mx-auto max-w-md px-5 pt-6">
       {passHeader(t.ready, t.stampReady, true)}
-      <p className="mt-3 font-dm text-sm leading-relaxed text-offwhite/70">
-        {t.readySub(view.email, lang === "en" ? view.destination.enIn : view.destination.frIn)}
+      <p className="mt-3 font-dm text-sm leading-snug text-offwhite/70">
+        {t.readySub(view.email)}
       </p>
 
       {/* ── The one action for the device this page is open on ─────────── */}
@@ -374,7 +385,7 @@ export default function OrderInstall({
           >
             <Apple size={18} aria-hidden /> {t.installIphone}
           </a>
-          <p className="mt-2 text-center font-dm text-xs text-muted">{t.installIphoneNote}</p>
+          <p className="mt-2 text-center font-dm text-xs text-muted [text-wrap:balance]">{t.installIphoneNote}</p>
         </div>
       )}
       {device === "android" && (
@@ -386,7 +397,7 @@ export default function OrderInstall({
           >
             <Smartphone size={18} aria-hidden /> {t.installAndroid}
           </a>
-          <p className="mt-2 text-center font-dm text-xs text-muted">{t.installAndroidNote}</p>
+          <p className="mt-2 text-center font-dm text-xs text-muted [text-wrap:balance]">{t.installAndroidNote}</p>
         </div>
       )}
       {device !== "other" && !showQr && (
@@ -396,7 +407,7 @@ export default function OrderInstall({
             setShowQr(true);
             esimTrack.installTapped({ method: "qr_shown" });
           }}
-          className="mt-3 flex min-h-12 w-full items-center justify-center gap-2 rounded-full border border-white/15 font-dm text-sm text-offwhite/90 hover:bg-white/5"
+          className="mt-2 flex min-h-12 w-full items-center justify-center gap-2 rounded-full border border-white/15 font-dm text-sm text-offwhite/90 hover:bg-white/5"
         >
           <QrCode size={16} aria-hidden /> {t.otherPhone}
         </button>
@@ -404,11 +415,11 @@ export default function OrderInstall({
       {showQr && qrPanel}
 
       {/* ── On arrival: the three things that make it connect ──────────── */}
-      <section className="mt-6 rounded-3xl border border-yellow/25 bg-yellow/[0.05] p-5" aria-labelledby="land">
+      <section className="mt-5 rounded-3xl border border-yellow/25 bg-yellow/[0.05] px-4 py-4" aria-labelledby="land">
         <h2 id="land" className="font-syne text-base font-bold text-offwhite">
           {t.landTitle}
         </h2>
-        <ul className="mt-3 space-y-2.5">
+        <ul className="mt-2.5 space-y-2">
           {t.land.map((l) => (
             <li key={l} className="flex items-start gap-2.5 font-dm text-sm leading-snug text-offwhite/90">
               <Check size={16} className="mt-0.5 shrink-0 text-yellow" aria-hidden />
@@ -416,11 +427,11 @@ export default function OrderInstall({
             </li>
           ))}
         </ul>
-        <p className="mt-3 font-dm text-xs text-muted">{t.once}</p>
+        <p className="mt-2.5 font-dm text-xs leading-snug text-muted">{t.once}</p>
       </section>
 
       {/* ── Everything else, folded: open only what you need ───────────── */}
-      <div className="rr-esim-faq mt-6 divide-y divide-white/10 border-y border-white/10">
+      <div className="rr-esim-faq mt-5 divide-y divide-white/10 border-y border-white/10">
         <details className="group">
           <summary className={foldSummary}>
             {t.manualTitle}

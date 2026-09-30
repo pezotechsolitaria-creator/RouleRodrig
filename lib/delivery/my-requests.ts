@@ -64,11 +64,14 @@ export function readSaved(store: StorageLike | null = storage()): SavedRequest[]
   }
 }
 
-/** Remember one, newest first, without ever storing the same id twice. */
+/** Remember one, newest first, without ever storing the same id twice.
+ *  A request the customer CLEARED is not remembered again: the tracker calls
+ *  this on every load, and opening an old link must not undo a Clear. */
 export function saveRequest(
   entry: Omit<SavedRequest, "savedAt"> & { savedAt?: string },
   store: StorageLike | null = storage(),
 ): SavedRequest[] {
+  if (readCleared(store).includes(entry.id)) return readSaved(store);
   const next: SavedRequest = {
     id: entry.id,
     email: entry.email,
@@ -102,4 +105,45 @@ export function forgetRequest(id: string, store: StorageLike | null = storage())
     }
   }
   return merged;
+}
+
+// ── Cleared on this device (M227) ────────────────────────────────────────────
+// "Clear" hides a request from the list (set_delivery_request_hidden on the
+// server). A guest's list lives only here, so the device has to remember the
+// choice too — otherwise the next tracker visit would save the request back.
+// Ids only, capped, and like everything above a hint: losing it means a
+// cleared request may reappear on this device, never that one disappears.
+
+const CLEARED_KEY = "rr_delivery_cleared";
+const CLEARED_MAX = 100;
+
+export function readCleared(store: StorageLike | null = storage()): string[] {
+  if (!store) return [];
+  try {
+    const parsed: unknown = JSON.parse(store.getItem(CLEARED_KEY) ?? "[]");
+    return Array.isArray(parsed) ? parsed.filter((v): v is string => typeof v === "string").slice(0, CLEARED_MAX) : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeCleared(ids: string[], store: StorageLike | null) {
+  if (!store) return;
+  try {
+    store.setItem(CLEARED_KEY, JSON.stringify(ids.slice(0, CLEARED_MAX)));
+  } catch {
+    /* see saveRequest */
+  }
+}
+
+/** Forget a request on this device AND remember that it was cleared. */
+export function clearRequest(id: string, store: StorageLike | null = storage()): void {
+  forgetRequest(id, store);
+  writeCleared([id, ...readCleared(store).filter((x) => x !== id)], store);
+}
+
+/** Undo a Clear on this device: the entry comes back as it was. */
+export function unclearRequest(entry: SavedRequest | null, id: string, store: StorageLike | null = storage()): void {
+  writeCleared(readCleared(store).filter((x) => x !== id), store);
+  if (entry) saveRequest(entry, store);
 }

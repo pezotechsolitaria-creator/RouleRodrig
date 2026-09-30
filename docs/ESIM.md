@@ -11,6 +11,17 @@ comments carry the reasoning line by line; this is the map.
 
 ---
 
+## M227 — The install page fits a phone (30 Sep 2026)
+
+MEASURED at 375×812 on a production build, Android, with the real site header:
+before, the pass header was 152px (title wrapped inside the pass beside its
+stub, plan line under it), the sentence was 3 lines, and "When you land" ended
+at 797px — under the bottom nav (738px). After: the title stands above a
+one-row pass (title 60px + pass 67px), the sentence is 2 lines, the install
+note and the three landing lines are shorter, and **"When you land" ends at
+712px (EN) / 732px (FR)** — the install button, the QR option and the landing
+steps all in the first screen. Preparing state: the whole page ends at 607px.
+
 ## M226 — One screen to choose (30 Sep 2026)
 
 Owner: "too long on mobile… plans must appear almost immediately". MEASURED on the
