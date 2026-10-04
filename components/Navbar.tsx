@@ -10,6 +10,7 @@ import { useLanguage } from "@/context/LanguageContext";
 import { useCurrency } from "@/context/CurrencyContext";
 import { useFavorites } from "@/context/FavoritesContext";
 import InstallAppButton from "@/components/InstallAppButton";
+import SearchButton from "@/components/search/SearchButton";
 import { CURRENCIES, CURRENCY_SYMBOL } from "@/lib/currency";
 import { LANGUAGE_FLAGS, LANGUAGE_NATIVE, type Language } from "@/lib/i18n";
 
@@ -203,6 +204,8 @@ export default function Navbar({
               <span className="uppercase tracking-wide">{language}</span>
             </button>
 
+            <SearchButton variant="chip" />
+
             {/* Currency cycle button */}
             <button
               onClick={cycleCurrency}
@@ -241,8 +244,9 @@ export default function Navbar({
             </a>
           </div>
 
-          {/* Mobile: saved heart + menu */}
+          {/* Mobile: search, saved heart + menu */}
           <div className="md:hidden flex items-center gap-1">
+            <SearchButton variant="bare" />
             <button
               onClick={openSaved}
               aria-label={`Saved (${savedCount})`}

@@ -45,6 +45,7 @@ import { loc } from "@/lib/localize";
 import { NAV_TABS, isTabActive, tabLabel, openTiRoule } from "@/lib/nav-tabs";
 import InstallAppButton from "@/components/InstallAppButton";
 import AccountButton from "@/components/AccountButton";
+import SearchButton from "@/components/search/SearchButton";
 import WorldSwitcher from "@/components/world/WorldSwitcher";
 import { useActiveWorld } from "@/context/ExperienceWorldContext";
 import { forWorld } from "@/lib/worlds";
@@ -397,6 +398,7 @@ export default function AppHome({
             <MapPin size={13} className="text-yellow" />{" "}
             <ChevronDown size={13} className="text-muted" />
           </button>
+          <SearchButton />
           <InstallAppButton variant="icon" />
           {/* shrink-0 on every fixed-size control (the sub-page header already
               had it): without it flex pressure crushed this button to a

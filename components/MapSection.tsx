@@ -120,6 +120,33 @@ export default function MapSection({
     };
   }, [checkScroll, filter]);
 
+  // ── /map?loc=<id>: arrive looking at ONE place ──
+  // Site search sends landmarks, fuel stations and craft shops here (beaches
+  // and viewpoints have their own guide sections). The list is reset to
+  // "all" so the place is in it, scrolled into view, and ringed for a moment
+  // so the eye finds it among forty-two.
+  const [focusLoc, setFocusLoc] = useState<string | null>(null);
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get("loc");
+    if (!id || !locs.some((l) => l.id === id)) return;
+    setFilter("all");
+    setFocusLoc(id);
+    // An arrival jumps — no smooth scroll to wait for (and a throttled tab
+    // never ran one). A second pass after the map above has loaded, in case
+    // it moved the list.
+    const jump = () => document.getElementById(`map-loc-${id}`)?.scrollIntoView({ block: "center" });
+    const t1 = window.setTimeout(jump, 250);
+    const t2 = window.setTimeout(jump, 1200);
+    const t3 = window.setTimeout(() => setFocusLoc(null), 3600);
+    return () => {
+      window.clearTimeout(t1);
+      window.clearTimeout(t2);
+      window.clearTimeout(t3);
+    };
+    // Once, on arrival.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // ── Photo lightbox (zoom) ──
   const [lightbox, setLightbox] = useState<{ images: string[]; index: number; name: string } | null>(null);
   const [zoomed, setZoomed] = useState(false);
@@ -309,7 +336,10 @@ export default function MapSection({
                 return (
                   <div
                     key={loc.id}
-                    className="group flex items-start gap-3 bg-dark-card border border-dark-border rounded-xl p-4 hover:border-yellow/40 transition-colors"
+                    id={`map-loc-${loc.id}`}
+                    className={`group flex items-start gap-3 bg-dark-card border rounded-xl p-4 hover:border-yellow/40 transition-colors ${
+                      focusLoc === loc.id ? "border-yellow ring-2 ring-yellow/40" : "border-dark-border"
+                    }`}
                   >
                     {imgs.length ? (
                       <button

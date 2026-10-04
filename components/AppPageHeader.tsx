@@ -7,6 +7,7 @@ import { useLanguage } from "@/context/LanguageContext";
 import { loc } from "@/lib/localize";
 import InstallAppButton from "@/components/InstallAppButton";
 import AccountButton from "@/components/AccountButton";
+import SearchButton from "@/components/search/SearchButton";
 import WorldSwitcher from "@/components/world/WorldSwitcher";
 
 /**
@@ -140,6 +141,7 @@ export default function AppPageHeader({
             see the note under this row. */}
         {!title && <WorldSwitcher strip={false} className="mr-auto" />}
 
+        <SearchButton />
         <InstallAppButton variant="icon" />
         {/* after:-inset-1 lifts the 36px circle's HIT area to the 44px
             minimum (WCAG 2.5.5) without changing what is drawn. */}

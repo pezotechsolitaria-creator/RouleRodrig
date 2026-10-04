@@ -19,6 +19,7 @@ import BottomNav from "@/components/BottomNav";
 import SiteFooter from "@/components/SiteFooter";
 import NavDepth from "@/components/NavDepth";
 import GlobalTiRoule from "@/components/GlobalTiRoule";
+import GlobalSearch from "@/components/search/GlobalSearch";
 import { getContent } from "@/lib/content";
 import { priceNumber } from "@/lib/site-data";
 import { cheapestDailyRate, defaultMetaDescription } from "@/lib/home-description";
@@ -542,6 +543,7 @@ export default async function RootLayout({
                       scooterDailyMur={scooterDailyMur}
                       data={tiData}
                     />
+                    <GlobalSearch />
                     <PWARegister />
                     {/* Mounted ONCE, globally. Every toast outside /shop, /admin and
                   /merchant was a silent no-op: checkout's "Order placed!", the

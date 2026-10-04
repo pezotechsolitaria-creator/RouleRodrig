@@ -829,8 +829,15 @@ export default function TiRouleGuide({
 
   // Let other parts of the site open Ti Roulé (e.g. the hero "Ask Ti Roulé" button).
   useEffect(() => {
-    window.addEventListener("tiroule:open", openChat);
-    return () => window.removeEventListener("tiroule:open", openChat);
+    // Site search hands over what it could not find ("Ask Ti Roulé about
+    // 'snorkel trips'"): the question arrives typed, and the visitor sends it.
+    const onOpen = (e: Event) => {
+      openChat();
+      const prompt = (e as CustomEvent<{ prompt?: string } | undefined>).detail?.prompt;
+      if (typeof prompt === "string" && prompt.trim()) setInput(prompt.trim().slice(0, 200));
+    };
+    window.addEventListener("tiroule:open", onOpen);
+    return () => window.removeEventListener("tiroule:open", onOpen);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

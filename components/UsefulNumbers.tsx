@@ -79,8 +79,10 @@ export default function UsefulNumbers({
               {items.map((c) => (
                 <a
                   key={c.id}
+                  // Site search links a number straight to its row.
+                  id={`contact-${c.id}`}
                   href={`tel:${c.number.replace(/\s+/g, "")}`}
-                  className="flex min-h-[56px] items-center gap-3 rounded-xl border border-white/10 bg-dark/40 px-4 py-2.5 transition-all hover:border-yellow/40 hover:bg-dark/60 active:scale-[0.99]"
+                  className="flex min-h-[56px] scroll-mt-24 items-center gap-3 rounded-xl border border-white/10 bg-dark/40 px-4 py-2.5 transition-all hover:border-yellow/40 hover:bg-dark/60 active:scale-[0.99]"
                 >
                   <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ring-1 ring-inset ${ring} ${tint}`}>
                     <Icon size={16} />

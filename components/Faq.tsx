@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useLanguage } from "@/context/LanguageContext";
 import { motion } from "framer-motion";
 import { loc } from "@/lib/localize";
@@ -10,6 +10,23 @@ import type { FaqContent } from "@/lib/defaults";
 export default function Faq({ content }: { content?: FaqContent }) {
   const { t, language } = useLanguage();
   const [open, setOpen] = useState<string | null>(null);
+
+  // A link to ONE answer (/faq#faq-q-<id> — site search sends these) arrives
+  // with that answer open and in view, not as a page of closed questions.
+  useEffect(() => {
+    const openFromHash = () => {
+      const m = window.location.hash.match(/^#faq-q-(.+)$/);
+      if (!m) return;
+      const id = decodeURIComponent(m[1]);
+      setOpen(id);
+      // After the answer has opened, so the centring accounts for its height.
+      window.setTimeout(() => document.getElementById(`faq-q-${id}`)?.scrollIntoView({ block: "center" }), 150);
+    };
+    openFromHash();
+    window.addEventListener("hashchange", openFromHash);
+    return () => window.removeEventListener("hashchange", openFromHash);
+  }, []);
+
   if (!content || !content.enabled) return null;
   const items = (content.items ?? []).filter((i) => i.question && i.answer);
   if (items.length === 0) return null;
@@ -65,7 +82,7 @@ export default function Faq({ content }: { content?: FaqContent }) {
                 <button
                   id={`faq-q-${item.id}`}
                   onClick={() => setOpen(isOpen ? null : item.id)}
-                  className="w-full flex items-center justify-between gap-4 text-left px-5 md:px-6 py-5"
+                  className="w-full scroll-mt-28 flex items-center justify-between gap-4 text-left px-5 md:px-6 py-5"
                   aria-expanded={isOpen}
                   aria-controls={`faq-panel-${item.id}`}
                 >
