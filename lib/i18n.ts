@@ -1112,6 +1112,8 @@ const translations = {
       notifications: "Notifications",
       youHave: "You have",
       bookNow: "Book now",
+      // M240: an activity is a request Roulé confirms — never "Book now".
+      requestToBook: "Request to book",
       somethingWrong: "Something went wrong",
       // The error screen. Was hardcoded English on a site whose last twelve
       // service-worker versions were spent translating everything else.
@@ -2084,6 +2086,7 @@ const translations = {
       notifications: "Notifications",
       youHave: "Vous avez",
       bookNow: "Réserver",
+      requestToBook: "Demander à réserver",
       somethingWrong: "Une erreur est survenue",
       errorBody:
         "Un problème temporaire a empêché le chargement de cette page. Réessayez — vos données sont intactes.",
@@ -3034,6 +3037,7 @@ const translations = {
       notifications: "Bann notifikasion",
       youHave: "Ou ena",
       bookNow: "Rezerve",
+      requestToBook: "Demann pou rezerve",
       somethingWrong: "Enn problem inn arive",
       errorBody:
         "Enn ti problem inn anpes sa paz la sarze. Reseye — ou bann done pa finn perdi.",

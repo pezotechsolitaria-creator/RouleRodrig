@@ -19,6 +19,7 @@ import AppPageHeader from "@/components/AppPageHeader";
 import PlaceBookingButton from "@/components/experiences/PlaceBookingButton";
 import WhatsAppButton from "@/components/WhatsAppButton";
 import ScrollToTop from "@/components/ScrollToTop";
+import { engineHandles } from "@/lib/reservations/listing";
 
 // ── ONE EXPERIENCE, ONE PAGE ────────────────────────────────────────────────
 //
@@ -207,7 +208,7 @@ export default function PlaceDetail({
               <PlaceBookingButton
                 place={place}
                 whatsapp={whatsapp}
-                label="Check dates & book"
+                label={engineHandles(place) ? "Request to book" : "Check dates & book"}
               />
             ) : null}
             {whatsapp ? (

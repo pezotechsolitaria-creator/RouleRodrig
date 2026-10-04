@@ -8,7 +8,7 @@ import {
   PenSquare, MapPinned, Wallet, MessageCircle, ScrollText, Search, Menu, X,
   ExternalLink, LogOut, Waves, Bike, Activity, Receipt, ChefHat, ShoppingBag, Car, ClipboardList,
   Sparkles, UserCheck, Radar, CalendarDays,
-  FileText, CardSim, FolderTree, History,
+  FileText, CardSim, FolderTree, History, CalendarCheck,
 } from "lucide-react";
 import CommandPalette from "./CommandPalette";
 import AdminBell from "@/components/admin/AdminBell";
@@ -72,6 +72,8 @@ const NAV: NavGroup[] = [
       // Beside the other desks that hold somebody's promise to a customer. A
       // booking system the owner cannot look at is the same gap the driver log
       // and the vehicle custody trail were opened to close.
+      // M240 · requests to book experiences, confirmed here; the guest follows on /booking/[token].
+      { href: "/admin/reservations", label: "Reservations", icon: CalendarCheck },
       { href: "/admin/service-bookings", label: "Service bookings", icon: CalendarDays },
       { href: "/admin/content#bookings", label: "Rental bookings", icon: Clock },
       { href: "/admin/content#place_bookings", label: "Experience bookings", icon: MapPinned },

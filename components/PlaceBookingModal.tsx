@@ -4,8 +4,9 @@ import { useState, useEffect } from "react";
 import ModalPortal from "@/components/ModalPortal";
 import posthog from "posthog-js";
 import { motion } from "framer-motion";
-import { X, Loader2, AlertCircle, Send, User, Mail, Users, MessageSquare, Clock, BedDouble, ShieldCheck } from "lucide-react";
+import { X, Loader2, AlertCircle, Send, User, Mail, Users, MessageSquare, Clock, BedDouble, ShieldCheck, Minus, Plus } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { DEFAULT_CONTENT } from "@/lib/defaults";
 import AvailabilityCalendar from "@/components/AvailabilityCalendar";
 import PhoneInput from "@/components/PhoneInput";
@@ -16,12 +17,72 @@ import { isValidPhone, isValidEmail } from "@/lib/phone";
 import { useLanguage } from "@/context/LanguageContext";
 import type { RecommendedPlace } from "@/lib/defaults";
 import type { PaymentPreference } from "@/lib/bookings/payment-preference";
+import { capacityOf, engineHandles, pricingOf, unitsFor } from "@/lib/reservations/listing";
+import { computeTotal, formatMur, partySize, type Party } from "@/lib/reservations/policy";
 
 // The published cancellation tiers, read rather than restated. See the block
 // that renders them for why this component reads the defaults directly.
 const CANCELLATION_TIERS = DEFAULT_CONTENT.refunds?.cancellationTiers ?? [];
 
 type FormState = "idle" | "loading" | "success" | "error";
+
+// M240 — the request-to-book words. "Request to book", never "Book now": the
+// guest is asking, Roulé confirms, and only then is anything paid.
+const ENGINE_COPY = {
+  en: {
+    eyebrow: "REQUEST TO BOOK",
+    who: "WHO'S COMING",
+    adults: "Adults",
+    children: "Children",
+    babies: "Babies",
+    each: (p: string) => `${p} each`,
+    free: "Free",
+    total: "Total",
+    quoteLater: "Roulé confirms the price",
+    cta: "Request to book",
+    note: "Nothing is charged now. Roulé checks availability first, then you choose how to pay.",
+    less: "Fewer",
+    more: "More",
+    upTo: (n: number) => `Up to ${n} people`,
+  },
+  fr: {
+    eyebrow: "DEMANDE DE RÉSERVATION",
+    who: "QUI VIENT",
+    adults: "Adultes",
+    children: "Enfants",
+    babies: "Bébés",
+    each: (p: string) => `${p} par personne`,
+    free: "Gratuit",
+    total: "Total",
+    quoteLater: "Roulé confirme le prix",
+    cta: "Demander à réserver",
+    note: "Rien n'est débité maintenant. Roulé vérifie d'abord la disponibilité, puis vous choisissez comment payer.",
+    less: "Moins",
+    more: "Plus",
+    upTo: (n: number) => `Jusqu'à ${n} personnes`,
+  },
+  cr: {
+    eyebrow: "DEMANN REZERVASION",
+    who: "KI PE VINI",
+    adults: "Adilt",
+    children: "Zanfan",
+    babies: "Baba",
+    each: (p: string) => `${p} sakenn`,
+    free: "Gratis",
+    total: "Total",
+    quoteLater: "Roulé konfirm pri la",
+    cta: "Demann pou rezerve",
+    note: "Pa pe pran okenn kas aster. Roulé verifie si ena plas avan, apre ou swazir kouma pou pey.",
+    less: "Mwins",
+    more: "Plis",
+    upTo: (n: number) => `Ziska ${n} dimounn`,
+  },
+} as const;
+
+function newIdempotencyKey(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") return crypto.randomUUID();
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}-${Math.random().toString(36).slice(2, 12)}`;
+}
 
 interface Range {
   start: string;
@@ -40,7 +101,18 @@ export default function PlaceBookingModal({
   whatsapp?: string;
   onClose: () => void;
 }) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
+  const router = useRouter();
+  // M240: activities go through the reservation engine — a request Roulé
+  // confirms, then a page the guest keeps (/booking/[token]) instead of the
+  // "request sent" screen below. Stays and tables keep the old flow for now.
+  const engine = engineHandles(place);
+  const E = ENGINE_COPY[language as keyof typeof ENGINE_COPY] ?? ENGINE_COPY.en;
+  const [party, setParty] = useState<Party>({ adults: 1, children: 0, babies: 0 });
+  // One key per opened form: a double tap, a retry or a dropped response all
+  // come back as the SAME reservation.
+  const [idemKey] = useState(newIdempotencyKey);
+  const [engineError, setEngineError] = useState<string | null>(null);
   const capacity = Math.max(1, place.capacity ?? 1);
   const today = new Date().toISOString().split("T")[0];
   const isStay = place.category === "hotel";
@@ -56,7 +128,9 @@ export default function PlaceBookingModal({
   // existing flow is unchanged for anyone who leaves it alone. Only asked of a
   // listing with a price: a request-only listing has nothing to pay online.
   const [payment, setPayment] = useState<PaymentPreference>("online");
-  const hasPrice = Number(place.depositAmount) > 0 || (isStay && Number(place.nightlyRate) > 0);
+  // The engine asks nothing about paying here: the owner's policy decides,
+  // and the booking page offers the methods once Roulé has confirmed.
+  const hasPrice = !engine && (Number(place.depositAmount) > 0 || (isStay && Number(place.nightlyRate) > 0));
   const payInPerson = hasPrice && payment === "in_person";
   // After a successful request: the created booking + whether a deposit is due,
   // and whether that deposit has been paid (→ confirmed celebration).
@@ -112,7 +186,17 @@ export default function PlaceBookingModal({
   })();
 
   const maxQty = isStay ? Math.max(1, minRoomsLeft) : Math.max(1, seatsLeft);
-  const qty = Math.min(Math.max(1, form.qty), maxQty);
+  const qty = engine ? partySize(party) : Math.min(Math.max(1, form.qty), maxQty);
+  // The price is the LISTING's (lib/reservations/listing), the same function
+  // the server charges with — shown here, never sent from here.
+  const pricing = engine ? pricingOf(place) : null;
+  const engineTotal = pricing ? computeTotal(pricing, party, 1) : null;
+  // Seats or trips (lib/reservations/listing capacityOf): a guided hike for
+  // eight is ONE of the day's trips, a seat on the Île aux Cocos boat is one
+  // of its 36. The party may not exceed the listing's people-per-trip either.
+  const rule = engine ? capacityOf(place) : null;
+  const units = rule ? unitsFor(rule, qty) : 0;
+  const partyRoom = rule ? (rule.mode === "trips" ? rule.maxParty : Math.min(seatsLeft, rule.maxParty)) : 0;
 
   // What this stay costs, quoted LIVE and from the same function the server
   // charges with (lib/stay-pricing). The price used to appear only after the
@@ -123,17 +207,58 @@ export default function PlaceBookingModal({
   // ── Validity ──
   const dateChosen = isStay ? !!(form.start && form.end) : !!form.start;
   const slotOk = isStay || slots.length === 0 || !!form.slot;
-  const capacityOk = isStay ? minRoomsLeft >= qty : seatsLeft >= qty;
+  const capacityOk = isStay ? minRoomsLeft >= qty : rule ? units <= seatsLeft && qty <= rule.maxParty : seatsLeft >= qty;
   const emailOk = isValidEmail(form.email); // email now required (confirmation + receipt)
   const emailInvalid = !!form.email && !isValidEmail(form.email);
-  const canSubmit = !!form.name && isValidPhone(form.phone) && emailOk && dateChosen && slotOk && capacityOk && formState !== "loading";
+  const canSubmit = !!form.name && isValidPhone(form.phone) && emailOk && dateChosen && slotOk && capacityOk && (!engine || party.adults >= 1) && formState !== "loading";
 
   const inputCls =
     "w-full bg-dark border border-dark-border rounded-xl px-4 py-3 text-offwhite text-sm font-dm placeholder:text-muted/50 focus:border-yellow focus:outline-none transition-colors";
 
+  async function submitEngine() {
+    setFormState("loading");
+    setEngineError(null);
+    try {
+      const res = await fetch("/api/reservations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Idempotency-Key": idemKey },
+        body: JSON.stringify({
+          product_id: place.id,
+          date: form.start,
+          time: slots.length > 0 ? form.slot : null,
+          adults: party.adults,
+          children: party.children,
+          babies: party.babies,
+          name: form.name,
+          phone: form.phone,
+          email: form.email || null,
+          notes: form.message || null,
+          locale: language,
+        }),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok || !j.token) throw new Error(typeof j.error === "string" ? j.error : "");
+      posthog.capture("reservation_requested", {
+        place_id: place.id,
+        place_category: place.category,
+        seats: qty,
+        has_price: engineTotal != null,
+      });
+      // Stays "loading" while the booking page opens.
+      router.push(`/booking/${j.token}`);
+    } catch (err) {
+      // Stays until the next attempt: the server's sentence ("That date has
+      // already passed", "at most 8 people") is the instruction, and a
+      // message that vanishes mid-read is no instruction at all.
+      setEngineError(err instanceof Error && err.message ? err.message : null);
+      setFormState("error");
+    }
+  }
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!canSubmit) return;
+    if (engine) return submitEngine();
     setFormState("loading");
     try {
       const res = await fetch("/api/place-bookings", {
@@ -210,7 +335,7 @@ export default function PlaceBookingModal({
         </button>
 
         <p className="font-bebas text-yellow text-[10px] tracking-[0.3em] mb-1">
-          {isStay ? "BOOK YOUR STAY" : place.category === "restaurant" ? "RESERVE A TABLE" : "BOOK THIS ACTIVITY"}
+          {isStay ? "BOOK YOUR STAY" : place.category === "restaurant" ? "RESERVE A TABLE" : engine ? E.eyebrow : "BOOK THIS ACTIVITY"}
         </p>
         <h3 className="font-syne font-extrabold text-offwhite text-2xl leading-tight mb-1">{place.name}</h3>
         {place.priceNote && <p className="text-yellow/90 font-dm text-sm mb-4">{place.priceNote}</p>}
@@ -356,7 +481,7 @@ export default function PlaceBookingModal({
             {formState === "error" && (
               <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3">
                 <AlertCircle size={16} className="text-red-400 shrink-0" />
-                <p className="text-red-400/80 font-dm text-xs">{t.placeBooking.error}</p>
+                <p className="text-red-400/80 font-dm text-xs">{engineError ?? t.placeBooking.error}</p>
               </div>
             )}
 
@@ -412,8 +537,58 @@ export default function PlaceBookingModal({
               </div>
             )}
 
+            {/* M240 — who's coming. Adults, children and babies, priced from
+                the listing; every one of them takes a seat. */}
+            {engine && dateChosen && slotOk && (
+              <div>
+                <p className="font-bebas text-muted text-[10px] tracking-[0.25em] flex items-center gap-1.5 mb-2">
+                  <Users size={12} className="text-yellow" /> {E.who}
+                </p>
+                <div className="divide-y divide-dark-border rounded-xl border border-dark-border">
+                  {([
+                    ["adults", E.adults, pricing?.perPerson && pricing.unit_mur != null ? E.each(formatMur(pricing.unit_mur)) : null, 1],
+                    ["children", E.children, pricing?.perPerson && pricing.unit_mur != null ? E.each(formatMur(pricing.child_mur ?? pricing.unit_mur)) : null, 0],
+                    ["babies", E.babies, pricing?.perPerson ? (pricing.baby_mur ? E.each(formatMur(pricing.baby_mur)) : E.free) : null, 0],
+                  ] as const).map(([key, label, price, min]) => (
+                    <div key={key} className="flex items-center justify-between gap-3 px-3.5 py-2">
+                      <div className="min-w-0">
+                        <p className="font-dm text-sm text-offwhite">{label}</p>
+                        {price && <p className="font-dm text-[11px] text-muted">{price}</p>}
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          aria-label={`${E.less} — ${label}`}
+                          disabled={party[key] <= min || formState === "loading"}
+                          onClick={() => setParty((p) => ({ ...p, [key]: Math.max(min, p[key] - 1) }))}
+                          className="flex h-10 w-10 items-center justify-center rounded-full border border-dark-border text-offwhite transition-colors hover:border-yellow/50 disabled:opacity-30"
+                        >
+                          <Minus size={15} />
+                        </button>
+                        <span className="w-7 text-center font-dm text-lg font-semibold text-offwhite tabular-nums" aria-live="polite">
+                          {party[key]}
+                        </span>
+                        <button
+                          type="button"
+                          aria-label={`${E.more} — ${label}`}
+                          disabled={qty >= partyRoom || formState === "loading"}
+                          onClick={() => setParty((p) => ({ ...p, [key]: p[key] + 1 }))}
+                          className="flex h-10 w-10 items-center justify-center rounded-full border border-dark-border text-offwhite transition-colors hover:border-yellow/50 disabled:opacity-30"
+                        >
+                          <Plus size={15} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-muted/50 font-dm text-[11px] mt-1">
+                  {rule?.mode === "trips" ? E.upTo(rule.maxParty) : `${partyRoom} ${unitLeftLabel} available`}
+                </p>
+              </div>
+            )}
+
             {/* Quantity (rooms / party size / people) + guests for hotels */}
-            {dateChosen && slotOk && (
+            {!engine && dateChosen && slotOk && (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="font-bebas text-muted text-[10px] tracking-[0.25em] flex items-center gap-1.5 mb-2">
@@ -537,6 +712,16 @@ export default function PlaceBookingModal({
               </fieldset>
             )}
 
+            {engine && dateChosen && slotOk && (
+              <div className="rounded-xl border border-yellow/20 bg-yellow/5 p-3">
+                <div className="flex items-baseline justify-between gap-3">
+                  <span className="font-dm text-sm text-offwhite">{E.total}</span>
+                  <span className="font-syne text-lg font-bold text-yellow">{engineTotal != null ? formatMur(engineTotal) : E.quoteLater}</span>
+                </div>
+                <p className="mt-1 font-dm text-[11px] text-muted/80">{E.note}</p>
+              </div>
+            )}
+
             {quote && (
               <div className="rounded-xl border border-yellow/20 bg-yellow/5 p-3">
                 {quote.flat ? (
@@ -624,9 +809,9 @@ export default function PlaceBookingModal({
               disabled={!canSubmit}
               className="w-full flex items-center justify-center gap-2 bg-yellow text-dark font-syne font-bold text-base py-3.5 rounded-xl hover:bg-yellow-dark transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              {formState === "loading" ? <><Loader2 size={16} className="animate-spin" /> Sending…</> : <>{t.placeBooking.requestReservation} <Send size={15} /></>}
+              {formState === "loading" ? <><Loader2 size={16} className="animate-spin" /> Sending…</> : <>{engine ? E.cta : t.placeBooking.requestReservation} <Send size={15} /></>}
             </button>
-            <p className="text-muted/40 font-dm text-[11px] text-center">A request, not a confirmed booking — we&apos;ll confirm availability with you.</p>
+            {!engine && <p className="text-muted/40 font-dm text-[11px] text-center">A request, not a confirmed booking — we&apos;ll confirm availability with you.</p>}
           </form>
         )}
       </motion.div>

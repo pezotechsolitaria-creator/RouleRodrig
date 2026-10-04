@@ -49,6 +49,10 @@ export type AttentionCounts = {
   awaitingPaymentConfirmation?: OrderQueues;
   pendingVehicleBookings?: number;
   pendingPlaceBookings?: number;
+  /** M240 · requests to book that nobody has answered yet. */
+  pendingReservations?: number;
+  /** M240 · guests who tapped "I've paid" — check the account, then record it. */
+  reportedReservationPayments?: number;
   unhandledSubmissions?: number;
   pendingReviews?: number;
   pendingMerchants?: number;
@@ -254,6 +258,16 @@ export function attentionItems(c: AttentionCounts): AttentionItem[] {
     {
       key: "place-bookings", label: "Experience bookings to confirm",
       count: c.pendingPlaceBookings ?? 0, severity: "action", href: "/admin/content#place_bookings",
+    },
+    // M240 · the reservation engine. A guest is watching their booking page
+    // for the answer, so a request waiting is action, not housekeeping.
+    {
+      key: "reservations", label: "Requests to book to answer",
+      count: c.pendingReservations ?? 0, severity: "action", href: "/admin/reservations",
+    },
+    {
+      key: "reservation-payments", label: "Guests who say they paid",
+      count: c.reportedReservationPayments ?? 0, severity: "action", href: "/admin/reservations",
     },
     // M220 · money agreed in person, day come, nothing recorded. Action, not
     // critical: no customer is waiting on it — but left alone, the cash

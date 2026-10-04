@@ -4,7 +4,7 @@ import { getContentWithStatus } from "@/lib/content";
 import { sendPlaceBookingEmails, upsertBrevoContact } from "@/lib/email";
 import { enqueueNotification } from "@/lib/notifications/queue";
 import { guard } from "@/lib/rate-limit";
-import { isActiveHold } from "@/lib/holds";
+import { HOLDING_STATUSES, isActiveHold } from "@/lib/holds";
 import { quoteStay } from "@/lib/stay-pricing";
 import { isValidPhone, isValidEmail } from "@/lib/phone";
 import { parsePaymentPreference } from "@/lib/bookings/payment-preference";
@@ -234,13 +234,15 @@ export async function POST(req: NextRequest) {
   try {
     const { data: active } = await supabase
       .from("place_bookings")
-      .select("start_date, end_date, status, created_at, quantity, time_slot, deposit_paid_at, deposit_amount")
+      .select("start_date, end_date, status, created_at, quantity, time_slot, deposit_paid_at, deposit_amount, payment_due_by")
       .eq("place_id", place_id)
-      .in("status", ["pending", "confirmed"])
+      // Every status that can hold, isActiveHold deciding: an approved,
+      // unpaid booking holds its seats until payment_due_by.
+      .in("status", [...HOLDING_STATUSES])
       .gte("end_date", start_date)
       .lte("start_date", end_date);
     const rows = ((active ?? []) as {
-      start_date: string; end_date: string; status: string; created_at: string; quantity: number; time_slot: string | null; deposit_paid_at: string | null; deposit_amount: number | null;
+      start_date: string; end_date: string; status: string; created_at: string; quantity: number; time_slot: string | null; deposit_paid_at: string | null; deposit_amount: number | null; payment_due_by: string | null;
     }[]).filter((r) => isActiveHold(r));
 
     if (isStay) {

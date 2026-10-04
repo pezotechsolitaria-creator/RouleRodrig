@@ -328,6 +328,18 @@ async function run(req: NextRequest) {
     console.error("stale-work escalation threw", err);
   }
 
+  // ── Reservations (M240) ──────────────────────────────────────────────
+  // Before the claim below, on purpose: the owner's WhatsApp for a new
+  // request is queued here and then sent by THIS run, not the next one.
+  // Expire lapsed holds, queue tomorrow's reminders, drain the outbox.
+  let reservationJobs: unknown = null;
+  try {
+    const { runReservationJobs } = await import("@/lib/reservations/deliver");
+    reservationJobs = await runReservationJobs(admin, { deadline: Date.now() + 8_000 });
+  } catch (err) {
+    console.error("reservation jobs threw", err);
+  }
+
   const { data: claimed, error: claimError } = await admin.rpc("claim_notification_jobs", {
     p_limit: BATCH,
   });
@@ -635,6 +647,8 @@ async function run(req: NextRequest) {
     // WhatsApp?" without opening the database.
     staleWork: stale,
     rideAlerts,
+    // { expired, reminders, delivered } — the reservation engine's minute.
+    reservationJobs,
     ms: Date.now() - started,
   });
 }

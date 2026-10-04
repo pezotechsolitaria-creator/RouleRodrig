@@ -19,6 +19,7 @@ import PlaceDetailModal from "@/components/PlaceDetailModal";
 import { usePlaceDeepLink } from "@/components/usePlaceDeepLink";
 import { placeAnchorId, placeHref } from "@/lib/place-href";
 import { hasOwnPage } from "@/lib/place-slug";
+import { engineHandles } from "@/lib/reservations/listing";
 
 // The discovery + booking surface shared by massage, fishing and sea trips.
 //
@@ -370,7 +371,7 @@ function ExperienceCard({
             // in the massage, fishing, boat and chauffeur markets.
             className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-xl bg-yellow px-4 py-2 font-dm text-xs font-bold text-dark transition-opacity hover:opacity-90"
           >
-            {place.bookable ? (fr ? "Réserver" : "Book") : fr ? copy.ctaFr : copy.cta}
+            {place.bookable ? (engineHandles(place) ? (fr ? "Demander" : "Request") : fr ? "Réserver" : "Book") : fr ? copy.ctaFr : copy.cta}
           </button>
         </div>
       </div>

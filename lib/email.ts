@@ -3902,3 +3902,69 @@ export async function sendOwnerEsimAlert(a: {
     relatedId: null,
   });
 }
+
+// ── Reservations (M240 — the reservation engine) ─────────────────────────────
+//
+// Drained from reservation_outbox by lib/reservations/deliver.ts. One email
+// per outbox row, keyed on the row: a worker that runs twice sends once.
+// Single-language on purpose — the guest chose a language when they asked,
+// and every sentence here comes from lib/reservations/copy.ts in it.
+
+/** One guest email: the sentence, the details, the link to their page. */
+export async function sendReservationGuestEmail(b: {
+  outboxId: number;
+  reservationId: string;
+  to: string;
+  type: "reservation_update" | "reservation_payment_confirmation" | "reservation_reminder";
+  reference: string;
+  subject: string;
+  eyebrow: string;
+  sentence: string;
+  details: [string, string][];
+  link: string;
+  cta: string;
+}): Promise<boolean> {
+  const { logo } = await getBrand();
+  const body = `
+    ${paragraph(escapeHtml(b.sentence))}
+    ${b.details.length ? detailCard(rows(b.details.map(([k, v]) => [escapeHtml(k), escapeHtml(v)] as [string, string]))) : ""}
+    ${primaryButton(b.link, escapeHtml(b.cta))}
+    <p style="font-family:${FONT};font-size:12px;line-height:1.6;color:${C.muted};margin:18px 0 0;text-align:center">${escapeHtml(b.reference)}</p>`;
+  return send({
+    to: b.to,
+    subject: `${b.subject} · ${b.reference}`,
+    html: shell({ preheader: escapeHtml(b.sentence), eyebrow: escapeHtml(b.eyebrow), title: escapeHtml(b.subject), body, logo }),
+    type: b.type,
+    key: `${b.type}:${b.outboxId}`,
+    relatedType: "reservation",
+    relatedId: b.reservationId,
+  });
+}
+
+/** The owner's alert for a reservation — what happened, and the desk link. */
+export async function sendReservationOwnerEmail(b: {
+  outboxId: number;
+  reservationId: string;
+  reference: string;
+  subject: string;
+  line: string;
+  details: [string, string][];
+  phone?: string | null;
+  name?: string | null;
+}): Promise<boolean> {
+  const { logo } = await getBrand();
+  const body = `
+    ${paragraph(escapeHtml(b.line))}
+    ${b.details.length ? detailCard(rows(b.details.map(([k, v]) => [escapeHtml(k), escapeHtml(v)] as [string, string]))) : ""}
+    ${primaryButton(`${SITE_URL}/admin/reservations`, "Open the Reservation Center")}
+    ${b.phone ? `<div style="text-align:center">${waButton(b.phone, `Hello ${b.name ?? ""}, this is Roulé Rodrigues about ${b.reference}.`, `💬 Message ${escapeHtml(b.name ?? "the guest")}`)}</div>` : ""}`;
+  return send({
+    to: await ownerInbox(),
+    subject: `${b.subject} · ${b.reference}`,
+    html: shell({ preheader: escapeHtml(b.line), eyebrow: "Reservation", title: escapeHtml(b.subject), body, logo }),
+    type: "owner_reservation_alert",
+    key: `owner_reservation_alert:${b.outboxId}`,
+    relatedType: "reservation",
+    relatedId: b.reservationId,
+  });
+}

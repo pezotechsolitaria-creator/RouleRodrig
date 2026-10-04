@@ -43,6 +43,8 @@ const ALLOWED_WITHOUT_LINKS: Record<string, string> = {
   "/auth/reset-password": "Opened from a password-reset EMAIL. There is nowhere in the app it could be linked from.",
   "/esim/order/[ref]":
     "A customer's eSIM install page. The ?k= key in its URL IS the credential (lib/esim/ids.ts), so it is reached only from the checkout redirect, the delivery email, or the /esim \"Already bought one?\" lookup — never from a plain link.",
+  "/booking/[token]":
+    "A guest's reservation page (M240). The token in its URL IS the credential — only its hash is stored — so it is reached from the request form's redirect and from the reservation emails, never from a plain link. The page is noindex and sends no Referer.",
   "/merchant/pickup": "Where a SCANNED pickup QR lands. The same job is reachable by clicking via the code box on /merchant/orders.",
   "/r/[token]":
     "The taxi driver's screen, opened from a WhatsApp link sent to that driver. Taxi drivers have no accounts by decision, so the token IS the credential and there is nowhere in the app it could be linked from.",

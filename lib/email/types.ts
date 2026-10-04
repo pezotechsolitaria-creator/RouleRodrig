@@ -272,6 +272,15 @@ export const EMAIL_TYPES = {
   // To the owner: a sale, or a failure that needs a top-up, retry or refund.
   owner_esim_alert:                 { category: "operational", priority: "high" },
 
+  // ── Reservations (M240 — the reservation engine) ─────────────────────────
+  // Every guest email carries the link to /booking/[token], rebuilt from the
+  // row's idempotency key; the token itself is never stored. Drained from
+  // reservation_outbox by the minute worker (lib/reservations/deliver.ts).
+  reservation_update:               { category: "activity", priority: "high" },
+  reservation_payment_confirmation: { category: "activity", priority: "critical" },
+  reservation_reminder:             { category: "activity", priority: "normal" },
+  owner_reservation_alert:          { category: "operational", priority: "high" },
+
   // ── Marketing ────────────────────────────────────────────────────────────
   // Kept a separate category so it can be throttled first and so it is never
   // confused with transactional mail. waitlist_welcome belongs here rather than

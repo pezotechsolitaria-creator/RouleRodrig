@@ -82,6 +82,8 @@ export async function loadAttentionCounts(
     eventStores,
     cashRentals,
     cashPlaces,
+    pendingReservations,
+    reportedReservations,
   ] = await Promise.all([
     // WITH store_id, not a bare count: a shop order and a ticket order must not
     // be counted into an alert whose destination could never show them.
@@ -133,6 +135,18 @@ export async function loadAttentionCounts(
       .in("status", ["confirmed", "completed"])
       .lte("start_date", today)
       .limit(500),
+    // M240 · requests to book waiting for an answer, and "I've paid" reports
+    // waiting for the owner to check the account.
+    admin
+      .from("reservations")
+      .select("id", { count: "exact", head: true })
+      .in("reservation_status", ["requested", "under_review"]),
+    admin
+      .from("reservations")
+      .select("id", { count: "exact", head: true })
+      .eq("reservation_status", "confirmed")
+      .in("payment_status", ["payment_pending", "partially_paid"])
+      .not("payment_reported_at", "is", null),
   ]);
 
   const kitchenIds = new Set(
@@ -189,6 +203,8 @@ export async function loadAttentionCounts(
     ),
     pendingVehicleBookings: n(pendingBookings),
     pendingPlaceBookings: n(pendingPlaces),
+    pendingReservations: n(pendingReservations),
+    reportedReservationPayments: n(reportedReservations),
     unhandledSubmissions: n(submissions),
     pendingReviews: n(reviews),
     pendingMerchants: n(pendingMerchants),

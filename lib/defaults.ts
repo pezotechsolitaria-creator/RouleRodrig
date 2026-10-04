@@ -539,6 +539,15 @@ export interface RecommendedPlace {
    * confirms it by hand as before.
    */
   depositAmount?: number;
+  /**
+   * Reservation engine (M240): the price for a CHILD and for a BABY, per
+   * person, whole rupees — e.g. Île aux Cocos with Les Inséparables: adults
+   * Rs 1,999 (from priceNote), children under 12 Rs 990, babies under 1 free.
+   * Unset child price = the adult price; unset baby price = free. Read by
+   * lib/reservations/listing.ts; never typed into code.
+   */
+  childPrice?: number;
+  babyPrice?: number;
   highlights?: string[]; // bullet highlights/amenities shown in the detail view
   images?: string[];   // optional extra photos for the detail gallery
   isTour?: boolean;    // an activity that's a guided tour/excursion → shown under "Guided Tours"

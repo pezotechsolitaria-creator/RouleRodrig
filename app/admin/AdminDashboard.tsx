@@ -5672,6 +5672,29 @@ function RecommendedEditor({
               <TextInput value={it.priceNote ?? ""} onChange={(v) => updateItem(i, { priceNote: v })} placeholder="e.g. from Rs 2,500 / night" />
             </Field>
           )}
+          {it.bookable && it.category === "activity" && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* M240 — children and babies, read by the reservation engine.
+                  Blank = children pay the adult price, babies are free. A number
+                  here is quoted to the guest and charged; 0 means free. */}
+              <Field label="CHILD PRICE PER PERSON (Rs — blank = adult price)">
+                <TextInput
+                  type="number"
+                  value={it.childPrice != null ? String(it.childPrice) : ""}
+                  onChange={(v) => updateItem(i, { childPrice: v.trim() === "" ? undefined : Math.max(0, parseInt(v) || 0) })}
+                  placeholder="same as adult"
+                />
+              </Field>
+              <Field label="BABY PRICE PER PERSON (Rs — blank = free)">
+                <TextInput
+                  type="number"
+                  value={it.babyPrice != null ? String(it.babyPrice) : ""}
+                  onChange={(v) => updateItem(i, { babyPrice: v.trim() === "" ? undefined : Math.max(0, parseInt(v) || 0) })}
+                  placeholder="free"
+                />
+              </Field>
+            </div>
+          )}
           {it.bookable && (
             <Field label="PRICE — PAID IN FULL TO CONFIRM (Rs — 0 or blank = request only, no online payment)">
               <TextInput
@@ -6350,6 +6373,28 @@ function ServicesEditor({
                 placeholder="e.g. Rs 1,200 per person"
               />
             </Field>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* M240 — children and babies, read by the reservation engine.
+                  Blank = children pay the adult price, babies are free. A number
+                  here is quoted to the guest and charged; 0 means free. */}
+              <Field label="CHILD PRICE PER PERSON (Rs — blank = adult price)">
+                <TextInput
+                  type="number"
+                  value={it.childPrice != null ? String(it.childPrice) : ""}
+                  onChange={(v) => update(index, { childPrice: v.trim() === "" ? undefined : Math.max(0, parseInt(v) || 0) })}
+                  placeholder="same as adult"
+                />
+              </Field>
+              <Field label="BABY PRICE PER PERSON (Rs — blank = free)">
+                <TextInput
+                  type="number"
+                  value={it.babyPrice != null ? String(it.babyPrice) : ""}
+                  onChange={(v) => update(index, { babyPrice: v.trim() === "" ? undefined : Math.max(0, parseInt(v) || 0) })}
+                  placeholder="free"
+                />
+              </Field>
+            </div>
 
             <Field label="WHAT IS INCLUDED (separate with commas)">
               <TextInput

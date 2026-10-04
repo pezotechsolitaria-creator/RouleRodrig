@@ -9,6 +9,7 @@ import { useLanguage } from "@/context/LanguageContext";
 import { loc } from "@/lib/localize";
 import { formatDuration } from "@/lib/experiences";
 import { showsServiceFacts } from "@/lib/places/service-fields";
+import { engineHandles } from "@/lib/reservations/listing";
 
 const CAT: Record<RecommendedPlace["category"], { icon: React.ElementType; color: string }> = {
   hotel: { icon: BedDouble, color: "bg-amber-400/10 text-amber-400 border-amber-400/30" },
@@ -215,7 +216,7 @@ export default function PlaceDetailModal({
                 onClick={() => { onBook(); onClose(); }}
                 className="flex-1 min-w-[160px] flex items-center justify-center gap-2 bg-yellow text-dark font-syne font-bold text-base py-3.5 rounded-xl hover:bg-yellow-dark transition-colors"
               >
-                <CalendarCheck size={16} /> {t.common.bookNow}
+                <CalendarCheck size={16} /> {engineHandles(place) ? t.common.requestToBook : t.common.bookNow}
               </button>
             )}
             {waHref && (

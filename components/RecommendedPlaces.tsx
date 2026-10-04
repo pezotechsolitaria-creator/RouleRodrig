@@ -13,6 +13,7 @@ import { usePlaceDeepLink } from "@/components/usePlaceDeepLink";
 import { placeAnchorId } from "@/lib/place-href";
 import SaveButton from "@/components/SaveButton";
 import AutoPhotos from "@/components/AutoPhotos";
+import { engineHandles } from "@/lib/reservations/listing";
 
 const CATEGORY: Record<
   RecommendedPlace["category"],
@@ -257,7 +258,7 @@ export default function RecommendedPlaces({
                         onClick={() => setBookingPlace(p)}
                         className="flex items-center gap-1.5 bg-yellow text-dark hover:bg-yellow-dark text-xs font-syne font-bold px-3.5 py-2 rounded-full transition-colors"
                       >
-                        <CalendarCheck size={13} /> {t.common.bookNow}
+                        <CalendarCheck size={13} /> {engineHandles(p) ? t.common.requestToBook : t.common.bookNow}
                       </button>
                     )}
                     {hasWa && (
