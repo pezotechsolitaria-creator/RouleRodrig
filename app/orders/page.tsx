@@ -84,11 +84,20 @@ export default async function CustomerOrdersPage({
   // pagination stay exact. Read on the customer's own session. The ids come
   // from the database as uuids, so nothing user-typed reaches the filter.
   // A failed read clears nothing: the orders simply show, as before.
+  //
+  // CAPPED: every id rides in the request URL, and a customer who clears
+  // every finished order for a year would push it past a gateway's limit and
+  // turn the whole page into an error. The newest IN_QUERY_LIMIT (the RPC
+  // returns newest first) go in the query; any older ones are dropped from the
+  // fetched page in code below, which can only make the count a little high.
   const { data: hiddenRows } = await supabase.rpc("my_hidden_items");
   const hiddenOrderIds = ((hiddenRows ?? []) as { kind: string; item_id: string }[])
     .filter((h) => h.kind === "order" && /^[0-9a-f-]{36}$/i.test(h.item_id))
     .map((h) => h.item_id);
-  if (hiddenOrderIds.length > 0) query = query.not("id", "in", `(${hiddenOrderIds.join(",")})`);
+  const IN_QUERY_LIMIT = 150;
+  const inQuery = hiddenOrderIds.slice(0, IN_QUERY_LIMIT);
+  if (inQuery.length > 0) query = query.not("id", "in", `(${inQuery.join(",")})`);
+  const olderHidden = new Set(hiddenOrderIds.slice(IN_QUERY_LIMIT));
 
   const { data, count, error } = await query;
   // Same reasoning as the detail page: without this, a database fault renders
@@ -97,7 +106,10 @@ export default async function CustomerOrdersPage({
     console.error("list customer orders failed", error);
     throw new Error("Could not load your orders.", { cause: error });
   }
-  const orders = data ?? [];
+  const orders = (data ?? []).filter((o) => !olderHidden.has(o.id));
+  const isFinishedOrder = (s: string) => (FINISHED_ORDER_STATUSES as readonly string[]).includes(s);
+  // One width for every card on the page once any of them has the clear column.
+  const anyClearableOrder = orders.some((o) => isFinishedOrder(o.status));
   const totalPages = Math.max(1, Math.ceil((count ?? 0) / PAGE_SIZE));
 
   // ── The other two thirds of "Suivi" ──────────────────────────────────────
@@ -216,7 +228,8 @@ export default async function CustomerOrdersPage({
                   key={o.id}
                   kind="order"
                   id={o.id}
-                  clearable={(FINISHED_ORDER_STATUSES as readonly string[]).includes(o.status)}
+                  clearable={isFinishedOrder(o.status)}
+                  reserveSpace={anyClearableOrder}
                   copy={clearCopy}
                 >
                 <Link
@@ -318,6 +331,7 @@ function ActivityGroup({
             kind={hideKind ?? "booking"}
             id={a.id}
             clearable={clearable && hideKind !== null}
+            reserveSpace={clearable}
             copy={clearCopy}
           >
           <Link

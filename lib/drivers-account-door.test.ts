@@ -20,6 +20,22 @@ describe("the taxi account door binds the signed-in driver", () => {
     expect(route).toMatch(/const supabase = await getPrivileged\(\);/);
   });
 
+  // ── M235: a binding must be asked for, and must die with the old link ──────
+  it("binds only when the /account form asks — never from a /d sign-in", () => {
+    expect(route).toMatch(/link: z\.boolean\(\)\.optional\(\)\.default\(false\),/);
+    expect(route).toMatch(/if \(parsed\.data\.link\) \{/);
+    const accountForm = readFileSync("app/account/DriverCodeBox.tsx", "utf8");
+    expect(accountForm).toMatch(/JSON\.stringify\(\{ code, link: true \}\)/);
+    const dPage = readFileSync("app/d/DriverSignIn.tsx", "utf8");
+    expect(dPage).not.toMatch(/link: true/);
+  });
+
+  it("changing a driver's link also unlinks the account (M235)", () => {
+    const m235 = readFileSync("supabase/migrations/20261004200000_m235_a_new_driver_link_unlinks_the_account.sql", "utf8");
+    expect(m235).toMatch(/set driver_token = v_new,\s*user_id\s*= null/);
+    expect(m235).toMatch(/'accountUnlinked', v_unlinked/);
+  });
+
   it("replaces the function instead of adding an overload (PGRST203)", () => {
     expect(m232).toMatch(/drop function if exists public\.driver_link_by_code\(text, text\);/);
     expect(m232).toMatch(/v_uid\s+uuid := coalesce\(p_user_id, auth\.uid\(\)\);/);

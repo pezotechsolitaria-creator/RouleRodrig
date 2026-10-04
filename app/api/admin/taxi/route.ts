@@ -261,6 +261,8 @@ export async function POST(req: NextRequest) {
     const r = (data ?? {}) as {
       ok?: boolean; reason?: string; message?: string;
       name?: string; whatsapp?: string | null; phone?: string; link?: string;
+      /** M235: the account door was revoked with the old token. */
+      accountUnlinked?: boolean;
     };
     // A soft refusal, not an error: the driver is mid-ride and re-keying him now
     // would leave him unable to press Completed.
@@ -273,11 +275,15 @@ export async function POST(req: NextRequest) {
     // AFTER the write, never before, and never carrying a token — audit_logs is
     // append-only with no purge and /admin/audit prints the diff verbatim, so a
     // token logged here would outlive the rotation meant to retire it.
+    // Whether an account was following this driver and is not any more (M235).
+    // Named apart from the RPC field: the audit diff is guarded against any key
+    // that could carry the link itself (lib/admin/taxi-token.test.ts).
+    const accountDoorRevoked = r.accountUnlinked === true;
     await audit(supabase, {
       action: "taxi.rotate_token",
       entityType: "taxi_driver",
       entityId: rotateFor,
-      diff: { driver: r.name },
+      diff: { driver: r.name, accountDoorRevoked },
     });
     // Byte-identical to the ?linkFor= response, so the desk can hand it straight
     // to the QR overlay it already uses — which is the point: rotating without

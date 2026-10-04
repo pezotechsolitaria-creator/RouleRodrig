@@ -22,6 +22,10 @@ import { guardShared } from "@/lib/rate-limit";
 const schema = z.object({
   code: z.string().trim().min(4).max(20),
   phone: z.string().trim().max(30).optional().default(""),
+  // Only the /account form sends this — the one place a person ASKS to be
+  // remembered. Signing in on /d (often on whatever phone is to hand) never
+  // binds the account that happens to be signed in on it.
+  link: z.boolean().optional().default(false),
 });
 
 // One message for every failure. Distinguishing "no such code" from "wrong
@@ -53,13 +57,19 @@ export async function POST(req: NextRequest) {
   // Anonymous visitors still sign in exactly as before, just without the
   // binding. Never a client grant: the rate limit above is the only defence
   // against guessing codes, and a direct RPC would bypass it.
+  //
+  // Bound only when asked (`link`, from /account), and revocable: changing a
+  // driver's link on the desk clears the binding too (M235), so a leaked code
+  // cannot leave an account following the driver to every new link.
   let userId: string | null = null;
-  try {
-    const session = await createClient();
-    const { data: { user } } = await session.auth.getUser();
-    userId = user?.id ?? null;
-  } catch {
-    userId = null;
+  if (parsed.data.link) {
+    try {
+      const session = await createClient();
+      const { data: { user } } = await session.auth.getUser();
+      userId = user?.id ?? null;
+    } catch {
+      userId = null;
+    }
   }
 
   const supabase = await getPrivileged();

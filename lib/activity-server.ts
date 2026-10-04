@@ -4,7 +4,7 @@ import { getPrivileged, hasServiceRole } from "@/lib/supabase/admin";
 import { vehicleName } from "@/lib/vehicle-name";
 import { IN_PROGRESS_LEGS } from "@/lib/delivery/clear";
 import { hiddenKeysFor } from "@/lib/hide/server";
-import { hideKey } from "@/lib/hide/kinds";
+import { hideKey, type HideKind } from "@/lib/hide/kinds";
 import { escapeLike, sameEmail } from "@/lib/email-match";
 import {
   vehicleToActivity, placeToActivity,
@@ -178,9 +178,19 @@ export async function listActivitiesForCustomer(opts: {
   // ESCAPED (see `pattern` above) — and, because escaping is a promise about
   // PostgREST rather than a proof, every row is checked for exact equality
   // here before it is shown. A row that is not this person's never renders.
+  // ── A CLEAR LASTS ONLY WHILE THE ITEM IS OVER (M234) ──────────────────────
+  // The marker is checked against the item's CURRENT stage, not the stage it
+  // had when it was cleared: a rental the owner un-cancels or a stranded ride
+  // he rescues by hand is live again, and must come back to the list — the
+  // same rule clearedAndIdle applies to deliveries below.
+  const pushUnlessCleared = (kind: HideKind, a: Activity) => {
+    if (hidden.has(hideKey(kind, a.id)) && (a.stage === "done" || a.stage === "cancelled")) return;
+    activities.push(a);
+  };
+
   for (const row of (vehicles.data ?? []) as Record<string, unknown>[]) {
-    if (!sameEmail(row.email, email) || hidden.has(hideKey("booking", String(row.id)))) continue;
-    activities.push(
+    if (!sameEmail(row.email, email)) continue;
+    pushUnlessCleared("booking",
       vehicleToActivity(
         {
           id: String(row.id),
@@ -200,8 +210,8 @@ export async function listActivitiesForCustomer(opts: {
   }
 
   for (const row of (places.data ?? []) as Record<string, unknown>[]) {
-    if (!sameEmail(row.email, email) || hidden.has(hideKey("place_booking", String(row.id)))) continue;
-    activities.push(
+    if (!sameEmail(row.email, email)) continue;
+    pushUnlessCleared("place_booking",
       placeToActivity(
         {
           id: String(row.id),
@@ -221,8 +231,8 @@ export async function listActivitiesForCustomer(opts: {
   }
 
   for (const row of (rides.data ?? []) as Record<string, unknown>[]) {
-    if (!sameEmail(row.customer_email, email) || hidden.has(hideKey("ride", String(row.id)))) continue;
-    activities.push(
+    if (!sameEmail(row.customer_email, email)) continue;
+    pushUnlessCleared("ride",
       rideToActivity({
         id: String(row.id),
         service: row.service as string | null,
@@ -276,11 +286,10 @@ export async function listActivitiesForCustomer(opts: {
   }
 
   for (const row of (bookings.data ?? []) as Record<string, unknown>[]) {
-    if (hidden.has(hideKey("service_booking", String(row.id)))) continue;
     const store = (Array.isArray(row.stores) ? row.stores[0] : row.stores) as
       | { name?: string; slug?: string }
       | null;
-    activities.push(
+    pushUnlessCleared("service_booking",
       serviceToActivity({
         id: String(row.id),
         service_name: row.service_name as string | null,

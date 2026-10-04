@@ -32,7 +32,9 @@ export default function DriverCodeBox() {
       const res = await fetch("/api/driver-signin", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code }),
+        // link: remember this account, so /account opens the page next time
+        // (M232). Only this form asks; /d sign-ins never bind (M235).
+        body: JSON.stringify({ code, link: true }),
       });
       const j = (await res.json()) as { ok?: boolean; path?: string; error?: string };
       if (!res.ok || !j.ok || !j.path) {

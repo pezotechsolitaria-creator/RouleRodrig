@@ -36,16 +36,19 @@ describe("the activity feed uses both layers on every email-keyed source", () =>
   });
 
   it("re-checks each email-matched row before showing it", () => {
-    expect(code).toMatch(/sameEmail\(row\.email, email\)[^\n]*"booking"/);
-    expect(code).toMatch(/sameEmail\(row\.email, email\)[^\n]*"place_booking"/);
-    expect(code).toMatch(/sameEmail\(row\.customer_email, email\)/);
+    expect(code).toMatch(/if \(!sameEmail\(row\.email, email\)\) continue;\s*pushUnlessCleared\("booking",/);
+    expect(code).toMatch(/if \(!sameEmail\(row\.email, email\)\) continue;\s*pushUnlessCleared\("place_booking",/);
+    expect(code).toMatch(/if \(!sameEmail\(row\.customer_email, email\)\) continue;\s*pushUnlessCleared\("ride",/);
     expect(code).toMatch(/sameEmail\(row\.guest_email, email\)/);
   });
 
-  it("drops what the customer cleared (M234)", () => {
+  it("drops what the customer cleared (M234) — but only while it is over", () => {
     expect(code).toMatch(/hiddenKeysFor\(opts\.userId\)/);
+    // A rental un-cancelled or a ride rescued after a clear is live again and
+    // must come back: the marker is checked against the CURRENT stage.
+    expect(code).toMatch(/hidden\.has\(hideKey\(kind, a\.id\)\) && \(a\.stage === "done" \|\| a\.stage === "cancelled"\)/);
     for (const kind of ["booking", "place_booking", "ride", "service_booking"]) {
-      expect(code).toContain(`hideKey("${kind}"`);
+      expect(code).toContain(`pushUnlessCleared("${kind}",`);
     }
   });
 });
