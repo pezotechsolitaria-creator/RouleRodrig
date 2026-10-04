@@ -443,7 +443,16 @@ describe("the place listings' markup", () => {
     expect(visible(stays)).toContain("Nightly prices on this page start around Rs 1,000 and run to about Rs 2,990");
     // Typed, this said "Rs 700 to Rs 1,000" beside the Rs 1,999 Île aux Cocos card.
     expect(visible(tours)).toContain("Trips on this page run from about Rs 700 to Rs 1,999 per person");
-    for (const html of [stays, tours]) expect(html.match(/<h2[ >]/g)?.length).toBe(3);
+    // Three note sections on each, cost first — then one more since the
+    // architecture review of 2026-09-30: the "Where to go" links under the
+    // stays (item 1) and the FAQ under the tours (item 2). Named, so a fourth
+    // NOTE could not slip in under a bare count.
+    const h2s = (html: string) => [...html.matchAll(/<h2[^>]*>([^<]*)<\/h2>/g)].map((m) => decode(m[1]));
+    expect(h2s(stays)).toHaveLength(4);
+    expect(h2s(stays)[3]).toBe("Where to go");
+    expect(h2s(tours)).toHaveLength(4);
+    expect(h2s(tours)[3]).toBe("Tours and boat trips — common questions");
+    for (const html of [stays, tours]) expect(html.match(/<h2[ >]/g)?.length).toBe(4);
   });
 
   it("stays: Cathartica priced from its note, the blank row nowhere", async () => {

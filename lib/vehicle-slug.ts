@@ -25,16 +25,63 @@ export function vehicleSlug(v: { id?: string; name?: string }): string {
 
 /** The vehicle a slug names, or undefined. Matches the slug first, then the raw
  *  id — so links written before slugs existed keep resolving. */
-export function findVehicle(
-  fleet: FleetItem[],
+export function findVehicle<T extends Pick<FleetItem, "id" | "name" | "category"> = FleetItem>(
+  fleet: T[],
   category: string,
   slug: string,
-): FleetItem | undefined {
+): T | undefined {
   const want = slug.toLowerCase();
   const inCategory = fleet.filter((f) => (f.category ?? "scooter") === category);
   return (
     inCategory.find((f) => vehicleSlug(f) === want) ??
     inCategory.find((f) => (f.id ?? "").toLowerCase() === want)
+  );
+}
+
+// ── TWIN UNITS SHARE ONE PAGE, SO THE PAGE MUST SPEAK FOR ALL OF THEM ───────
+//
+// Architecture review 2026-09-30. The fleet models PHYSICAL units: the owner
+// runs two AVENIS 125cc as two rows ("avenis" and "scooter-1780519312391"), and
+// the slug comes from the name, so both live at /browse/scooter/avenis-125cc.
+// The page resolved only the FIRST row — so with that one out on hire it said
+// "Fully booked today" and pointed its Book link at the busy unit while its
+// twin stood free. Availability is counted per fleet id (lib/holds.ts,
+// lib/availability.ts), so a booking made against the busy id competes for the
+// busy unit even though the free one is the same model.
+//
+// Nothing here changes a stored id: the rows stay two rows (deleting a twin
+// once destroyed real inventory), the booking API is untouched, and the page
+// simply hands the visitor the unit that can actually be booked.
+
+/** Every row sharing the page `slug` names: the unit it resolves to plus its
+ *  same-name twins. Empty when the slug names nothing in this category. */
+export function findVehicleUnits<T extends Pick<FleetItem, "id" | "name" | "category">>(
+  fleet: T[],
+  category: string,
+  slug: string,
+): T[] {
+  const first = findVehicle(fleet, category, slug);
+  if (!first) return [];
+  const page = vehicleSlug(first);
+  return fleet.filter(
+    (f) => (f.category ?? "scooter") === category && vehicleSlug(f) === page,
+  );
+}
+
+/**
+ * The unit a Book link should reserve: the first one that is for hire AND not
+ * out on a trip today; else one that is for hire (every unit busy today — the
+ * page says "fully booked today", and picking dates is the right next step);
+ * else the first (every unit withdrawn). So "Fully booked" shows only when ALL
+ * twins are out, and "not available" only when all are withdrawn.
+ */
+export function unitToBook<T extends { available?: boolean; soldOutToday?: boolean }>(
+  units: T[],
+): T | undefined {
+  return (
+    units.find((u) => u.available !== false && u.soldOutToday !== true) ??
+    units.find((u) => u.available !== false) ??
+    units[0]
   );
 }
 

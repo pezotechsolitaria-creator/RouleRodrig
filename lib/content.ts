@@ -1,9 +1,10 @@
 import 'server-only';
 import { cache } from 'react';
-import { unstable_cache, revalidateTag } from 'next/cache';
+import { unstable_cache, revalidateTag, revalidatePath } from 'next/cache';
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import { DEFAULT_CONTENT, DEFAULT_QUICK_ACCESS, DEFAULT_HOME_CARDS, type SiteContent } from './defaults';
 import { migrateQuickAccess, migrateHomeCards } from './quick-access';
+import { CONTENT_CONFLICT_MESSAGE } from './admin/content-version';
 
 // Cookie-free public read client. site_content ('main') is public-readable, so
 // reading it without cookies lets every page that calls getContent be cached
@@ -312,22 +313,41 @@ export async function getContent(): Promise<SiteContent> {
  * destroying every customisation. /admin must therefore refuse to save when
  * `loaded` is false.
  */
-async function readContentUncached(): Promise<{ content: SiteContent; loaded: boolean }> {
+/**
+ * `updatedAt` is the row's own timestamp, exactly as PostgREST printed it, or
+ * null when there is no row yet.
+ *
+ * ── WHY THE EDITOR NEEDS IT (architecture review 2026-09-30, item 4) ────────
+ * The studio PUTs the WHOLE blob, and four routes write this row: the studio,
+ * the gallery, /admin/legal and the legal certificate. A studio tab opened
+ * before a BRN was saved in /admin/legal used to put the old legal block back
+ * on its next Save, silently. The studio now sends back the version it loaded,
+ * and saveContent() refuses to write over a row that has moved since.
+ */
+async function readContentUncached(): Promise<{
+  content: SiteContent;
+  loaded: boolean;
+  updatedAt: string | null;
+}> {
   try {
     const supabase = publicReadClient();
     const { data, error } = await supabase
       .from('site_content')
-      .select('data')
+      .select('data, updated_at')
       .eq('id', 'main')
       .maybeSingle();
     if (error) throw error;
     if (data?.data) {
-      return { content: mergeWithDefaults(data.data as Partial<SiteContent>), loaded: true };
+      return {
+        content: mergeWithDefaults(data.data as Partial<SiteContent>),
+        loaded: true,
+        updatedAt: data.updated_at == null ? null : String(data.updated_at),
+      };
     }
     // No row yet — a genuine first run, not a failure.
-    return { content: JSON.parse(JSON.stringify(DEFAULT_CONTENT)) as SiteContent, loaded: true };
+    return { content: JSON.parse(JSON.stringify(DEFAULT_CONTENT)) as SiteContent, loaded: true, updatedAt: null };
   } catch {
-    return { content: JSON.parse(JSON.stringify(DEFAULT_CONTENT)) as SiteContent, loaded: false };
+    return { content: JSON.parse(JSON.stringify(DEFAULT_CONTENT)) as SiteContent, loaded: false, updatedAt: null };
   }
 }
 
@@ -348,15 +368,102 @@ async function readContentUncached(): Promise<{ content: SiteContent; loaded: bo
  */
 export const getContentWithStatus = cache(readContentUncached);
 
-export async function saveContent(content: SiteContent): Promise<void> {
+// The sentence the studio shows when its copy is older than the row. Kept in a
+// client-safe module so the studio and this file cannot word it differently.
+export { CONTENT_CONFLICT_MESSAGE };
+
+/** Thrown by saveContent() when the row moved after the caller read it. */
+export class ContentConflictError extends Error {
+  constructor() {
+    super(CONTENT_CONFLICT_MESSAGE);
+    this.name = 'ContentConflictError';
+  }
+}
+
+/**
+ * Whether two updated_at strings name the same instant.
+ *
+ * Compared as instants, not as text: the same timestamptz can be printed as
+ * "…33.12+00:00" or "…33.120000+00:00", and a text mismatch here would tell the
+ * owner someone else had saved when nobody had. Microseconds are kept (Date
+ * alone would drop them), because a write made in SQL with now() can land in
+ * the same millisecond as the one the studio loaded.
+ */
+export function sameContentVersion(a: string | null | undefined, b: string | null | undefined): boolean {
+  if (a == null || b == null) return a == null && b == null;
+  const key = (s: string) => {
+    const ms = Date.parse(s);
+    if (Number.isNaN(ms)) return s.trim();
+    const frac = (s.match(/\.(\d+)/)?.[1] ?? '').padEnd(6, '0').slice(0, 6);
+    return `${Math.floor(ms / 1000)}.${frac}`;
+  };
+  return key(a) === key(b);
+}
+
+/**
+ * Write the whole blob. Returns the row's new updated_at.
+ *
+ * `expectedUpdatedAt` makes the write conditional (architecture review
+ * 2026-09-30, item 4): the row is updated only while its updated_at is still
+ * the one the caller read, in the same statement, so two tabs saving in the
+ * same second cannot both win. A string is "the row must still be at this
+ * version"; null is "there must be no row yet". Omitted keeps the old
+ * unconditional upsert, which the legal, certificate and gallery routes still
+ * use — each reads the row and writes it back within one request.
+ */
+export async function saveContent(
+  content: SiteContent,
+  opts: { expectedUpdatedAt?: string | null } = {},
+): Promise<{ updatedAt: string }> {
   // Writes go through the privileged client so site_content can be locked to
   // read-only for the public anon role (prevents site defacement).
   const { getPrivileged } = await import('./supabase/admin');
   const supabase = await getPrivileged();
-  const { error } = await supabase
-    .from('site_content')
-    .upsert({ id: 'main', data: content, updated_at: new Date().toISOString() });
-  if (error) throw new Error(error.message);
+  const now = new Date().toISOString();
+  let updatedAt = now;
+
+  if (typeof opts.expectedUpdatedAt === 'string') {
+    const { data, error } = await supabase
+      .from('site_content')
+      .update({ data: content, updated_at: now })
+      .eq('id', 'main')
+      .eq('updated_at', opts.expectedUpdatedAt)
+      .select('updated_at');
+    if (error) throw new Error(error.message);
+    if (!data || data.length === 0) {
+      // Zero rows has two causes, and only one is a conflict. A client that
+      // cannot write at all (no service-role key: the anon fallback matches
+      // nothing under RLS and reports no error) also updates zero rows, and
+      // telling the owner "someone saved in another tab" would send him
+      // looking for a tab that does not exist. So look before blaming.
+      const { data: row } = await supabase
+        .from('site_content')
+        .select('updated_at')
+        .eq('id', 'main')
+        .maybeSingle();
+      const current = row?.updated_at == null ? null : String(row.updated_at);
+      if (!sameContentVersion(current, opts.expectedUpdatedAt)) throw new ContentConflictError();
+      throw new Error('The content row was not written (no rows updated). Is SUPABASE_SERVICE_ROLE_KEY set?');
+    }
+    updatedAt = String((data[0] as { updated_at: unknown }).updated_at ?? now);
+  } else {
+    if (opts.expectedUpdatedAt === null) {
+      // "There was no row when I loaded" — somebody may have created it since.
+      const { data: row } = await supabase
+        .from('site_content')
+        .select('updated_at')
+        .eq('id', 'main')
+        .maybeSingle();
+      if (row) throw new ContentConflictError();
+    }
+    const { data, error } = await supabase
+      .from('site_content')
+      .upsert({ id: 'main', data: content, updated_at: now })
+      .select('updated_at');
+    if (error) throw new Error(error.message);
+    const first = (data ?? [])[0] as { updated_at?: unknown } | undefined;
+    updatedAt = first?.updated_at == null ? now : String(first.updated_at);
+  }
 
   // The write is the ONLY thing that can make the cached copy wrong, and this
   // is the only writer. { expire: 0 } because Next 16 requires a cache-life
@@ -370,6 +477,29 @@ export async function saveContent(content: SiteContent): Promise<void> {
     revalidateTag(CONTENT_TAG, { expire: 0 });
   } catch (err) {
     console.error('content saved but the public cache was not revalidated', err);
+  }
+  return { updatedAt };
+}
+
+/**
+ * Bust the ISR copies of every page that renders the content blob.
+ *
+ * Moved here from the content PUT (architecture review 2026-09-30, item 6) so
+ * the history restore — the other route that replaces the whole blob — cannot
+ * forget a path the studio save remembers. The homepage and /browse are not the
+ * only content-backed routes: /faq, /explore, /map, /more, /trip-planner, the
+ * guides and the /fr pages all read getContent() under an hour-long
+ * revalidate, so an FAQ edit used to report "Saved!" while the public page
+ * served stale copy for up to 60 minutes. A massage added in admin is served
+ * from a 5-minute cache at /experiences/<type>; without that path the owner
+ * saves, looks, sees nothing, and concludes the feature is broken.
+ */
+export function revalidateContentPages(): void {
+  revalidatePath('/');
+  revalidatePath('/browse/[category]', 'page');
+  revalidatePath('/experiences/[type]', 'page');
+  for (const p of ['/faq', '/explore', '/map', '/more', '/trip-planner', '/taxi', '/food', '/guide/rodrigues']) {
+    revalidatePath(p);
   }
 }
 

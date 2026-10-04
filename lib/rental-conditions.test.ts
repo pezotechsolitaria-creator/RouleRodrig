@@ -8,6 +8,7 @@ import {
   CONDITION_LABELS,
   conditionPreview,
   pickConditions,
+  rentalKindOf,
 } from "@/lib/rental-conditions";
 import { DEFAULT_CONTENT } from "@/lib/defaults";
 
@@ -125,15 +126,119 @@ describe("a car page does not answer scooter questions", () => {
 
   it("is wired into BOTH the listing and the vehicle detail page", () => {
     // The detail page is the one every earlier pass missed, and it is the
-    // actual conversion page.
+    // actual conversion page. Both still hand over the category; the optional
+    // third argument (rentalKind, architecture review 2026-09-30) may follow
+    // it, and what that argument DOES on the detail page is proven by
+    // rendering it in app/browse/vehicle-page-category.test.ts, not by a grep.
     const read = (...p: string[]) =>
       readFileSync(join(process.cwd(), ...p), "utf8");
-    expect(read("app", "browse", "[category]", "page.tsx")).toContain(
-      "pickConditions(content.faq?.items, category)",
-    );
-    expect(
-      read("app", "browse", "[category]", "[vehicle]", "page.tsx"),
-    ).toContain("pickConditions(content.faq?.items, category)");
+    const wired = /pickConditions\(content\.faq\?\.items, category[,)]/;
+    expect(read("app", "browse", "[category]", "page.tsx")).toMatch(wired);
+    expect(read("app", "browse", "[category]", "[vehicle]", "page.tsx")).toMatch(wired);
+  });
+});
+
+// ── A KAYAK IS NOT DRIVEN (architecture review 2026-09-30, rentalKind) ─────
+//
+// Every non-scooter category got the car's terms, so switching on the seeded
+// Kayaks category would have published "Do I need a driving licence?", fuel,
+// mileage and the Rs 5,000 CAR security deposit as the conditions of hiring a
+// kayak — visibly, and again in the page's FAQPage.
+describe("an equipment category gets only the terms that hold for equipment", () => {
+  const all = faq({});
+
+  it("keeps delivery and the minimum rental, and nothing else", () => {
+    expect(pickConditions(all, "kayak", "equipment").map((c) => c.id)).toEqual([
+      "delivery",
+      "faq-min-duration",
+    ]);
+  });
+
+  it("drops them whatever the category id is, because the kind decides", () => {
+    for (const cat of ["kayak", "car", "scooter", "cat-1790000000000", undefined]) {
+      expect(pickConditions(all, cat, "equipment").map((c) => c.id)).toEqual([
+        "delivery",
+        "faq-min-duration",
+      ]);
+    }
+  });
+
+  it("says nothing about driving in the owner's live answers", () => {
+    // The live wording (site_content, 29 Sep 2026) for every condition id —
+    // the words that would actually be published — not the synthetic "A x".
+    const live = [
+      { id: "license", question: "Do I need a driving licence?", answer: "Yes — a valid driving licence matching your vehicle (car or motorcycle) is required, and you must bring it at pickup. An international permit is recommended if your licence is not in the Latin alphabet." },
+      { id: "age", question: "What is the minimum age to rent?", answer: "You must be at least 18 years old and hold a valid licence to rent and drive." },
+      { id: "helmet", question: "Do scooters come with a helmet?", answer: "Yes. For every scooter rental a helmet is included free for each rider, plus a second for a passenger — wearing one is mandatory by law on Rodrigues. Cars are delivered fully road-ready." },
+      { id: "insurance", question: "Is insurance included?", answer: "Basic third-party insurance is included with every rental. Please drive responsibly and follow local road rules — full terms are shared at pickup." },
+      { id: "delivery", question: "Can you deliver the vehicle to my hotel?", answer: "Yes — we can deliver to and collect from your hotel or guesthouse anywhere on the island. Just let us know your location when you book." },
+      { id: "fuel", question: "What about fuel?", answer: "Your vehicle is delivered ready to go. We simply ask that you return it with a similar fuel level, or we settle the small difference." },
+      { id: "breakdown", question: "What happens if the vehicle breaks down?", answer: "Call or WhatsApp us any time — we offer support and, if needed, a replacement vehicle so your trip is never interrupted." },
+      { id: "deposit", question: "Do you take a deposit?", answer: "A security deposit of Rs 5,000 applies to car rentals. It is separate from the part-payment that confirms your booking online, and full terms are shared at pickup." },
+      { id: "mileage", question: "Is there a mileage limit?", answer: "No. There is no mileage limit on our rentals, so you can drive as much of the island as you like." },
+      { id: "faq-min-duration", question: "Is there a minimum rental duration?", answer: "No. You can rent for a single day if that is all you need. There is no three-day minimum and no long-stay requirement, so you can book exactly the dates you want." },
+    ];
+    const picked = pickConditions(live, "kayak", "equipment");
+    expect(picked).toHaveLength(2);
+    const words = picked.map((c) => `${c.question} ${c.answer}`).join(" ");
+    expect(words).not.toMatch(/licen[cs]e|fuel|mileage|5,000|helmet|road|drive|scooter|\bcar\b/i);
+  });
+
+  it("renders a panel with no driving terms in it", async () => {
+    const { default: RentalConditions } = await import("@/components/RentalConditions");
+    const items = pickConditions(DEFAULT_CONTENT.faq?.items, "kayak", "equipment");
+    const html = renderToStaticMarkup(createElement(RentalConditions, { items }));
+    expect(html).toContain("BEFORE YOU BOOK");
+    expect(html).not.toMatch(/licen[cs]e|fuel|mileage|5,000|helmet|third-party/i);
+  });
+});
+
+// ── "motor" IS TODAY, EXACTLY ──────────────────────────────────────────────
+//
+// rentalKind is optional and no live category sets it, so the two-argument
+// call every page made before must be indistinguishable from saying "motor".
+describe("motor, or no kind at all, changes nothing", () => {
+  const real = DEFAULT_CONTENT.faq?.items;
+
+  it("returns the same list with and without 'motor', for every category", () => {
+    for (const cat of ["scooter", "car", "motorbike", "kayak", undefined]) {
+      expect(pickConditions(real, cat, "motor")).toEqual(pickConditions(real, cat));
+    }
+  });
+
+  it("still gives a car the deposit and a scooter the helmet", () => {
+    expect(pickConditions(real, "car", "motor").map((c) => c.id)).toContain("deposit");
+    expect(pickConditions(real, "scooter", "motor").map((c) => c.id)).toContain("helmet");
+    expect(pickConditions(real, "car", "motor").map((c) => c.id)).toContain("license");
+  });
+});
+
+describe("rentalKindOf", () => {
+  const cats = [
+    { id: "scooter", label: "Scooters", enabled: true },
+    { id: "kayak", label: "Kayaks", enabled: false, rentalKind: "equipment" as const },
+    { id: "car", label: "Cars", enabled: true, rentalKind: "motor" as const },
+  ];
+
+  it("reads 'equipment' from the category", () => {
+    expect(rentalKindOf(cats, "kayak")).toBe("equipment");
+  });
+
+  it("is 'motor' when the field is absent — every category live today", () => {
+    expect(rentalKindOf(cats, "scooter")).toBe("motor");
+    expect(rentalKindOf(cats, "car")).toBe("motor");
+  });
+
+  it("is 'motor' for a category that is not in the list, or no list at all", () => {
+    expect(rentalKindOf(cats, "hovercraft")).toBe("motor");
+    expect(rentalKindOf(undefined, "kayak")).toBe("motor");
+    expect(rentalKindOf(cats, undefined)).toBe("motor");
+  });
+
+  it("does not guess from a value it does not know", () => {
+    // site_content is hand-edited JSON. Only the exact word switches the
+    // motor terms off; anything else keeps today's page.
+    expect(rentalKindOf([{ id: "x", rentalKind: "Equipment" }], "x")).toBe("motor");
   });
 });
 

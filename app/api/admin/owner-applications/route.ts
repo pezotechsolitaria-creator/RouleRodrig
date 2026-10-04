@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifySession, COOKIE_NAME } from "@/lib/auth";
 import { getPrivileged } from "@/lib/supabase/admin";
+import { auditDeletedRows } from "@/lib/admin/audit-delete";
 
 function isAuthed(req: NextRequest) {
   return verifySession(req.cookies.get(COOKIE_NAME)?.value);
@@ -83,7 +84,17 @@ export async function DELETE(req: NextRequest) {
   const id = req.nextUrl.searchParams.get("id");
   if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
   const supabase = await getPrivileged();
-  const { error } = await supabase.from("owner_applications").delete().eq("id", id);
+  // `.select()` returns the row this removed, for the trail (architecture
+  // review 2026-09-30, item 3). The delete itself is unchanged. The document
+  // paths stay out of the trail: it records what was removed, not where the
+  // applicant's ID card is kept.
+  const { data: gone, error } = await supabase.from("owner_applications").delete().eq("id", id).select();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  await auditDeletedRows(supabase, {
+    action: "owner_application.delete",
+    entityType: "owner_application",
+    rows: gone,
+    keys: ["owner_name", "email", "phone", "listing_type", "business_name", "status", "created_at"],
+  });
   return NextResponse.json({ ok: true });
 }

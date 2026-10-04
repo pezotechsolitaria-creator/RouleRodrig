@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifySession, COOKIE_NAME } from "@/lib/auth";
 import { getPrivileged } from "@/lib/supabase/admin";
+import { audit } from "@/lib/admin/audit";
 
 function isAuthed(req: NextRequest) {
   return verifySession(req.cookies.get(COOKIE_NAME)?.value);
@@ -71,7 +72,24 @@ export async function DELETE(req: NextRequest) {
   const question = (body.question ?? "").trim();
   if (!question) return NextResponse.json({ error: "Missing question" }, { status: 400 });
   const supabase = await getPrivileged();
-  const { error } = await supabase.from("lead_events").delete().eq("kind", "tiroule_miss").eq("target_name", question);
+  // `.select()` returns the rows this removed, so the trail can say how many
+  // (architecture review 2026-09-30, item 3). The delete itself is unchanged.
+  const { data: gone, error } = await supabase
+    .from("lead_events")
+    .delete()
+    .eq("kind", "tiroule_miss")
+    .eq("target_name", question)
+    .select("created_at");
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  // One line per question, not one per time it was asked: the rows are the
+  // same question, and the count is what the owner cleared.
+  if (Array.isArray(gone) && gone.length > 0) {
+    await audit(supabase, {
+      action: "tiroule_question.clear",
+      entityType: "lead_events",
+      entityId: null,
+      diff: { question, rowsDeleted: gone.length },
+    });
+  }
   return NextResponse.json({ ok: true });
 }

@@ -1,6 +1,9 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync, existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
+import { NextRequest } from "next/server";
+import { middleware } from "@/middleware";
+import { GUIDE_PAGES } from "@/lib/nav/hubs";
 
 const MW = readFileSync("middleware.ts", "utf8");
 
@@ -70,5 +73,62 @@ describe("guessed URLs land on real pages", () => {
   it("redirects temporarily, so a destination can still move", () => {
     const at = MW.indexOf("const guessed");
     expect(MW.slice(at, at + 400)).toMatch(/307/);
+  });
+});
+
+// ── WHAT THE MIDDLEWARE ACTUALLY ANSWERS (architecture review 2026-09-30) ───
+//
+// The tests above read the map; these ask the real middleware() and read the
+// response, so a redirect that is in the map but never reached — shadowed by
+// an earlier rule, or a trailing slash — fails here.
+
+async function ask(path: string) {
+  const req = new NextRequest(`https://roulerodrig.com${path}`, {
+    headers: { host: "roulerodrig.com" },
+  });
+  const res = await middleware(req);
+  const location = res.headers.get("location");
+  return {
+    status: res.status,
+    to: location ? new URL(location).pathname + new URL(location).hash : null,
+  };
+}
+
+describe("/local-guide is the guide at /guide", () => {
+  it("sends /local-guide to the guide hub, 307", async () => {
+    expect(await ask("/local-guide")).toEqual({ status: 307, to: "/guide" });
+    expect(await ask("/local-guide/")).toEqual({ status: 307, to: "/guide" });
+  });
+
+  it("sends /local-guide/<page> to that guide page when the guide has it", async () => {
+    // Every page the guide has, not a sample: GUIDE_PAGES is the complete list.
+    for (const g of GUIDE_PAGES) {
+      const page = g.href.replace(/^\/guide/, "");
+      expect(await ask(`/local-guide${page}`), g.href).toEqual({ status: 307, to: g.href });
+      expect(await ask(`/local-guide${page}/`), `${g.href}/`).toEqual({ status: 307, to: g.href });
+    }
+  });
+
+  it("sends a /local-guide/<page> the guide does not have to the hub, never a made-up URL", async () => {
+    for (const path of ["/local-guide/port-mathurin", "/local-guide/beaches/anse-ally", "/local-guide/x"]) {
+      expect(await ask(path), path).toEqual({ status: 307, to: "/guide" });
+    }
+  });
+
+  it("leaves the real guide URLs alone", async () => {
+    // /guide/* is indexed and hreflang-paired: nothing here may move it.
+    for (const path of ["/guide", "/guide/beaches"]) {
+      const res = await ask(path);
+      expect(res.to, path).toBeNull();
+      expect(res.status, path).toBe(200);
+    }
+  });
+});
+
+describe("/rentals is the Rentals branch of the marketplace", () => {
+  it("sends /rentals to /marketplace#rentals, 307", async () => {
+    // The anchor is asserted on the rendered page in
+    // app/marketplace/marketplace-tree.test.ts.
+    expect(await ask("/rentals")).toEqual({ status: 307, to: "/marketplace#rentals" });
   });
 });

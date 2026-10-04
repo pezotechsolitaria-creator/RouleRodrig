@@ -147,7 +147,21 @@ type PlaceInput = {
   category?: string;
   lat?: number;
   lng?: number;
-  image?: string;
+  /** One photo, or every photo the page shows. */
+  image?: string | string[];
+  /**
+   * The address a reader can open to find this place: its own page, or its
+   * #anchor on the theme guide (".../guide/beaches#trou-d-argent"). Becomes the
+   * node's `url` and, unless `id` is given, its `@id` — so /map, a location page
+   * or any other node can refer to the same place instead of describing a
+   * second one (architecture review 2026-09-30, item 4). Pass only an anchor
+   * the page actually renders.
+   */
+  url?: string;
+  /** A distinct @id, when the url is a page that has other nodes on it. */
+  id?: string;
+  /** A schema type that overrides the category mapping below. */
+  type?: string;
 };
 
 // Map our island-guide categories onto real schema.org types. Anything we
@@ -164,12 +178,15 @@ const PLACE_TYPE: Record<string, string> = {
 };
 
 export function placeLd(p: PlaceInput) {
+  const images = (Array.isArray(p.image) ? p.image : [p.image]).filter((s): s is string => !!s);
   return {
     "@context": "https://schema.org",
-    "@type": PLACE_TYPE[p.category ?? ""] ?? "TouristAttraction",
+    "@type": p.type ?? PLACE_TYPE[p.category ?? ""] ?? "TouristAttraction",
+    ...(p.id || p.url ? { "@id": p.id ?? p.url } : {}),
     name: p.name,
+    ...(p.url ? { url: p.url } : {}),
     ...(p.description ? { description: p.description } : {}),
-    ...(p.image ? { image: p.image } : {}),
+    ...(images.length ? { image: images.length === 1 ? images[0] : images } : {}),
     address: {
       "@type": "PostalAddress",
       addressLocality: "Rodrigues",
@@ -193,6 +210,10 @@ type ProductInput = {
   rating?: { avg: number; count: number };
   /** Fleet category slug — picks the schema type (Motorcycle vs Car). */
   category?: string;
+  /** The category's rentalKind (architecture review 2026-09-30). "equipment"
+   *  is always a plain Product, whatever the category id says; undefined or
+   *  "motor" keeps the Car / Motorcycle / Product choice by category. */
+  rentalKind?: "motor" | "equipment";
 };
 
 // Model → manufacturer. Every entry is a real, checkable fact: Burgman and
@@ -232,12 +253,18 @@ function brandOf(name: string): string | null {
 // invent a rating: fake stars are the fastest way to lose rich results.
 export function productLd(p: ProductInput) {
   const brand = brandOf(p.name);
+  // A kayak or a snorkel set is not a Car or a Motorcycle, and a Vehicle
+  // subtype invites vehicle properties nobody could fill truthfully. The Offer
+  // below — LeaseOut, a per-DAY UnitPriceSpecification — is identical for
+  // every kind, because the booking engine prices them identically.
   const type =
-    p.category === "car"
-      ? "Car"
-      : p.category === "scooter"
-        ? "Motorcycle"
-        : "Product";
+    p.rentalKind === "equipment"
+      ? "Product"
+      : p.category === "car"
+        ? "Car"
+        : p.category === "scooter"
+          ? "Motorcycle"
+          : "Product";
   return {
     "@type": type,
     name: p.name,

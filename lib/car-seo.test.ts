@@ -70,7 +70,9 @@ describe("the page does not promise things that are not true", () => {
     // hardcoded "Helmet included" and "Free scooter delivery" with no category
     // awareness — both false beside a Rs 600 car delivery fee.
     expect(TRUST).toContain("category === \"car\" ? CAR : SCOOTER");
-    expect(BROWSE).toContain("<TrustBar category={vcat.id} />");
+    // Plus the category's rentalKind since the architecture review of
+    // 2026-09-30; app/browse/equipment-category-page.test.ts renders it.
+    expect(BROWSE).toContain("<TrustBar category={vcat.id} kind={kind} />");
   });
 });
 

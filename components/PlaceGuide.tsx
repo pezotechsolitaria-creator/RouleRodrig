@@ -1,11 +1,25 @@
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight, MapPin, Mountain, Navigation } from "lucide-react";
+import { ArrowRight, BookOpen, Map as MapIcon, MapPin, Mountain, Navigation } from "lucide-react";
 import type { MapLocation } from "@/lib/defaults";
 import PlaceDiscovery from "@/components/PlaceDiscovery";
 import { loc } from "@/lib/localize";
 import { realProse } from "@/lib/place-prose";
+import { placeAnchors } from "@/lib/guide/location-page-gate";
+import { mapEntryHref } from "@/lib/guide/places";
 import type { Language } from "@/lib/i18n";
+
+// Chrome added by the architecture review 2026-09-30 (items 3, 8), in the three
+// languages a guide page can be rendered in. Kept here rather than in
+// lib/i18n.ts: these are server-rendered strings for a crawler, picked by the
+// page's `lang` prop, not by the visitor's client-side language.
+const MORE: Record<Language, { onMap: string; fullPage: string; atAGlance: string }> = {
+  en: { onMap: "On the map", fullPage: "Read the full page", atAGlance: "Every place at a glance" },
+  fr: { onMap: "Voir sur la carte", fullPage: "Lire la page complète", atAGlance: "Tous les lieux en un coup d'œil" },
+  // "Get lor kart" is the Kreol the map chrome already uses (lib/i18n.ts
+  // viewOnMap), so the two read as one site.
+  cr: { onMap: "Get lor kart", fullPage: "Get so paz", atAGlance: "Tou bann plas" },
+};
 
 // A themed island-guide page (beaches, viewpoints…) built from the real
 // mapLocations the owner maintains in admin.
@@ -16,6 +30,11 @@ import type { Language } from "@/lib/i18n";
 // content is ~1,300 words of genuinely local writing plus 60+ original photos —
 // which is worth ranking. If Search Console later shows a single place pulling
 // real impressions, split that one out into its own deep page.
+//
+// That split now has a door and a lock (architecture review 2026-09-30): a
+// place the owner writes a long read for gets /guide/<slug> only when it passes
+// lib/guide/location-page-gate.ts, and its entry here then links to it. Below
+// the gate, this page is still the one place its writing lives.
 
 export default function PlaceGuide({
   eyebrow,
@@ -27,6 +46,8 @@ export default function PlaceGuide({
   sibling,
   lang = "en",
   labels,
+  anchors,
+  pages = {},
 }: {
   eyebrow: string;
   title: string;
@@ -34,6 +55,15 @@ export default function PlaceGuide({
   places: MapLocation[];
   /** This page's own path, so a card can deep-link to its long-form entry. */
   guideHref: string;
+  /**
+   * id → #anchor, from placeAnchors() over ALL map locations, so the anchor
+   * here is the one /map and every other page link to (item 3). Omitted, the
+   * anchors are made from this page's own places — right for a page nothing
+   * else deep-links into.
+   */
+  anchors?: Record<string, string>;
+  /** id → /guide/<slug> for the places that have earned a page of their own. */
+  pages?: Record<string, string>;
   related: { href: string; label: string }[];
   /**
    * The other half of this pair, shown as a band ABOVE the fold.
@@ -55,6 +85,14 @@ export default function PlaceGuide({
     directions: "Get directions",
     keepExploring: "Keep exploring",
   };
+  const more = MORE[lang] ?? MORE.en;
+  const anchorOf = anchors ?? placeAnchors(places);
+  // Each article's id is its readable anchor now ("trou-d-argent"), not the
+  // admin's timestamp id. Links already out there — /explore, the homepage,
+  // the curated world and PlaceDiscovery's own cards — still say #loc-17…, so
+  // that id stays on the page as a second, empty target. Only where it cannot
+  // clash with another place's anchor.
+  const anchorSet = new Set(places.map((p) => anchorOf[p.id] ?? p.id));
   return (
     // Scoped to the content, since the root layout owns <html lang>. Fixes
     // screen-reader pronunciation; Google reads the content itself.
@@ -112,7 +150,15 @@ export default function PlaceGuide({
           The article below is NOT removed. It is ~1,300 words of genuinely
           local writing plus 60+ original photos and it earns real search
           traffic — Google reads the whole page either way, so demoting the
-          prose costs nothing and deleting it would cost the channel. */}
+          prose costs nothing and deleting it would cost the channel.
+
+          The cards title each place with an h3, and they come BEFORE the
+          articles' h2s: the outline read h1 → h3, skipping a level, which is
+          what a screen reader's heading list and an accessibility audit both
+          flag (architecture review 2026-09-30, item 8). A visually hidden h2
+          heads the grid, so it reads h1 → h2 → h3 → h2 with no change to the
+          page anybody sees. */}
+      {places.length > 0 && <h2 className="sr-only">{more.atAGlance}</h2>}
       <PlaceDiscovery places={places} guideHref={guideHref} />
 
       <div id="guide" className="mx-auto max-w-3xl px-5 pb-14 pt-4">
@@ -129,8 +175,12 @@ export default function PlaceGuide({
             // description was printing the stub above the story.
             const description = realProse(loc(lang, p.description, p.descriptionFr, p.descriptionCr));
             const story = realProse(loc(lang, p.story, p.storyFr, p.storyCr));
+            const anchor = anchorOf[p.id] ?? p.id;
+            const legacy = p.id !== anchor && !anchorSet.has(p.id);
+            const page = pages[p.id];
             return (
-              <article key={p.id} id={p.id} className="scroll-mt-24">
+              <article key={p.id} id={anchor} className="scroll-mt-24">
+                {legacy && <span id={p.id} aria-hidden="true" className="block scroll-mt-24" />}
                 <h2 className="font-syne text-2xl md:text-3xl font-bold text-offwhite">{name}</h2>
                 <p className="mt-2 flex items-center gap-1.5 font-dm text-xs text-muted">
                   <MapPin size={13} className="text-yellow/70 shrink-0" />
@@ -164,14 +214,37 @@ export default function PlaceGuide({
                   </div>
                 )}
 
-                <a
-                  href={maps}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="mt-4 inline-flex items-center gap-1.5 font-dm text-sm text-yellow/80 hover:text-yellow transition-colors"
-                >
-                  <Navigation size={14} /> {L.directions}
-                </a>
+                {/* min-h-11: three small text links side by side under every
+                    place, on a phone — each gets the 44px row the repo's other
+                    guide controls have. */}
+                <div className="mt-3 flex flex-wrap items-center gap-x-5">
+                  {/* The place's own page, when it has earned one — the only
+                      link into it from the guide it deepens (item 2). */}
+                  {page && (
+                    <Link
+                      href={page}
+                      className="inline-flex min-h-11 items-center gap-1.5 font-dm text-sm font-bold text-yellow hover:underline"
+                    >
+                      <BookOpen size={14} /> {more.fullPage}
+                    </Link>
+                  )}
+                  <a
+                    href={maps}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex min-h-11 items-center gap-1.5 font-dm text-sm text-yellow/80 hover:text-yellow transition-colors"
+                  >
+                    <Navigation size={14} /> {L.directions}
+                  </a>
+                  {/* Its row on the island map, which scrolls to it (item 3).
+                      The map and the guides used to link each other nowhere. */}
+                  <Link
+                    href={mapEntryHref(p, anchorOf)}
+                    className="inline-flex min-h-11 items-center gap-1.5 font-dm text-sm text-yellow/80 hover:text-yellow transition-colors"
+                  >
+                    <MapIcon size={14} /> {more.onMap}
+                  </Link>
+                </div>
               </article>
             );
           })}

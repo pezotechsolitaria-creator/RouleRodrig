@@ -98,11 +98,16 @@ export default async function CustomerOrdersPage({
   // because that list is paginated and searchable over `orders` specifically;
   // interleaving a second source would break both. Bookings are few, so they
   // need neither.
-  const { activities, partial } = await listActivitiesForCustomer({
+  //
+  // The feed holds no orders: it used to read them with the service role only
+  // for this line to filter them out (architecture review 2026-09-30, item 5).
+  // It also leaves out a delivery the customer cleared on /deliver, unless a
+  // driver is on it, and reads each delivery's stage from its latest leg
+  // (items 1 and 2) — see lib/activity-server.ts.
+  const { activities: bookings, partial } = await listActivitiesForCustomer({
     verifiedEmail: user.email ?? null,
     userId: user.id,
   });
-  const bookings = activities.filter((a) => a.kind !== "order");
   const grouped = groupActivities(bookings);
   // M220: what a booking's amount IS, when a bare figure would read as paid.
   const amountNotes: AmountNotes = {

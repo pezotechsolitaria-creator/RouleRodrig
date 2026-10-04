@@ -19,6 +19,10 @@ export default async function AdminContentPage() {
   // Uncached on purpose: this seeds an editor that saves back. getContent() is
   // cached across requests for the public site — editing a stale copy of a
   // 148,807-byte blob and saving it would silently revert the owner's work.
-  const content = (await getContentWithStatus()).content;
-  return <AdminDashboard initialContent={content} />;
+  //
+  // The version travels with it (architecture review 2026-09-30, item 4): the
+  // studio sends it back on Save, and the route refuses with 409 if another
+  // tab, /admin/legal or a history restore has written the row since.
+  const { content, updatedAt } = await getContentWithStatus();
+  return <AdminDashboard initialContent={content} initialVersion={updatedAt} />;
 }

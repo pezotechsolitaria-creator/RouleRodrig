@@ -1,15 +1,24 @@
 import "server-only";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { getPrivileged, hasServiceRole } from "@/lib/supabase/admin";
 import { vehicleName } from "@/lib/vehicle-name";
-import { STATUS_LABEL, type OrderStatus } from "@/lib/orders/status";
+import { IN_PROGRESS_LEGS } from "@/lib/delivery/clear";
 import {
-  vehicleToActivity, placeToActivity, orderToActivity,
+  vehicleToActivity, placeToActivity,
   rideToActivity, deliveryToActivity, serviceToActivity,
   compareActivities, type Activity,
 } from "@/lib/activity";
 
-// Everything a SIGNED-IN customer has booked or ordered, from all five
-// backends, as one list.
+// Everything a SIGNED-IN customer has booked, from every backend except
+// `orders`, as one list.
+//
+// ── NO ORDERS HERE (architecture review 2026-09-30, item 5) ────────────────
+// This read `orders` too, with the service role, 50 rows on every /orders
+// load — and its only caller, app/orders/page.tsx, threw every one away
+// (`kind !== "order"`), because it lists orders itself on the customer's own
+// session, paginated and searchable, under RLS. A privileged read nobody uses
+// is a cost and a risk with no reader, so it is gone. A caller that ever wants
+// orders in this feed should read them on the user's session, as that page does.
 //
 // ── WHY THIS IS SAFE HERE AND NOT ON THE GUEST PAGE ────────────────────────
 // The guest lookup is deliberately two-factor and returns only the one item
@@ -22,25 +31,39 @@ import {
 // this module, and it is why the parameter is documented as "verified".
 //
 // ── WHY IT NEEDS THE SERVICE ROLE ──────────────────────────────────────────
-// `bookings` and `place_bookings` are the original lead-gen tables: anon may
-// INSERT and nobody may SELECT. They have no customer_id column at all — they
-// predate Supabase Auth on this project and are keyed by EMAIL. So there is no
-// RLS policy that could express "this signed-in user's rentals", and weakening
-// one to invent it would open those tables far wider than this page needs.
-// Reading them with the service role, filtered by the session's verified email,
-// is narrower than any policy that would have worked.
+// `bookings` and `place_bookings` are the original lead-gen tables: since M221
+// only the service role writes them, and RLS lets no client read them. They
+// have no customer_id column at all — they predate Supabase Auth on this project and
+// are keyed by EMAIL. So there is no RLS policy that could express "this
+// signed-in user's rentals", and weakening one to invent it would open those
+// tables far wider than this page needs. Reading them with the service role,
+// filtered by the session's verified email, is narrower than any policy that
+// would have worked.
+//
+// ── A CLEAR ON /deliver MEANS THE SAME HERE (architecture review 2026-09-30,
+//    item 1) ──────────────────────────────────────────────────────────────────
+// M227 lets a customer clear a request from "Your requests" with a marker row
+// in delivery_request_hidden; only my_delivery_requests() read it, so a request
+// cleared there was still listed on this page. The marker is read here too and
+// a cleared request is left out — EXCEPT while a delivery leg is in progress
+// (lib/delivery/clear.ts, IN_PROGRESS_LEGS, the list M227's SQL refuses to
+// clear): a job with a driver on it must never vanish from the customer who is
+// waiting for it. Archived requests (M193 archived_at) are NOT filtered: this
+// page is "the full history on this account", and archiving is housekeeping,
+// not the customer's choice.
 
 export type ActivityFeed = {
   activities: Activity[];
-  /** True when the rental/place tables could not be read, so the UI can say so
-   *  rather than implying the customer has no bookings. */
+  /** True when a source could not be read — or a delivery's legs could not,
+   *  so its stage may be behind — and the UI says so rather than implying the
+   *  customer has no bookings, or that a finished job is still coming. */
   partial: boolean;
 };
 
 export async function listActivitiesForCustomer(opts: {
   /** From auth.getUser(). NEVER from a request parameter. */
   verifiedEmail: string | null;
-  /** auth.uid(), used for the orders table which does have customer_id. */
+  /** auth.uid(): delivery requests and trade appointments carry it. */
   userId: string;
 }): Promise<ActivityFeed> {
   const today = new Date().toISOString().split("T")[0];
@@ -56,7 +79,7 @@ export async function listActivitiesForCustomer(opts: {
   const admin = await getPrivileged();
   const email = opts.verifiedEmail?.trim().toLowerCase() ?? "";
 
-  const [vehicles, places, orders, rides, deliveriesMine, deliveriesGuest, bookings] =
+  const [vehicles, places, rides, deliveriesMine, deliveriesGuest, bookings] =
     await Promise.all([
     email
       ? admin
@@ -76,12 +99,6 @@ export async function listActivitiesForCustomer(opts: {
           .order("start_date", { ascending: false })
           .limit(50)
       : Promise.resolve({ data: [], error: null }),
-    admin
-      .from("orders")
-      .select("id, order_number, status, total, currency, placed_at, created_at, pickup_slot, stores(name)")
-      .eq("customer_id", opts.userId)
-      .order("created_at", { ascending: false })
-      .limit(50),
     // ── THE TWO THAT MADE PEOPLE TYPE A REFERENCE ──────────────────────────
     // A taxi and a delivery are as much "a thing I booked" as a scooter is,
     // and both were absent here — so a signed-in customer was sent to a lookup
@@ -101,9 +118,10 @@ export async function listActivitiesForCustomer(opts: {
     // customer who requested one while signed in has customer_id, and one who
     // requested it as a guest before signing up has only guest_email. Matching
     // on the id alone would hide a customer's own earlier requests from them.
+    // expires_at: an open request past it is expired, whatever the sweep did.
     admin
       .from("delivery_requests")
-      .select("id, what, pickup_text, dropoff_text, created_at, status")
+      .select("id, what, pickup_text, dropoff_text, created_at, status, expires_at")
       .eq("customer_id", opts.userId)
       .order("created_at", { ascending: false })
       .limit(50),
@@ -115,7 +133,7 @@ export async function listActivitiesForCustomer(opts: {
     email
       ? admin
           .from("delivery_requests")
-          .select("id, what, pickup_text, dropoff_text, created_at, status")
+          .select("id, what, pickup_text, dropoff_text, created_at, status, expires_at")
           .ilike("guest_email", email)
           .order("created_at", { ascending: false })
           .limit(50)
@@ -137,7 +155,6 @@ export async function listActivitiesForCustomer(opts: {
 
   if (vehicles.error) { console.error("activity feed: bookings failed", vehicles.error); partial = true; }
   if (places.error) { console.error("activity feed: place_bookings failed", places.error); partial = true; }
-  if (orders.error) { console.error("activity feed: orders failed", orders.error); partial = true; }
   if (rides.error) { console.error("activity feed: ride_requests failed", rides.error); partial = true; }
   if (deliveriesMine.error) { console.error("activity feed: delivery_requests (account) failed", deliveriesMine.error); partial = true; }
   if (deliveriesGuest.error) { console.error("activity feed: delivery_requests (guest) failed", deliveriesGuest.error); partial = true; }
@@ -187,26 +204,6 @@ export async function listActivitiesForCustomer(opts: {
     );
   }
 
-  for (const row of (orders.data ?? []) as Record<string, unknown>[]) {
-    const store = Array.isArray(row.stores) ? row.stores[0] : row.stores;
-    activities.push(
-      orderToActivity(
-        {
-          id: String(row.id),
-          order_number: row.order_number as string | null,
-          status: row.status as string | null,
-          total: row.total as number | null,
-          currency: row.currency as string | null,
-          placed_at: row.placed_at as string | null,
-          created_at: row.created_at as string | null,
-          storeName: (store as { name?: string } | null)?.name ?? null,
-          pickup_slot: row.pickup_slot as string | null,
-        },
-        STATUS_LABEL[row.status as OrderStatus],
-      ),
-    );
-  }
-
   for (const row of (rides.data ?? []) as Record<string, unknown>[]) {
     activities.push(
       rideToActivity({
@@ -232,15 +229,29 @@ export async function listActivitiesForCustomer(opts: {
       deliveryRows.set(String(row.id), row);
     }
   }
+  const facts = await readDeliveryFacts(admin, [...deliveryRows.keys()]);
+  // The customer is told the list may be behind rather than shown "Driver
+  // booked" on a job that has ended, with nothing to say it could be stale.
+  // Only accepted requests have legs, so only they can be behind.
+  const anyAccepted = [...deliveryRows.values()].some((r) => r.status === "accepted");
+  if (!facts.legsKnown && anyAccepted) partial = true;
+
   for (const row of deliveryRows.values()) {
+    const id = String(row.id);
+    if (clearedAndIdle(id, row.status as string | null, facts)) continue;
+    const legs = facts.legs.get(id);
     activities.push(
       deliveryToActivity({
-        id: String(row.id),
+        id,
         what: row.what as string | null,
         pickup_text: row.pickup_text as string | null,
         dropoff_text: row.dropoff_text as string | null,
         created_at: row.created_at as string | null,
         status: row.status as string | null,
+        expires_at: row.expires_at as string | null,
+        // Newest first (see readDeliveryFacts), as my_delivery_requests()
+        // picks it: `order by d.created_at desc limit 1`.
+        delivery_status: legs?.[0] ?? null,
       }),
     );
   }
@@ -262,4 +273,67 @@ export async function listActivitiesForCustomer(opts: {
   }
 
   return { activities: activities.sort(compareActivities), partial };
+}
+
+// ── The two facts a delivery row does not carry ─────────────────────────────
+// Whether the customer cleared it (M227's marker), and where its deliveries
+// are (every leg, newest first). One round trip for both, and none at all for
+// a customer who has never asked for a delivery.
+type DeliveryFacts = {
+  hidden: Set<string>;
+  /** request id -> its deliveries.status values, newest first. */
+  legs: Map<string, string[]>;
+  /** False when the legs could not be read: nothing is known to be over. */
+  legsKnown: boolean;
+};
+
+async function readDeliveryFacts(admin: SupabaseClient, ids: string[]): Promise<DeliveryFacts> {
+  const facts: DeliveryFacts = { hidden: new Set(), legs: new Map(), legsKnown: true };
+  if (ids.length === 0) return facts;
+
+  const [marks, legs] = await Promise.all([
+    // Service role only: the table has RLS on, no policies and no client
+    // grants (M227), exactly as it should stay.
+    admin.from("delivery_request_hidden").select("request_id").in("request_id", ids),
+    admin
+      .from("deliveries")
+      .select("request_id, status, created_at")
+      .in("request_id", ids)
+      .order("created_at", { ascending: false }),
+  ]);
+
+  if (marks.error) {
+    // Fails OPEN: a cleared request shows again, which is the old behaviour
+    // and loses nothing. Hiding on a failed read could hide a live job.
+    console.error("activity feed: delivery_request_hidden failed", marks.error);
+  } else {
+    for (const m of (marks.data ?? []) as { request_id: string }[]) facts.hidden.add(String(m.request_id));
+  }
+
+  if (legs.error) {
+    console.error("activity feed: deliveries failed", legs.error);
+    facts.legsKnown = false;
+  } else {
+    for (const d of (legs.data ?? []) as { request_id: string; status: string }[]) {
+      const list = facts.legs.get(String(d.request_id)) ?? [];
+      list.push(String(d.status));
+      facts.legs.set(String(d.request_id), list);
+    }
+  }
+  return facts;
+}
+
+/**
+ * Cleared by the customer, and nobody is on it. ANY leg in progress keeps it
+ * listed — the same test set_delivery_request_hidden() applies before it
+ * accepts a clear, so a request that was cleared while open and accepted later
+ * (the tracker link still works) comes back the moment a driver has it.
+ */
+function clearedAndIdle(id: string, status: string | null, facts: DeliveryFacts): boolean {
+  if (!facts.hidden.has(id)) return false;
+  // Legs unknown: only an accepted request can have a driver on it, so only
+  // that one stays listed on doubt.
+  if (!facts.legsKnown) return status !== "accepted";
+  const legs = facts.legs.get(id) ?? [];
+  return !legs.some((s) => (IN_PROGRESS_LEGS as readonly string[]).includes(s));
 }

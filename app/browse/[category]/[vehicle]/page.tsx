@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Check, ChevronRight } from "lucide-react";
+import { ArrowLeft, Check, ChevronRight, MessageCircle } from "lucide-react";
 import { SITE_URL } from "@/lib/site";
 import {
   getFleetView,
@@ -13,8 +13,8 @@ import { realCopy } from "@/lib/placeholder-copy";
 import { costTiers } from "@/lib/vehicle-cost";
 import { vehicleMetaTitle } from "@/lib/browse-copy";
 import { breadcrumbLd, productLd, sellerLd } from "@/lib/schema";
-import { pickConditions } from "@/lib/rental-conditions";
-import { findVehicle, vehicleName, vehicleSlug } from "@/lib/vehicle-slug";
+import { pickConditions, rentalKindOf } from "@/lib/rental-conditions";
+import { findVehicleUnits, unitToBook, vehicleName, vehicleSlug } from "@/lib/vehicle-slug";
 import JsonLd from "@/components/JsonLd";
 import RentalConditions from "@/components/RentalConditions";
 import AppPageHeader from "@/components/AppPageHeader";
@@ -40,11 +40,41 @@ import { vehicleMetaDescription } from "@/lib/vehicle-meta";
 
 export const revalidate = 60;
 
+// "Where people take it" (the block's own comment, below, says why these are
+// hand-picked). Scooter and car are the two lists that shipped, unchanged.
+// Every other category used to get the scooter list — "Scooter routes" under a
+// motorbike or a kayak (architecture review 2026-09-30).
+const TAKE_IT: Record<string, { href: string; label: string }[]> = {
+  car: [
+    { href: "/guide/routes", label: "Island routes" },
+    { href: "/guide/beaches", label: "Best beaches" },
+    { href: "/blog/how-many-days-in-rodrigues", label: "How many days you need" },
+  ],
+  scooter: [
+    { href: "/guide/routes", label: "Scooter routes" },
+    { href: "/guide/beaches", label: "Best beaches" },
+    { href: "/guide/viewpoints", label: "Hidden viewpoints" },
+  ],
+};
+/** Another motor category (motorbike, e-bike): the scooter's three places,
+ *  without calling the vehicle a scooter. */
+const TAKE_IT_MOTOR = [
+  { href: "/guide/routes", label: "Island routes" },
+  { href: "/guide/beaches", label: "Best beaches" },
+  { href: "/guide/viewpoints", label: "Hidden viewpoints" },
+];
+/** Equipment is not driven anywhere, so no road routes: the beaches it is
+ *  taken to, the island guide, and how long to stay. */
+const TAKE_IT_EQUIPMENT = [
+  { href: "/guide/beaches", label: "Best beaches" },
+  { href: "/guide/rodrigues", label: "Island travel guide" },
+  { href: "/blog/how-many-days-in-rodrigues", label: "How many days you need" },
+];
+
 type Props = { params: Promise<{ category: string; vehicle: string }> };
 
 async function resolve(category: string, vehicle: string) {
   const { content, fleet, businessWhatsApp } = await getFleetView();
-  const found = findVehicle(fleet, category, vehicle);
   // ── A DRAFT HAS NO PAGE ─────────────────────────────────────────────────
   // /browse/car/new-cars was live, indexable and IN THE SITEMAP, with the
   // meta description "Add a description for this car." and a price of
@@ -53,7 +83,13 @@ async function resolve(category: string, vehicle: string) {
   //
   // Treated as missing rather than rendered empty: there is no such vehicle to
   // rent, and a thin page in the index drags the whole car cluster with it.
-  const item = found && isSellableFleetItem(found) ? found : undefined;
+  //
+  // ── AND TWIN UNITS ARE ONE PAGE (architecture review 2026-09-30) ─────────
+  // Two AVENIS rows share this URL. `item` is the unit a visitor can actually
+  // book today (lib/vehicle-slug.ts unitToBook), not whichever row came first
+  // — so "Fully booked" needs EVERY twin out, and ?v= names a free one.
+  const units = findVehicleUnits(fleet, category, vehicle).filter(isSellableFleetItem);
+  const item = unitToBook(units);
   return { content, fleet, businessWhatsApp, item };
 }
 
@@ -109,7 +145,20 @@ export default async function VehiclePage({ params }: Props) {
   const slug = vehicleSlug(item);
   const url = `${SITE_URL}/browse/${category}/${slug}`;
   const photos = item.images?.length ? item.images : item.image ? [item.image] : [];
-  const conditions = pickConditions(content.faq?.items, category);
+  // ── THE CATEGORY, NOT "SCOOTER OR CAR" (architecture review 2026-09-30) ──
+  // The breadcrumb, the back link, the withdrawn notice and the guide links
+  // were a car/scooter binary, so a kayak page said "All scooters". The label
+  // is the owner's own ("Scooters", "Cars"), which reads exactly as before on
+  // the two live categories. `kind` drops the licence/fuel/deposit terms and
+  // the Car/Motorcycle schema on equipment; undefined is "motor", as today.
+  const vcat = content.vehicleCategories.find((c) => c.id === category);
+  const kind = rentalKindOf(content.vehicleCategories, category);
+  const label =
+    vcat?.label?.trim() ||
+    (category === "car" ? "Cars" : category === "scooter" ? "Scooters" : "Rentals");
+  const conditions = pickConditions(content.faq?.items, category, kind);
+  const takeIt =
+    TAKE_IT[category] ?? (kind === "equipment" ? TAKE_IT_EQUIPMENT : TAKE_IT_MOTOR);
   const from = priceNumber(item.price);
   // ── TWO DIFFERENT STATES, NOT ONE ─────────────────────────────────────────
   //
@@ -129,9 +178,27 @@ export default async function VehiclePage({ params }: Props) {
   //
   // Nothing is withdrawn in the fleet today, so this has never fired. It would
   // have fired on the owner's first use of the switch.
-  const withdrawn = item.available === false;
+  //
+  // ── A PAUSED CATEGORY WITHDRAWS EVERYTHING IN IT (review 2026-09-30) ─────
+  // The owner pauses a whole category in /admin (he did it to Cars on
+  // 2026-09-09). The category page then says "not available" (M190), but this
+  // page ignored the switch: InStock in the schema, a live "Book the {vehicle}"
+  // button, and that button landed on the paused page with no form on it. A
+  // vehicle in a switched-off category cannot be reserved, which is exactly
+  // what `withdrawn` means here, so it joins that branch. A category missing
+  // from the list is left as it was — that is not a pause.
+  const paused = vcat !== undefined && !vcat.enabled;
+  const withdrawn = item.available === false || paused;
   const busyToday = item.soldOutToday === true;
   const out = withdrawn || busyToday;
+  // "This car", "this scooter" — and for anything else the model's own name,
+  // rather than calling a kayak a scooter.
+  const noun =
+    category === "car" ? "car" : category === "scooter" ? "scooter" : vehicleName(item);
+  const askOnWhatsApp = whatsappHref(
+    businessWhatsApp,
+    `Hi Roule Rodrigues! I'd like to rent the ${vehicleName(item)}.`,
+  );
 
   return (
     <>
@@ -139,7 +206,7 @@ export default async function VehiclePage({ params }: Props) {
         data={[
           breadcrumbLd([
             { name: "Home", url: SITE_URL },
-            { name: category === "car" ? "Cars" : "Scooters", url: `${SITE_URL}/browse/${category}` },
+            { name: label, url: `${SITE_URL}/browse/${category}` },
             { name: vehicleName(item), url },
           ]),
           // The Offer below names this seller; without the node the reference
@@ -157,11 +224,13 @@ export default async function VehiclePage({ params }: Props) {
               image: photos[0],
               price: from ?? null,
               category,
+              rentalKind: kind,
               url,
               // Without this, schema.ts defaults to InStock — so a vehicle
               // the owner had switched off told Google it was available, on a
-              // page that is in the sitemap.
-              available: item.available !== false,
+              // page that is in the sitemap. A paused category is switched
+              // off too (see `paused` above).
+              available: item.available !== false && !paused,
             }),
           },
           // ── FAQPage, and it is honest here ────────────────────────────
@@ -199,7 +268,7 @@ export default async function VehiclePage({ params }: Props) {
             href={`/browse/${category}`}
             className="inline-flex items-center gap-1.5 font-dm text-xs text-muted hover:text-yellow"
           >
-            <ArrowLeft size={13} /> {category === "car" ? "All cars" : "All scooters"}
+            <ArrowLeft size={13} /> All {label.toLowerCase()}
           </Link>
 
           {/* Photos. Server-rendered so a pasted link previews the bike. */}
@@ -241,7 +310,7 @@ export default async function VehiclePage({ params }: Props) {
           {out && (
             <p className="mt-3 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-2.5 font-dm text-sm text-red-200">
               {withdrawn
-                ? `This ${category === "car" ? "car" : "scooter"} is not available to rent at the moment. Message us and we will tell you what else is free for your dates.`
+                ? `This ${noun} is not available to rent at the moment. Message us and we will tell you what else is free for your dates.`
                 : "Fully booked today — pick your dates and we will tell you the moment it is free."}
             </p>
           )}
@@ -357,18 +426,7 @@ export default async function VehiclePage({ params }: Props) {
               Where people take it
             </h2>
             <div className="grid gap-2 sm:grid-cols-3">
-              {(category === "car"
-                ? [
-                    { href: "/guide/routes", label: "Island routes" },
-                    { href: "/guide/beaches", label: "Best beaches" },
-                    { href: "/blog/how-many-days-in-rodrigues", label: "How many days you need" },
-                  ]
-                : [
-                    { href: "/guide/routes", label: "Scooter routes" },
-                    { href: "/guide/beaches", label: "Best beaches" },
-                    { href: "/guide/viewpoints", label: "Hidden viewpoints" },
-                  ]
-              ).map((l) => (
+              {takeIt.map((l) => (
                 <Link
                   key={l.href}
                   href={l.href}
@@ -392,12 +450,27 @@ export default async function VehiclePage({ params }: Props) {
               button that leads to an empty form. Busy-today keeps its Book
               link, because picking dates is genuinely the next step. */}
           {withdrawn ? (
-            <Link
-              href={`/browse/${category}`}
-              className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl border border-white/15 px-5 py-4 font-syne text-base font-bold text-offwhite transition hover:border-yellow/40 hover:text-yellow"
-            >
-              See what else is available <ChevronRight size={17} />
-            </Link>
+            <>
+              <Link
+                href={`/browse/${category}`}
+                className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl border border-white/15 px-5 py-4 font-syne text-base font-bold text-offwhite transition hover:border-yellow/40 hover:text-yellow"
+              >
+                See what else is available <ChevronRight size={17} />
+              </Link>
+              {/* The notice above says "Message us", and the sticky bar that
+                  carried WhatsApp is not rendered for a vehicle that cannot be
+                  booked (see below) — so the way to message is here. */}
+              {askOnWhatsApp && (
+                <a
+                  href={askOnWhatsApp}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-[#25D366]/40 bg-[#25D366]/12 px-5 py-4 font-syne text-base font-bold text-[#25D366] transition hover:brightness-110"
+                >
+                  <MessageCircle size={17} aria-hidden /> Ask us on WhatsApp
+                </a>
+              )}
+            </>
           ) : (
             <Link
               href={`/browse/${category}?v=${item.id}#booking`}
@@ -417,18 +490,24 @@ export default async function VehiclePage({ params }: Props) {
 
           The floating WhatsApp button is deliberately NOT rendered alongside
           it — the bar carries WhatsApp, and two entry points 40px apart is a
-          worse screen, not a better one. */}
-      <VehicleActionBar
-        price={item.price}
-        unit={item.unit}
-        bookHref={`/browse/${category}?v=${item.id}#booking`}
-        whatsappHref={whatsappHref(
-          businessWhatsApp,
-          `Hi Roule Rodrigues! I'd like to rent the ${vehicleName(item)}.`,
-        )}
-        vehicleName={vehicleName(item)}
-        soldOut={out}
-      />
+          worse screen, not a better one.
+
+          Not rendered at all for a withdrawn vehicle (architecture review
+          2026-09-30). Its button is always a booking link — "Check dates" to
+          the ?v= form — and a withdrawn vehicle, or one in a paused category,
+          is not in any form: the button led to an empty "Choose a vehicle…"
+          or to a paused page with no form. The page keeps its price at the
+          top and offers WhatsApp above instead. */}
+      {!withdrawn && (
+        <VehicleActionBar
+          price={item.price}
+          unit={item.unit}
+          bookHref={`/browse/${category}?v=${item.id}#booking`}
+          whatsappHref={askOnWhatsApp}
+          vehicleName={vehicleName(item)}
+          soldOut={out}
+        />
+      )}
       <ScrollToTop />
     </>
   );

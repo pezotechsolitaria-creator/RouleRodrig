@@ -1,11 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { editorSessionFor, EDITOR_COOKIE, EDITOR_TTL_MS } from "@/lib/world-docs/access";
+import { guardShared } from "@/lib/rate-limit";
 
 // The editors' door. Separate from /api/admin/login on purpose: the owner's
 // session is the credential for the whole platform, and an editor code must not
 // be able to mint one. Nothing here can produce an `rr_admin` cookie.
 
 export async function POST(req: NextRequest) {
+  // ── A CODE IS A PASSWORD (architecture review 2026-09-30, item 4) ─────────
+  // This was the one sign-in with no limit at all, so an editor code could be
+  // guessed as fast as the network allowed — and a code publishes a world's
+  // content. Same budget as /api/admin/login, counted before the body is even
+  // read: 5 attempts per 5 minutes per IP, shared across instances when
+  // Upstash is configured.
+  const limited = await guardShared(req, "worlds-signin", 5, 5 * 60_000);
+  if (limited) return limited;
+
   let code = "";
   try {
     const body = (await req.json()) as { code?: string };

@@ -5,9 +5,11 @@ import {
   ChevronRight, Compass, Map as MapIcon, BookOpen, Calendar,
   HelpCircle, Phone, Siren, FileText, Shield, RefreshCw, Store, CalendarCheck, ClipboardList,
   UtensilsCrossed, Ticket, ShoppingBag, CircleUser, Car, Sparkles,
-  ClipboardCheck, Bike, Languages, Info,
+  ClipboardCheck, Bike, Languages, Info, KeyRound, Truck,
 } from "lucide-react";
 import { getContent } from "@/lib/content";
+import type { SiteContent } from "@/lib/defaults";
+import { rentalCategories, rupees } from "@/lib/marketplace/rentals-rail";
 import ThemeToggle from "@/components/ThemeToggle";
 import { SITE_URL } from "@/lib/site";
 import { breadcrumbLd } from "@/lib/schema";
@@ -24,16 +26,23 @@ export const metadata: Metadata = {
 };
 
 type Row = { icon: React.ElementType; label: string; href: string; note?: string };
-const GROUPS: { title: string; rows: Row[] }[] = [
+const GROUPS: { key: string; title: string; rows: Row[] }[] = [
   {
     // First group, because buying is what most visitors came to do — and
     // because none of these three had a link anywhere outside the homepage.
+    key: "buy",
     title: "Order & buy",
     rows: [
       // First in the group, because it is the row that explains the others. A
       // hub nobody can reach is the exact bug it exists to fix: a car wash was
       // bookable for a week and reachable only by knowing its URL.
       { icon: Sparkles, label: "Marketplace", href: "/marketplace", note: "Buy it, book it, get it done" },
+      // The live rental categories go here, at render (rentalRows below).
+      //
+      // /deliver had no row on this page (architecture review 2026-09-30,
+      // item 4). Its note is /deliver's own promise: drivers quote, the
+      // customer chooses — never "a driver is on the way".
+      { icon: Truck, label: "Get anything moved", href: "/deliver", note: "Drivers send their price — you choose" },
       { icon: UtensilsCrossed, label: "Order food", href: "/food", note: "Home-cooked Rodriguan dishes" },
       { icon: Store, label: "Shop local", href: "/shop", note: "Honey, piment, crafts" },
       { icon: Ticket, label: "Event tickets", href: "/events", note: "Concerts & séga nights" },
@@ -42,22 +51,30 @@ const GROUPS: { title: string; rows: Row[] }[] = [
     ],
   },
   {
+    key: "discover",
     title: "Discover",
     rows: [
       { icon: Sparkles, label: "Curated Rodrigues", href: "/curated", note: "Our own selection — stays, experiences and local gems" },
       { icon: Compass, label: "Rodrigues island guide", href: "/guide/rodrigues", note: "Beaches, tortoises, tips" },
-      // The two hub pages. Both parents used to 404 while eight and eleven
-      // pages sat beneath them, and neither was linked from anywhere — which is
-      // how a 404 survives on a site with a reachability test: nothing pointed
-      // at it to be checked.
-      { icon: BookOpen, label: "All island guides", href: "/guide", note: "Beaches, hikes, food, shopping — all eight" },
-      { icon: Languages, label: "Rodrigues en français", href: "/fr", note: "Onze guides en français" },
+      // The two hub pages. Both parents used to 404 while their guides sat
+      // beneath them, and neither was linked from anywhere — which is how a
+      // 404 survives on a site with a reachability test: nothing pointed at it
+      // to be checked.
+      //
+      // No count in either note (architecture review 2026-09-30, item 5): "Onze"
+      // sat over a /fr hub listing twelve, and /guide is now filtered live —
+      // the shops guide only while a shop is pinned, plus any place page that
+      // passes the gate — so the list on each hub is the count. "Shopping" went
+      // for the same reason: it is a guide that can be absent.
+      { icon: BookOpen, label: "All island guides", href: "/guide", note: "Beaches, hikes, food and more" },
+      { icon: Languages, label: "Rodrigues en français", href: "/fr", note: "Tous nos guides en français" },
       { icon: MapIcon, label: "Interactive island map", href: "/map" },
       { icon: BookOpen, label: "Travel blog", href: "/blog" },
       { icon: Calendar, label: "Trip planner", href: "/trip-planner" },
     ],
   },
   {
+    key: "help",
     title: "Bookings & help",
     rows: [
       { icon: CalendarCheck, label: "Manage a booking", href: "/manage-booking", note: "No account needed" },
@@ -70,6 +87,7 @@ const GROUPS: { title: string; rows: Row[] }[] = [
     ],
   },
   {
+    key: "business",
     title: "Business & legal",
     rows: [
       { icon: Store, label: "List your business", href: "/list-your-scooter" },
@@ -87,8 +105,37 @@ const GROUPS: { title: string; rows: Row[] }[] = [
   },
 ];
 
+/**
+ * One row per rental category a visitor can book today, straight to its
+ * /browse page (architecture review 2026-09-30, item 4 — this page linked no
+ * rental at all). Built from the fleet at render, never typed: a category the
+ * owner switches off, or has not priced, simply has no row, and the figure is
+ * the one the category page prints — none at all on a seed read.
+ */
+function rentalRows(content: SiteContent): Row[] {
+  const iconOf = (id: string, kind: string) =>
+    kind === "equipment"
+      ? KeyRound
+      : /car/.test(id)
+        ? Car
+        : /scooter|moto|bike/.test(id)
+          ? Bike
+          : KeyRound;
+  return rentalCategories(content).map((c) => ({
+    icon: iconOf(c.id, c.kind),
+    label: `${c.label} for rent`,
+    href: c.href,
+    note: c.fromPerDay != null ? `From ${rupees(c.fromPerDay)} a day` : undefined,
+  }));
+}
+
 export default async function MorePage() {
   const content = await getContent();
+  const rentals = rentalRows(content);
+  // After the Marketplace row, which is the hub these belong to.
+  const groups = GROUPS.map((g) =>
+    g.key === "buy" ? { ...g, rows: [g.rows[0], ...rentals, ...g.rows.slice(1)] } : g,
+  );
   const jsonLd = {
     "@context": "https://schema.org",
     "@graph": [breadcrumbLd([{ name: "Roule Rodrigues", url: SITE_URL }, { name: "More", url: `${SITE_URL}/more` }])],
@@ -130,8 +177,8 @@ export default async function MorePage() {
           </section>
 
           <div className="mt-8 space-y-7">
-            {GROUPS.map((g) => (
-              <section key={g.title}>
+            {groups.map((g) => (
+              <section key={g.key}>
                 <p className="mb-2 px-1 font-bebas text-[11px] tracking-[0.3em] text-yellow">{g.title}</p>
                 <div className="overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-b from-white/[0.04] to-white/[0.01]">
                   {g.rows.map((r, i) => (

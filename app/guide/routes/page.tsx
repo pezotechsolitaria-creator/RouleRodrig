@@ -4,6 +4,7 @@ import { ArrowRight, Gauge, Clock, Route as RouteIcon, Footprints, MapPin } from
 import { getContent } from "@/lib/content";
 import { SITE_URL } from "@/lib/site";
 import { breadcrumbLd, itemListLd } from "@/lib/schema";
+import { guideTrail } from "@/lib/guide/places";
 import JsonLd from "@/components/JsonLd";
 import AppPageHeader from "@/components/AppPageHeader";
 import HubBacklink from "@/components/nav/HubBacklink";
@@ -116,17 +117,16 @@ export default async function RoutesPage() {
     <>
       <JsonLd
         data={[
-          breadcrumbLd([
-            { name: "Home", url: SITE_URL },
-            { name: "Island guide", url: `${SITE_URL}/guide/rodrigues` },
-            { name: "Routes & trails", url: `${SITE_URL}/guide/routes` },
-          ]),
+          // Home › Island guide (/guide) › Routes & trails — the hub the
+          // HubBacklink below goes to (architecture review 2026-09-30, item 6).
+          breadcrumbLd(guideTrail(SITE_URL, { name: "Routes & trails", path: "/guide/routes" })),
           // Rides only. The trails are described in full on /guide/hiking and
           // that page lists them — two pages claiming the same ItemList is how
           // you end up competing with yourself for your own trail names.
+          // Each ride's url is the anchor its article renders under (id={r.id}).
           itemListLd(
             "Scooter routes in Rodrigues",
-            rides.map((r) => ({ name: r.name.trim() })),
+            rides.map((r) => ({ name: r.name.trim(), url: `${SITE_URL}/guide/routes#${r.id}` })),
           ),
         ]}
       />

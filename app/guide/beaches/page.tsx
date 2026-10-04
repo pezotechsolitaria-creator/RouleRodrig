@@ -1,8 +1,11 @@
 import type { Metadata } from "next";
+import type { MapLocation } from "@/lib/defaults";
 import { getContent } from "@/lib/content";
 import { SITE_URL } from "@/lib/site";
 import { breadcrumbLd, itemListLd, placeLd } from "@/lib/schema";
 import { realProse } from "@/lib/place-prose";
+import { THEME_GUIDES, guideTrail, placesOnGuide } from "@/lib/guide/places";
+import { locationPageHrefs, placeAnchors } from "@/lib/guide/location-page-gate";
 import JsonLd from "@/components/JsonLd";
 import AppPageHeader from "@/components/AppPageHeader";
 import PlaceGuide from "@/components/PlaceGuide";
@@ -33,12 +36,12 @@ const DESCRIPTION =
 // ("Add a description.", sometimes with coordinates pasted after it) and
 // this gate was letting them through — so the page's headline count included
 // entries whose entire prose was placeholder text.
-const hasWriting = (l: { story?: string; description?: string }) =>
-  Boolean(realProse(l.story) || realProse(l.description));
-
-const beaches = (
-  locations: { category: string; story?: string; description?: string }[],
-) => locations.filter((l) => l.category === "beach" && hasWriting(l));
+//
+// The rule itself now lives in lib/guide/places.ts (architecture review
+// 2026-09-30, item 8): this page, /guide/viewpoints, the /guide hub's count and
+// /map's "Read in the guide" links each carried a copy, and a copy is how
+// /explore came to drop Trou d'Argent.
+const beaches = (locations: MapLocation[]) => placesOnGuide(locations, THEME_GUIDES.beaches);
 
 export async function generateMetadata(): Promise<Metadata> {
   const content = await getContent();
@@ -69,25 +72,32 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function BeachesPage() {
   const content = await getContent();
-  const places = beaches(content.mapLocations) as typeof content.mapLocations;
+  const places = beaches(content.mapLocations);
   // Same gate /guide/viewpoints applies to its own list — a name and a pin is
-  // not a guide entry — so the band and that page can never disagree.
-  const viewpointCount = content.mapLocations.filter(
-    (l) => l.category === "viewpoint" && hasWriting(l),
+  // not a guide entry — so the band and that page can never disagree. Counted
+  // as viewpoints only, as the band always has, not the landmarks that share
+  // that page.
+  const viewpointCount = placesOnGuide(content.mapLocations, THEME_GUIDES.viewpoints).filter(
+    (l) => l.category === "viewpoint",
   ).length;
+  // One anchor per place across the whole map, so /map#x and this page's #x
+  // are the same place (item 3); and the places that have their own page.
+  const anchors = placeAnchors(content.mapLocations);
+  const pages = locationPageHrefs(content.mapLocations);
+  const entryUrl = (id: string) => `${SITE_URL}/guide/beaches#${anchors[id]}`;
 
   return (
     <>
       <JsonLd
         data={[
-          breadcrumbLd([
-            { name: "Home", url: SITE_URL },
-            { name: "Island guide", url: `${SITE_URL}/guide/rodrigues` },
-            { name: "Beaches", url: `${SITE_URL}/guide/beaches` },
-          ]),
+          // Home › Island guide (/guide) › Beaches — the hub the visible
+          // HubBacklink at the foot of this page goes to (item 6).
+          breadcrumbLd(guideTrail(SITE_URL, { name: "Beaches", path: "/guide/beaches" })),
+          // Each entry carries the anchor it renders under, so the list and
+          // the Beach nodes below name one address per beach (item 4).
           itemListLd(
             "Beaches in Rodrigues Island",
-            places.map((p) => ({ name: p.name.trim() })),
+            places.map((p) => ({ name: p.name.trim(), url: entryUrl(p.id) })),
           ),
           ...places.map((p) =>
             placeLd({
@@ -97,6 +107,7 @@ export default async function BeachesPage() {
               lat: p.lat,
               lng: p.lng,
               image: p.image,
+              url: entryUrl(p.id),
             }),
           ),
         ]}
@@ -104,6 +115,8 @@ export default async function BeachesPage() {
       <AppPageHeader logo={content.branding.logo} />
       <PlaceGuide
         guideHref="/guide/beaches"
+        anchors={anchors}
+        pages={pages}
         eyebrow="ISLAND GUIDE"
         title={`The ${places.length} best beaches in Rodrigues`}
         intro="Rodrigues has a lagoon twice the size of the island itself, and the beaches around it range from busy Sunday picnic sands to coves you'll have entirely to yourself. Here's every one we rate, with directions and what to actually expect."

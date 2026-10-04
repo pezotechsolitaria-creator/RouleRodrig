@@ -31,6 +31,9 @@ import {
 } from "@/lib/marketplace/catalog";
 import { sellerPitch, type MonetizationModel } from "@/lib/marketplace/fees";
 import { robotsWhileEmpty } from "@/lib/listing-gates";
+import { getContent } from "@/lib/content";
+import { rentalCategories } from "@/lib/marketplace/rentals-rail";
+import RentalsLinkOut from "@/components/marketplace/RentalsLinkOut";
 
 // ── /shop — the shelf, not the shopfront speech ─────────────────────────────
 //
@@ -163,7 +166,7 @@ function LaunchState({
 export default async function MarketplaceHomePage() {
   const supabase = await createClient();
 
-  const [home, everything, settingsRes] = await Promise.all([
+  const [home, everything, settingsRes, content] = await Promise.all([
     getMarketplaceHome(supabase),
     browseProducts(supabase, { limit: 48, sort: "recommended" }),
     // What this page PROMISES a prospective seller about money comes from the
@@ -173,7 +176,20 @@ export default async function MarketplaceHomePage() {
       .select("monetization_model, default_commission_rate")
       .eq("id", "main")
       .maybeSingle(),
+    // The rentals link-out below (architecture review 2026-09-30, item 3).
+    // getContent() only: it is cached, while getFleetView() would add four
+    // privileged reads to every request of a force-dynamic page. A failed read
+    // simply drops the card; the shelf never waits on it.
+    getContent().catch(() => null),
   ]);
+  const rentals = content
+    ? rentalCategories(content).map(({ id, label, href, fromPerDay }) => ({
+        id,
+        label,
+        href,
+        fromPerDay,
+      }))
+    : [];
 
   const settings = settingsRes.data as {
     monetization_model?: string;
@@ -439,6 +455,15 @@ export default async function MarketplaceHomePage() {
             </div>
           </>
         )}
+
+        {/* ── RENTALS ARE NOT ON THIS SHELF, AND THIS SAYS WHERE THEY ARE ───
+            Architecture review 2026-09-30, item 3. Last on the page, in both
+            the launch state and the stocked one, so no product moves down for
+            it. Outside the CategoryStrip facets and outside the ItemList above:
+            a scooter is not a shop product, and the product markup must list
+            only products. Only categories the owner has switched on and
+            priced, each with the "from" figure its own page prints. */}
+        <RentalsLinkOut categories={rentals} />
       </div>
     </main>
   );

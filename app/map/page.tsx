@@ -8,6 +8,8 @@ import Navbar from "@/components/Navbar";
 import MapSection from "@/components/MapSection";
 import { rankIslandPlaces } from "@/lib/places/popular-server";
 import { ogImages } from "@/lib/share-image";
+import { locationPageHrefs, placeAnchors } from "@/lib/guide/location-page-gate";
+import { guideEntryHref } from "@/lib/guide/places";
 
 // The interactive island map now has its own flagship page (a Quick Access tile
 // links here), instead of being a homepage section. Static-ish: refresh hourly.
@@ -44,6 +46,20 @@ export default async function MapPage() {
   const ranked = await rankIslandPlaces(content.mapLocations, 7);
   const popularity = Object.fromEntries(ranked.map((r) => [r.place.id, r.popularity]));
 
+  // -- EVERY PLACE ADDRESSABLE, AND LINKED TO WHERE IT IS WRITTEN UP ---------
+  // (architecture review 2026-09-30, item 3.) One anchor per place, shared
+  // with the guides, so /map#x and /guide/beaches#x are the same place; and
+  // for each place the guide entry or own page that covers it. Decided here,
+  // on the server, from the same rule the guide pages render with — a place
+  // no guide covers gets no "Read in the guide" link rather than a guess.
+  const anchors = placeAnchors(content.mapLocations);
+  const pages = locationPageHrefs(content.mapLocations);
+  const guideLinks: Record<string, string> = {};
+  for (const l of content.mapLocations) {
+    const href = guideEntryHref(l, anchors, pages);
+    if (href) guideLinks[l.id] = href;
+  }
+
   const jsonLd = {
     "@context": "https://schema.org",
     "@graph": [
@@ -75,7 +91,12 @@ export default async function MapPage() {
             {" "}Back
           </BackLink>
         </div>
-        <MapSection locations={content.mapLocations} popularity={popularity} />
+        <MapSection
+          locations={content.mapLocations}
+          popularity={popularity}
+          anchors={anchors}
+          guideLinks={guideLinks}
+        />
       </main>
     </>
   );

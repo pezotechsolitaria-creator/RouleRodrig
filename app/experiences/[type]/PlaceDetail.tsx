@@ -7,7 +7,13 @@ import { breadcrumbLd, experienceLd, sellerLd } from "@/lib/schema";
 import { placeListingHref } from "@/lib/place-href";
 import { placeSlug } from "@/lib/place-slug";
 import { placePrice, placeDeposit, GUIDE_FOR_PLACE } from "@/lib/place-detail";
-import { howBookingWorks, placeFacts, providerOf } from "@/lib/experiences";
+import {
+  gettingThere,
+  howBookingWorks,
+  placeFacts,
+  providerOf,
+  type Wheels,
+} from "@/lib/experiences";
 import JsonLd from "@/components/JsonLd";
 import AppPageHeader from "@/components/AppPageHeader";
 import PlaceBookingButton from "@/components/experiences/PlaceBookingButton";
@@ -32,9 +38,13 @@ import ScrollToTop from "@/components/ScrollToTop";
 export default function PlaceDetail({
   place,
   businessWhatsApp,
+  wheels = [],
 }: {
   place: RecommendedPlace;
   businessWhatsApp?: string;
+  /** The rental categories bookable today (the route reads the fleet). None
+   *  given, none offered: this component never guesses what is for hire. */
+  wheels?: Wheels[];
 }) {
   const url = `${SITE_URL}/experiences/${placeSlug(place)}`;
   const price = placePrice(place);
@@ -50,6 +60,7 @@ export default function PlaceDetail({
   const desc = (place.description ?? "").trim();
   const provider = providerOf(place);
   const facts = placeFacts(place);
+  const there = gettingThere(place, wheels);
   const included = (place.included ?? []).map((i) => i.trim()).filter(Boolean);
   // "Paying" exists only when the listing has an amount to charge — the same
   // test the booking form uses before it offers online or cash.
@@ -231,6 +242,43 @@ export default function PlaceDetail({
             </section>
           ) : null}
 
+          {/* ── GETTING THERE (architecture review 2026-09-30, item 3) ──────
+              The meeting point was a fact on the page and a dead end: the
+              site rents what gets you there and books the airport run, and
+              linked neither. gettingThere() decides whether the line is true
+              for this listing (a real meeting point, the operator not already
+              bringing you, not a chauffeur); the rentals are the categories
+              the route found bookable today. Separate targets, not words in a
+              sentence, so each one is 44px on a phone. */}
+          {there ? (
+            <section className="mt-8">
+              <h2 className="font-syne text-lg font-bold">Getting there</h2>
+              <p className="mt-2 font-dm text-sm leading-relaxed text-offwhite/85">
+                You meet at {there.meet}.{" "}
+                {there.wheels.length
+                  ? "Need wheels to get there, or coming straight from the airport?"
+                  : "Coming straight from the airport?"}
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {there.wheels.map((w) => (
+                  <Link
+                    key={w.href}
+                    href={w.href}
+                    className="inline-flex min-h-11 items-center gap-1 rounded-full border border-dark-control bg-dark-card px-4 font-dm text-sm text-offwhite transition-colors hover:border-yellow/50 hover:text-yellow"
+                  >
+                    Rent a {w.noun} <ChevronRight size={14} className="text-yellow" />
+                  </Link>
+                ))}
+                <Link
+                  href="/transfers"
+                  className="inline-flex min-h-11 items-center gap-1 rounded-full border border-dark-control bg-dark-card px-4 font-dm text-sm text-offwhite transition-colors hover:border-yellow/50 hover:text-yellow"
+                >
+                  Airport transfer <ChevronRight size={14} className="text-yellow" />
+                </Link>
+              </div>
+            </section>
+          ) : null}
+
           {/* The guide page, where one exists. Île aux Cocos already has 4,000
               characters of real writing at /guide/ile-aux-cocos, and the answer
               to a thin booking page is to POINT at that rather than to restate
@@ -245,9 +293,10 @@ export default function PlaceDetail({
                 <span className="block font-syne text-sm font-bold text-offwhite">
                   {guide.label}
                 </span>
-                <span className="mt-0.5 block font-dm text-xs text-muted">
-                  What it is, when to go and what you will see.
-                </span>
+                {/* The guide's own line: "what you will see" under a hike
+                    would describe the wrong page (architecture review
+                    2026-09-30, item 3). */}
+                <span className="mt-0.5 block font-dm text-xs text-muted">{guide.blurb}</span>
               </span>
               <ChevronRight size={18} className="shrink-0 text-yellow" />
             </Link>

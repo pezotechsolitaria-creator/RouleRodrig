@@ -11,6 +11,32 @@
 // server component importing a constant from a client module is a build-time
 // trap this codebase has hit before.
 
+import type { VehicleCategory } from "@/lib/defaults";
+
+/**
+ * What a rental category hands over: a motor vehicle, or equipment.
+ *
+ * Architecture review 2026-09-30, item "rentalKind": every rental surface
+ * assumed a motor vehicle, so switching on the seeded Kayaks category would
+ * have published a driving licence, fuel, mileage and the Rs 5,000 car deposit
+ * as the terms of hiring a kayak — in the visible panel AND in its FAQPage.
+ */
+export type RentalKind = NonNullable<VehicleCategory["rentalKind"]>;
+
+/**
+ * The kind a category id rents. "motor" whenever the owner has not said
+ * otherwise, or the category is not in the list at all — that is every
+ * category live today, and it keeps every page exactly as it was. Only the
+ * exact value "equipment" switches the motor-only terms off.
+ */
+export function rentalKindOf(
+  categories: readonly { id: string; rentalKind?: string }[] | undefined,
+  category: string | undefined,
+): RentalKind {
+  const found = (categories ?? []).find((c) => c.id === category);
+  return found?.rentalKind === "equipment" ? "equipment" : "motor";
+}
+
 /** FAQ ids that answer "am I allowed to rent this, and what am I agreeing to".
  *  Ordered the way a renter asks them, not the way they sit in the FAQ. */
 export const CONDITION_IDS = [
@@ -86,6 +112,21 @@ const SCOOTER_ONLY_IDS = new Set<string>(["helmet"]);
  */
 const CAR_ONLY_IDS = new Set<string>(["deposit"]);
 
+/**
+ * The only conditions that are true of equipment (architecture review
+ * 2026-09-30, rentalKind).
+ *
+ * An ALLOW-list, not a deny-list, on purpose. Read against the owner's live
+ * answers, eight of the ten are about driving: age ("hold a valid licence to
+ * rent and drive"), licence, insurance ("third-party… follow local road
+ * rules"), the car deposit, the helmet, fuel, mileage, and breakdown ("a
+ * replacement vehicle"). Delivery to the guest house and "no minimum rental"
+ * are the two that hold for a kayak or a snorkel set. A condition added to
+ * CONDITION_IDS later stays OFF equipment pages until somebody decides it
+ * belongs there — the safe direction for a list that is published as FAQPage.
+ */
+const EQUIPMENT_IDS = new Set<string>(["delivery", "faq-min-duration"]);
+
 /** The conditions, in CONDITION_IDS order, skipping any the owner has removed
  *  or left blank. Both the panel and the FAQPage schema call this, so the
  *  markup can never describe a question the page does not show. */
@@ -105,6 +146,10 @@ export function pickConditions(
    *  every existing test keeps the full list unchanged; only a caller that
    *  says "this is a car page" drops the scooter-only rows. */
   category?: string,
+  /** rentalKindOf(content.vehicleCategories, category). Optional, and
+   *  undefined means "motor": the two-argument call every page made before
+   *  this returns exactly what it always did. */
+  kind?: RentalKind,
 ): ConditionItem[] {
   const byId = new Map((items ?? []).map((i) => [i.id, i]));
   const exclude = !category
@@ -112,9 +157,12 @@ export function pickConditions(
     : category === "scooter"
       ? CAR_ONLY_IDS
       : SCOOTER_ONLY_IDS;
-  const ids = exclude
-    ? CONDITION_IDS.filter((id) => !exclude.has(id))
-    : CONDITION_IDS;
+  const ids =
+    kind === "equipment"
+      ? CONDITION_IDS.filter((id) => EQUIPMENT_IDS.has(id))
+      : exclude
+        ? CONDITION_IDS.filter((id) => !exclude.has(id))
+        : CONDITION_IDS;
   return ids.map((id) => byId.get(id))
     .filter((i): i is { id: string; question: string; answer: string } =>
       Boolean(i?.id && i?.question && i?.answer?.trim()),

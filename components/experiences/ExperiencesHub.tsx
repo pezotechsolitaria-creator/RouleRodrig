@@ -184,7 +184,12 @@ export default function ExperiencesHub({ places }: { places: RecommendedPlace[] 
   const L = (en: string, f: string) => (fr ? f : en);
 
   return (
-    <div
+    // <main>, not a div (architecture review 2026-09-30, a11y item 3): this
+    // page had no main landmark at all, so a screen reader's "jump to main"
+    // found nothing and the skip link had nowhere to land. The id is the
+    // skip link's target (components/SkipLink.tsx).
+    <main
+      id="main-content"
       style={PALETTE[mode] as React.CSSProperties}
       className="min-h-screen"
     >
@@ -379,7 +384,7 @@ export default function ExperiencesHub({ places }: { places: RecommendedPlace[] 
           </section>
         </div>
       </div>
-    </div>
+    </main>
   );
 }
 

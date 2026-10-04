@@ -7,7 +7,7 @@ import BookingHeading from "@/app/taxi/book/BookingHeading";
 import JsonLd from "@/components/JsonLd";
 import { readTransferFares } from "@/lib/rides/fares";
 import type { ZonedPlace } from "@/lib/rides/transfer";
-import { sellerLd } from "@/lib/schema";
+import { breadcrumbLd, sellerLd } from "@/lib/schema";
 import { FR_PAGES } from "@/lib/nav/hubs";
 import {
   money,
@@ -141,9 +141,18 @@ export default async function TransfersPage() {
           The seller node rides along (SEO audit 2026-09-29 T9): the provider
           is an @id pointer, and a pointer to a node the page never defines
           is one a crawler cannot resolve. Same @id as the homepage graph, so
-          the two are one entity. */}
+          the two are one entity.
+
+          The trail, Home › Airport transfers (architecture review 2026-09-30,
+          item 4): about fifty routes carry a BreadcrumbList and this price
+          page was not one of them. Two crumbs, because the page sits directly
+          under the home page — there is no transfers hub to invent. */}
       <JsonLd
         data={[
+          breadcrumbLd([
+            { name: "Home", url: SITE_URL },
+            { name: "Airport transfers", url: `${SITE_URL}/transfers` },
+          ]),
           { "@context": "https://schema.org", ...sellerLd() },
           {
             "@context": "https://schema.org",

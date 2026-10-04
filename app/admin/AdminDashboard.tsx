@@ -75,7 +75,7 @@ import {
   MessageCircle,
   Boxes,
   Banknote,
-  ChevronRight, ScrollText,} from "lucide-react";
+  ChevronRight, ScrollText, Lock, History, FolderTree,} from "lucide-react";
 import type { TaxiDriver, TaxiDriverReview } from "@/lib/supabase/taxi-types";
 import type {
   SiteContent,
@@ -127,6 +127,36 @@ import {
   PaymentStrip,
   type DeskNotice,
 } from "./BookingMoney";
+// Delete only what the DELETE route would allow, Cancel in its place for the
+// rest — the same rule the route refuses by (architecture review 2026-09-30,
+// item 3).
+import DeleteOrKeep from "./DeleteOrKeep";
+import {
+  cancelInsteadPrompt,
+  serverRefusal,
+  type DeleteRefusalReason,
+  type ServerRefusal,
+} from "@/lib/admin/booking-delete";
+// The gallery delete is versioned like a studio save (architecture review
+// 2026-09-30, item 4), or the studio's next Save conflicts with itself.
+import { deleteGalleryPhoto, snapshotWithoutPhoto } from "./gallery-delete";
+// architecture review 2026-09-30, items 1-4: the studio pieces added in that
+// wave live in their own files under ./content, so they can be rendered by a
+// test and so this 10,000-line file grows by call sites, not by editors.
+import {
+  CONTENT_BASE_HEADER,
+  NO_ROW_VERSION,
+  OFFLINE_SAVE_MESSAGE,
+  interpretSaveResponse,
+} from "@/lib/admin/content-version";
+import SaveProblemBanner, { type SaveProblem } from "./content/SaveProblemBanner";
+import AnnouncementEditor from "./content/AnnouncementEditor";
+import LocationPageFields from "./content/LocationPageFields";
+import {
+  categoryIdFromLabel,
+  looksLikeEquipment,
+  removeCategoryWarning,
+} from "./content/vehicle-categories";
 
 type Section =
   | "dashboard"
@@ -163,7 +193,8 @@ type Section =
   | "foodConcierge"
   | "experience"
   | "notifications"
-  | "money";
+  | "money"
+  | "announcement";
 
 // `keywords` exists because the sidebar search matched the LABEL and nothing
 // else, and a label is a name rather than an index. The Services desk was
@@ -209,6 +240,13 @@ const NAV: { id: Section; label: string; icon: React.ElementType; group?: string
   { id: "taxi",         label: "Taxi & Transport",  icon: Car,             group: "explore" },
 
   // ── Homepage content ──
+  // The bar at the top of every page. It has been rendered site-wide from
+  // content.announcement all along, but its editor was deleted in e9d72b0c
+  // (the bar itself was crashing the site then; that was fixed in the bar), so
+  // switching it on or off took SQL. Restored in architecture review
+  // 2026-09-30, item 1.
+  { id: "announcement", label: "Announcement bar", icon: Megaphone,      group: "content",
+    keywords: "banner promo notice message top bar alert" },
   { id: "hero",         label: "Hero",             icon: Sparkles,        group: "content" },
   { id: "map",          label: "Island Guide",     icon: MapPin,          group: "content" },
   { id: "planner",      label: "Trip Planner",     icon: Sparkles,        group: "content" },
@@ -240,6 +278,9 @@ const MARKETPLACE_LINKS: { href: string; label: string; icon: React.ElementType 
   // because a seller who cannot use a laptop is only tradeable if the owner
   // can take the order and fix the stock for them.
   { href: "/admin/marketplace",    label: "Shop Operations",           icon: Boxes },
+  // The shelves /shop is browsed by. Added only by migration until the
+  // architecture review 2026-09-30 (item 5) gave them an editor.
+  { href: "/admin/categories",     label: "Marketplace Categories",    icon: FolderTree },
   { href: "/admin/subscriptions",  label: "Merchants & Subscriptions", icon: Store },
   { href: "/admin/stores",         label: "Shops & Opening Hours",     icon: Clock },
   { href: "/admin/delivery-zones", label: "Delivery Areas & Fees",     icon: Truck },
@@ -261,6 +302,10 @@ const MARKETPLACE_LINKS: { href: string; label: string; icon: React.ElementType 
   // link list on the dashboard, and the legal identity screen is precisely the
   // kind of page that gets built, never linked, and never filled in.
   { href: "/admin/legal",          label: "Legal Identity & BRN",      icon: ScrollText },
+  // Every nightly snapshot of this studio's content, with a restore. Listed
+  // here because this is the screen whose mistakes it undoes (architecture
+  // review 2026-09-30, item 6).
+  { href: "/admin/content-history", label: "Content History & Restore", icon: History },
 ];
 
 // ── Shared helpers ─────────────────────────────────────────────────────────────
@@ -289,6 +334,41 @@ async function adminWrite(input: string, init?: RequestInit): Promise<boolean> {
     alert("That change could NOT be saved — you appear to be offline. Nothing was changed.");
     return false;
   }
+}
+
+// ── A REFUSED DELETE IS AN ANSWER, NOT AN ERROR ─────────────────────────────
+// (architecture review 2026-09-30, item 3) The booking desks' DELETE now says
+// no — 409 with one sentence — to a row that has money, a confirmation, a
+// completion or a no-show on it. Through adminWrite that would read "That
+// change could NOT be saved (error 409)" in an alert box, as if something had
+// broken. This hands the sentence back so the card can show it, and Cancel can
+// take the Delete button's place. Every other failure is reported exactly as
+// adminWrite reports it. The route's reason is kept too, so "Cancel instead"
+// can say money came in when the loaded row was too old to show it.
+type DeleteOutcome = "deleted" | ServerRefusal | null;
+
+async function adminDeleteBooking(url: string, id: string): Promise<DeleteOutcome> {
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id }),
+    });
+  } catch {
+    alert("That change could NOT be saved — you appear to be offline. Nothing was changed.");
+    return null;
+  }
+  if (res.ok) return "deleted";
+  const body = (await res.json().catch(() => null)) as { error?: string } | null;
+  const kept = res.status === 409 ? serverRefusal(body) : null;
+  if (kept) return kept;
+  alert(
+    res.status === 401
+      ? "Your admin session has expired — please sign in again. Nothing was saved."
+      : `That change could NOT be saved (error ${res.status}).${body?.error ? `\n\n${body.error}` : ""}`,
+  );
+  return null;
 }
 
 // ── ...AND ADMIN READS MUST NEVER BE ASSUMED TO HAVE ARRIVED ────────────────
@@ -1598,6 +1678,9 @@ function FleetEditor({
   // category id. Local and uncommitted on purpose — a half-typed word must not
   // reach the content blob, where it would be one Save away from the live site.
   const [typeDraft, setTypeDraft] = useState<Record<string, string>>({});
+  // The name typed for a NEW category. Its id — the /browse/<id> address — is
+  // derived from this once, at creation, so the name has to come first.
+  const [newCatLabel, setNewCatLabel] = useState("");
 
   function updateScooter(idx: number, patch: Partial<FleetItem>) {
     const fleet = content.fleet.map((s, i) => (i === idx ? { ...s, ...patch } : s));
@@ -1650,9 +1733,30 @@ function FleetEditor({
     onChange({ ...content, vehicleCategories: next });
   const updateCat = (idx: number, patch: Partial<VehicleCategory>) =>
     setCats(cats.map((c, i) => (i === idx ? { ...c, ...patch } : c)));
-  const addCat = () =>
-    setCats([...cats, { id: `cat-${Date.now()}`, label: "New Type", enabled: true }]);
-  const removeCat = (idx: number) => setCats(cats.filter((_, i) => i !== idx));
+  // architecture review 2026-09-30, item 3. The id was `cat-${Date.now()}`,
+  // which became the public page /browse/cat-1790000000000. It is now the
+  // label slugified, unique, fixed from this moment on (see
+  // ./content/vehicle-categories.ts). A new category starts switched OFF: until
+  // the owner has set what kind of rental it is, its page would publish a
+  // driving licence, fuel and the car security deposit for a kayak.
+  const addCat = () => {
+    const label = newCatLabel.trim();
+    const id = categoryIdFromLabel(label, cats);
+    if (!id) {
+      toast.error("Give the category a name with letters or numbers — it becomes its web address.");
+      return;
+    }
+    setCats([...cats, { id, label, enabled: false }]);
+    setNewCatLabel("");
+    toast.success(`Added ${label}. Its page will be /browse/${id} — switch it on when it is ready.`);
+  };
+  // Vehicles filed under a removed category point at nothing, and an enabled
+  // category is a live page — so both are asked about first.
+  const removeCat = (idx: number) => {
+    const warning = removeCategoryWarning(cats[idx], content.fleet);
+    if (warning && !window.confirm(warning)) return;
+    setCats(cats.filter((_, i) => i !== idx));
+  };
 
   // ── Body styles inside a category ──
   const setTypes = (ci: number, next: VehicleType[]) => updateCat(ci, { types: next });
@@ -1802,6 +1906,39 @@ function FleetEditor({
                     : `Deposit: ${c.depositPct}% to confirm, the remaining ${100 - c.depositPct}% at pickup.`}
                 </p>
 
+                {/* The address, fixed, and what KIND of rental this is
+                    (architecture review 2026-09-30, item 3). rentalKind unset
+                    reads as a motor vehicle — today's behaviour — so the select
+                    shows that until the owner picks. */}
+                <div className="pl-[52px] flex flex-wrap items-center gap-x-4 gap-y-2">
+                  <span
+                    className="inline-flex items-center gap-1.5 font-dm text-[11px] text-muted/60"
+                    title="Fixed when the category was created, so links and search results keep working after a rename."
+                  >
+                    <Lock size={11} className="text-muted/50" />
+                    Page: /browse/{c.id}
+                  </span>
+                  <label className="inline-flex items-center gap-2 font-dm text-[11px] text-muted/70">
+                    What is rented
+                    <select
+                      value={c.rentalKind ?? "motor"}
+                      onChange={(e) =>
+                        updateCat(i, { rentalKind: e.target.value === "equipment" ? "equipment" : "motor" })
+                      }
+                      aria-label={`What kind of rental ${c.label} is`}
+                      className="min-h-11 rounded-lg border border-[#2a2a2a] bg-[#0d0d0d] px-2 font-dm text-xs text-offwhite focus:border-yellow focus:outline-none"
+                    >
+                      <option value="motor">Motor vehicle — licence, fuel, road rules</option>
+                      <option value="equipment">Equipment — no licence, no fuel</option>
+                    </select>
+                  </label>
+                  {c.rentalKind === undefined && looksLikeEquipment(c.label) && (
+                    <span className="font-dm text-[11px] text-amber-300">
+                      This sounds like equipment. Set it, or the page will mention a driving licence and fuel.
+                    </span>
+                  )}
+                </div>
+
                 {/* Body styles. Tapping a chip turns that filter on or off for
                     the website; the × deletes it. Suggestions sit to the right,
                     visibly quieter, so the owner can build the list in four taps
@@ -1881,13 +2018,36 @@ function FleetEditor({
             );
           })}
         </div>
-        <button
-          type="button"
-          onClick={addCat}
-          className="flex items-center gap-2 text-xs font-dm text-muted/60 hover:text-yellow transition-colors"
+        {/* Name first, then Add: the name becomes the page's address. */}
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            addCat();
+          }}
+          className="flex flex-wrap items-center gap-2"
         >
-          <Plus size={13} /> Add category
-        </button>
+          <input
+            value={newCatLabel}
+            onChange={(e) => setNewCatLabel(e.target.value)}
+            maxLength={40}
+            placeholder="New category name, e.g. Kayaks"
+            aria-label="New category name"
+            className="min-h-11 min-w-[200px] flex-1 rounded-lg border border-[#2a2a2a] bg-[#0d0d0d] px-3 font-dm text-sm text-offwhite placeholder:text-muted/40 focus:border-yellow focus:outline-none"
+          />
+          <button
+            type="submit"
+            disabled={!newCatLabel.trim()}
+            className="inline-flex min-h-11 items-center gap-2 rounded-full border border-yellow/30 px-4 font-dm text-xs text-yellow/90 transition-colors hover:border-yellow/60 hover:text-yellow disabled:opacity-40"
+          >
+            <Plus size={13} /> Add category
+          </button>
+          {newCatLabel.trim() && categoryIdFromLabel(newCatLabel, cats) && (
+            <span className="w-full font-dm text-[11px] text-muted/60">
+              Its page will be /browse/{categoryIdFromLabel(newCatLabel, cats)} — fixed once added, even if
+              you rename it later.
+            </span>
+          )}
+        </form>
       </div>
 
       {/* One line per vehicle across every category at once: the forms below
@@ -2452,11 +2612,17 @@ function GalleryEditor({
   onChange,
   onSessionExpired,
   onSaved,
+  onPhotoDeleted,
+  version,
 }: {
   content: SiteContent;
   onChange: (c: SiteContent) => void;
   onSessionExpired: () => void;
-  onSaved?: (c: SiteContent) => void;
+  onSaved?: (c: SiteContent, version: string | null) => void;
+  /** The server dropped one photo from the row and is now at `version`. */
+  onPhotoDeleted?: (id: string, version: string | null) => void;
+  /** The studio's base version — this editor saves the whole blob too. */
+  version: string | null;
 }) {
   const [uploading, setUploading] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
@@ -2481,33 +2647,55 @@ function GalleryEditor({
     }
     const updated = { ...content, gallery: [...content.gallery, ...newImages] };
     onChange(updated);
-    const saveRes = await fetch("/api/admin/content", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(updated),
-    });
-    if (saveRes.status === 401) onSessionExpired();
-    else if (saveRes.ok) onSaved?.(updated);
+    // Same versioned PUT as the studio's Save (architecture review 2026-09-30,
+    // item 4): this writes the whole blob too, so it must not win over a newer
+    // row either, and its refusal is shown rather than dropped.
+    try {
+      const saveRes = await fetch("/api/admin/content", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", [CONTENT_BASE_HEADER]: version ?? NO_ROW_VERSION },
+        body: JSON.stringify(updated),
+      });
+      const outcome = interpretSaveResponse(saveRes.status, await saveRes.json().catch(() => null));
+      if (outcome.kind === "expired") onSessionExpired();
+      else if (outcome.kind === "saved") onSaved?.(updated, outcome.version);
+      else toast.error(outcome.message);
+    } catch {
+      toast.error(OFFLINE_SAVE_MESSAGE);
+    }
     setUploading(false);
   }
 
+  // Versioned like a save (architecture review 2026-09-30, item 4): the delete
+  // writes the studio's row, so the studio must adopt the version it hands
+  // back, or its next Save is refused as a conflict with itself. See
+  // app/admin/gallery-delete.ts.
   async function handleDelete(id: string) {
     setDeleting(id);
-    const res = await fetch(`/api/admin/gallery?id=${encodeURIComponent(id)}`, {
-      method: "DELETE",
-    });
-    if (res.ok) {
-      onChange({ ...content, gallery: content.gallery.filter((img) => img.id !== id) });
+    const outcome = await deleteGalleryPhoto(id, version);
+    const without = { ...content, gallery: content.gallery.filter((img) => img.id !== id) };
+    if (outcome.kind === "saved") {
+      onChange(without);
+      onPhotoDeleted?.(id, outcome.version);
+    } else if (outcome.kind === "not-saved") {
+      onChange(without); // only ever on this screen; nothing to undo on the server
+    } else if (outcome.kind === "expired") {
+      onSessionExpired();
+    } else {
+      toast.error(outcome.message);
     }
     setDeleting(null);
   }
+  // One write to the row at a time: two in flight carry the same version, and
+  // the second would be refused as "someone saved in another tab" — this tab.
+  const busy = uploading || deleting !== null;
 
   return (
     <div className="space-y-6">
       <button
         type="button"
         onClick={() => inputRef.current?.click()}
-        disabled={uploading}
+        disabled={busy}
         className="w-full border-2 border-dashed border-[#2a2a2a] hover:border-yellow/50 rounded-2xl py-10 flex flex-col items-center gap-3 transition-colors disabled:opacity-50"
       >
         {uploading ? (
@@ -2590,8 +2778,8 @@ function GalleryEditor({
               <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                 <button
                   onClick={() => handleDelete(img.id)}
-                  disabled={deleting === img.id}
-                  className="bg-red-500/90 hover:bg-red-600 text-white rounded-full p-2 transition-colors"
+                  disabled={busy}
+                  className="bg-red-500/90 hover:bg-red-600 text-white rounded-full p-2 transition-colors disabled:opacity-50"
                   aria-label="Delete photo"
                 >
                   {deleting === img.id ? (
@@ -3756,6 +3944,9 @@ function BookingsManager({ fleet }: { fleet?: FleetItem[] }) {
   const [updating, setUpdating] = useState<string | null>(null);
   const [filter, setFilter] = useState<(typeof VEHICLE_FILTERS)[number]>("all");
   const [q, setQ] = useState("");
+  // Rows the DELETE route refused for a reason the loaded row did not show —
+  // a payments-ledger entry. Keyed by id, holding the route's sentence and why.
+  const [refused, setRefused] = useState<Record<string, { message: string; reason: DeleteRefusalReason | null }>>({});
   // What each card says after an M220 action — kept here, not in the panel,
   // because the panel disappears when the reload moves the booking on.
   const [notices, setNotices] = useState<Record<string, DeskNotice>>({});
@@ -3834,17 +4025,26 @@ function BookingsManager({ fleet }: { fleet?: FleetItem[] }) {
     if (!confirm("Delete this booking permanently? This cannot be undone.")) return;
     setUpdating(id);
     try {
-      if (
-        await adminWrite("/api/admin/bookings", {
-          method: "DELETE",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id }),
-        })
-      )
-        setBookings((prev) => prev.filter((b) => b.id !== id));
+      const outcome = await adminDeleteBooking("/api/admin/bookings", id);
+      if (outcome === "deleted") setBookings((prev) => prev.filter((b) => b.id !== id));
+      else if (outcome) {
+        // Kept (architecture review 2026-09-30, item 3). The card says why, the
+        // button becomes Cancel, and the list is re-read: a refusal the loaded
+        // row did not predict means it moved on — a payment landed since.
+        setRefused((prev) => ({ ...prev, [id]: { message: outcome.refused, reason: outcome.reason } }));
+        noticeFor(id)({ tone: "warn", text: outcome.refused });
+        reload();
+      }
     } finally {
       setUpdating(null);
     }
+  }
+
+  function cancelInstead(b: Booking) {
+    // Says who hears about it and that no money goes back — from the row, or
+    // from the route's refusal while the re-read is still on its way.
+    if (!confirm(cancelInsteadPrompt("vehicle", b, refused[b.id]?.reason))) return;
+    void updateStatus(b.id, "cancelled", b.status, b.pay_in_person);
   }
 
   useEffect(() => {
@@ -4154,15 +4354,16 @@ function BookingsManager({ fleet }: { fleet?: FleetItem[] }) {
                   </button>
                 );
               })}
-              {/* Delete — clear once a booking is completed or cancelled */}
-              <button
-                disabled={updating === b.id}
-                onClick={() => deleteBooking(b.id)}
-                title="Delete this booking permanently"
-                className="flex items-center gap-1.5 font-bebas text-[9px] tracking-[0.12em] border border-red-500/30 text-red-400/80 px-2.5 py-1 rounded-full transition-colors hover:bg-red-500/10 hover:text-red-400 disabled:opacity-40 disabled:cursor-not-allowed ml-auto"
-              >
-                <Trash2 size={10} /> Delete
-              </button>
+              {/* Delete only what nobody paid for or committed to; Cancel in
+                  its place for the rest (architecture review 2026-09-30). */}
+              <DeleteOrKeep
+                kind="vehicle"
+                row={b}
+                refusedByServer={refused[b.id]?.message}
+                busy={updating === b.id}
+                onDelete={() => deleteBooking(b.id)}
+                onCancel={() => cancelInstead(b)}
+              />
             </div>
           </div>
         );
@@ -4180,6 +4381,8 @@ function PlaceBookingsManager() {
   const [updating, setUpdating] = useState<string | null>(null);
   const [filter, setFilter] = useState<(typeof PLACE_FILTERS)[number]>("all");
   const [q, setQ] = useState("");
+  // Same as the rentals desk: refusals the loaded row did not predict.
+  const [refused, setRefused] = useState<Record<string, { message: string; reason: DeleteRefusalReason | null }>>({});
   // Same as the rentals desk: the card keeps saying what happened (and
   // whether to phone) after the reload moves the booking on.
   const [notices, setNotices] = useState<Record<string, DeskNotice>>({});
@@ -4228,17 +4431,22 @@ function PlaceBookingsManager() {
     if (!confirm("Delete this reservation permanently? This cannot be undone.")) return;
     setUpdating(id);
     try {
-      if (
-        await adminWrite("/api/admin/place-bookings", {
-          method: "DELETE",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id }),
-        })
-      )
-        setRows((prev) => prev.filter((b) => b.id !== id));
+      const outcome = await adminDeleteBooking("/api/admin/place-bookings", id);
+      if (outcome === "deleted") setRows((prev) => prev.filter((b) => b.id !== id));
+      else if (outcome) {
+        // Kept — same as the rentals desk (architecture review 2026-09-30).
+        setRefused((prev) => ({ ...prev, [id]: { message: outcome.refused, reason: outcome.reason } }));
+        noticeFor(id)({ tone: "warn", text: outcome.refused });
+        reload();
+      }
     } finally {
       setUpdating(null);
     }
+  }
+
+  function cancelInstead(b: PlaceBooking) {
+    if (!confirm(cancelInsteadPrompt("place", b, refused[b.id]?.reason))) return;
+    void updateStatus(b.id, "cancelled", b.status, b.pay_in_person);
   }
 
   useEffect(() => { load(); }, []);
@@ -4451,14 +4659,14 @@ function PlaceBookingsManager() {
                   </button>
                 );
               })}
-              <button
-                disabled={updating === b.id}
-                onClick={() => remove(b.id)}
-                title="Delete this reservation permanently"
-                className="flex items-center gap-1.5 font-bebas text-[9px] tracking-[0.12em] border border-red-500/30 text-red-400/80 px-2.5 py-1 rounded-full transition-colors hover:bg-red-500/10 hover:text-red-400 disabled:opacity-40 disabled:cursor-not-allowed ml-auto"
-              >
-                <Trash2 size={10} /> Delete
-              </button>
+              <DeleteOrKeep
+                kind="place"
+                row={b}
+                refusedByServer={refused[b.id]?.message}
+                busy={updating === b.id}
+                onDelete={() => remove(b.id)}
+                onCancel={() => cancelInstead(b)}
+              />
             </div>
           </div>
         );
@@ -4500,6 +4708,19 @@ function MapEditor({
   }
 
   function removeLoc(idx: number) {
+    // A place that has asked for its own page may be an indexed URL
+    // (architecture review 2026-09-30, item 2). Removing it 404s
+    // /guide/<slug>, so say so first.
+    const loc = content.mapLocations[idx];
+    if (
+      loc?.pageEnabled &&
+      !window.confirm(
+        `${loc.name} is set to have its own page at /guide/${loc.slug}. Removing the place takes ` +
+          "that page down too; hiding it keeps everything. Remove anyway?",
+      )
+    ) {
+      return;
+    }
     onChange({
       ...content,
       mapLocations: content.mapLocations.filter((_, i) => i !== idx),
@@ -4640,6 +4861,13 @@ function MapEditor({
             hint="Add as many angles as you like — the first photo is the cover shown in the location list."
             images={loc.images ?? (loc.image ? [loc.image] : [])}
             onChange={(imgs) => updateLoc(idx, { images: imgs, image: imgs[0] ?? "" })}
+          />
+
+          <LocationPageFields
+            place={loc}
+            others={content.mapLocations.filter((_, i) => i !== idx)}
+            listings={content.recommended?.items ?? []}
+            onChange={(patch) => updateLoc(idx, patch)}
           />
         </div>
       ))}
@@ -9553,8 +9781,11 @@ function WaitlistViewer() {
 
 export default function AdminDashboard({
   initialContent,
+  initialVersion = null,
 }: {
   initialContent: SiteContent;
+  /** site_content.updated_at as loaded; null when no row existed yet. */
+  initialVersion?: string | null;
 }) {
   const [section, setSection] = useState<Section>("dashboard");
 
@@ -9574,7 +9805,13 @@ export default function AdminDashboard({
   const [content, setContent] = useState<SiteContent>(initialContent);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
-  const [saveError, setSaveError] = useState(false);
+  // The server's own sentence, kept on screen until dismissed or the next
+  // save — not a three-second "Error" (architecture review 2026-09-30, item 4).
+  const [saveProblem, setSaveProblem] = useState<SaveProblem | null>(null);
+  const saveError = saveProblem !== null;
+  // Which version of the row these edits are based on. Sent with every save;
+  // replaced by the version the server hands back when one lands.
+  const [baseVersion, setBaseVersion] = useState<string | null>(initialVersion);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [navQuery, setNavQuery] = useState("");
   // "Needs attention" counts shown as sidebar badges.
@@ -9634,24 +9871,36 @@ export default function AdminDashboard({
   async function handleSave() {
     setSaving(true);
     setSaved(false);
-    setSaveError(false);
+    setSaveProblem(null);
+    const sent = content;
     try {
       const res = await fetch("/api/admin/content", {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(content),
+        headers: {
+          "Content-Type": "application/json",
+          [CONTENT_BASE_HEADER]: baseVersion ?? NO_ROW_VERSION,
+        },
+        body: JSON.stringify(sent),
       });
-      if (res.status === 401) {
+      // The body is READ now, on every status. The old handler threw on
+      // !res.ok before looking at it, so the guard's "FAQ questions would drop
+      // from 12 to 0" and the 503's "could not read the current content" never
+      // reached the owner — he saw "Error" for three seconds and nothing else.
+      const outcome = interpretSaveResponse(res.status, await res.json().catch(() => null));
+      if (outcome.kind === "expired") {
         router.push("/admin/login");
         return;
       }
-      if (!res.ok) throw new Error();
-      setSavedSnapshot(JSON.stringify(content)); // edits are now persisted
-      setSaved(true);
-      setTimeout(() => setSaved(false), 3000);
+      if (outcome.kind === "saved") {
+        if (outcome.version) setBaseVersion(outcome.version);
+        setSavedSnapshot(JSON.stringify(sent)); // edits are now persisted
+        setSaved(true);
+        setTimeout(() => setSaved(false), 3000);
+        return;
+      }
+      setSaveProblem({ kind: outcome.kind, message: outcome.message });
     } catch {
-      setSaveError(true);
-      setTimeout(() => setSaveError(false), 3000);
+      setSaveProblem({ kind: "refused", message: OFFLINE_SAVE_MESSAGE });
     } finally {
       setSaving(false);
     }
@@ -9699,6 +9948,7 @@ export default function AdminDashboard({
     marketplace:  { title: "Business directory",   desc: "A directory of local businesses shown on the website. Separate from the Shops marketplace, where merchants sell real products and take orders." },
     taxi:         { title: "Taxi & Transport",     desc: "Driver directory shown at /taxi — tourists tap WhatsApp or call directly." },
     notifications:{ title: "Alerts & Email",       desc: "Your WhatsApp alert number and the email service (Brevo) that sends customer confirmations — editable any time, no redeploy." },
+    announcement: { title: "Announcement bar",     desc: "A coloured strip at the very top of every page. Off unless you switch it on and write a message." },
   };
 
   const isAutoSave =
@@ -9855,7 +10105,7 @@ export default function AdminDashboard({
           <Save size={14} />
         )}
         <span className={isAutoSave ? "hidden sm:inline" : ""}>
-          {saving ? "Saving…" : saved ? "Saved!" : saveError ? "Error" : isAutoSave ? "Auto-saved" : dirty ? "Save changes" : "All saved"}
+          {saving ? "Saving…" : saved ? "Saved!" : saveError ? "Not saved" : isAutoSave ? "Auto-saved" : dirty ? "Save changes" : "All saved"}
         </span>
       </button>
     </div>
@@ -9909,6 +10159,14 @@ export default function AdminDashboard({
           {saveButton}
         </header>
 
+        {saveProblem && (
+          <SaveProblemBanner
+            problem={saveProblem}
+            onReload={() => window.location.reload()}
+            onDismiss={() => setSaveProblem(null)}
+          />
+        )}
+
         <div className="flex-1 p-4 sm:p-6 lg:p-8 w-full max-w-3xl">
           {section === "dashboard" && (
             <DashboardView onNavigate={selectSection} fleet={content.fleet} />
@@ -9937,7 +10195,18 @@ export default function AdminDashboard({
                 content={content}
                 onChange={setContent}
                 onSessionExpired={() => router.push("/admin/login")}
-                onSaved={(c) => setSavedSnapshot(JSON.stringify(c))}
+                version={baseVersion}
+                onSaved={(c, v) => {
+                  setSavedSnapshot(JSON.stringify(c));
+                  if (v) setBaseVersion(v);
+                }}
+                // Not onSaved: the delete wrote the server's copy minus one
+                // photo, not this tab's unsaved edits, so only that photo
+                // leaves the snapshot and the edits still count as unsaved.
+                onPhotoDeleted={(id, v) => {
+                  setSavedSnapshot((s) => snapshotWithoutPhoto(s, id));
+                  if (v) setBaseVersion(v);
+                }}
               />
               <p className="mt-4 text-muted/50 text-xs font-dm">
                 Gallery photos are saved automatically — no need to click Save Changes.
@@ -9961,6 +10230,12 @@ export default function AdminDashboard({
           {section === "place_bookings" && <PlaceBookingsManager />}
           {section === "map" && (
             <MapEditor content={content} onChange={setContent} />
+          )}
+          {section === "announcement" && (
+            <AnnouncementEditor
+              announcement={content.announcement}
+              onChange={(announcement) => setContent({ ...content, announcement })}
+            />
           )}
           {section === "planner" && (
             <PlannerEditor content={content} onChange={setContent} />

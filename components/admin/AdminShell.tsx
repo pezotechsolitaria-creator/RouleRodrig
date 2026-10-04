@@ -8,7 +8,7 @@ import {
   PenSquare, MapPinned, Wallet, MessageCircle, ScrollText, Search, Menu, X,
   ExternalLink, LogOut, Waves, Bike, Activity, Receipt, ChefHat, ShoppingBag, Car, ClipboardList,
   Sparkles, UserCheck, Radar, CalendarDays,
-  FileText, CardSim,
+  FileText, CardSim, FolderTree, History,
 } from "lucide-react";
 import CommandPalette from "./CommandPalette";
 import AdminBell from "@/components/admin/AdminBell";
@@ -104,6 +104,9 @@ const NAV: NavGroup[] = [
       // The eSIM store (M223): orders, supplier balance, plans and margins.
       { href: "/admin/esim", label: "eSIM store", icon: CardSim },
       { href: "/admin/stores", label: "Shops & hours", icon: Clock },
+      // The shelves /shop is browsed by — until the architecture review
+      // 2026-09-30 (item 5) only a migration could add or rename one.
+      { href: "/admin/categories", label: "Marketplace categories", icon: FolderTree },
       { href: "/admin/events", label: "Events & tickets", icon: Ticket },
       { href: "/admin/managed-ticketing", label: "Ticketing fees", icon: Wallet },
       { href: "/admin/delivery-zones", label: "Delivery areas", icon: Truck },
@@ -115,6 +118,9 @@ const NAV: NavGroup[] = [
     title: "Website & money",
     items: [
       { href: "/admin/content", label: "Content studio", icon: PenSquare },
+      // Beside the studio because it undoes the studio: every nightly copy of
+      // the content, with a restore (architecture review 2026-09-30, item 6).
+      { href: "/admin/content-history", label: "Content history", icon: History },
       // The worlds studio is where the CURATED page (and, in time, every other
       // world) is composed. It is listed beside the content studio because that
       // is the mental neighbourhood — "the words and pictures on the site" —
@@ -127,10 +133,12 @@ const NAV: NavGroup[] = [
   },
 ];
 
-function isActive(pathname: string, href: string): boolean {
+export function isActive(pathname: string, href: string): boolean {
   const base = href.split("#")[0];
   if (base === "/admin") return pathname === "/admin";
-  return pathname.startsWith(base) && !href.includes("#");
+  // A segment boundary, not a bare prefix: /admin/content-history must not
+  // light up "Content studio" too (architecture review 2026-09-30, item 6).
+  return (pathname === base || pathname.startsWith(`${base}/`)) && !href.includes("#");
 }
 
 export default function AdminShell({ children }: { children: React.ReactNode }) {

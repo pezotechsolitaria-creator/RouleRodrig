@@ -6,6 +6,14 @@ import { experiencesFaq, priceRangeOf, type PriceRange } from "@/lib/experiences
 import { foodFaq } from "@/lib/food-faq";
 import { placePrice } from "@/lib/place-detail";
 import { placePageHref, placesWithOwnPage } from "@/lib/place-slug";
+import { ileAuxCocosBooking } from "@/lib/ile-aux-cocos-listing";
+import {
+  blogFaq,
+  cocosFaq,
+  RODRIGUAN_FOOD_FAQ,
+  rodriguesGuideFaq,
+  type PageFaq,
+} from "@/lib/page-faqs";
 import { hubBlurb, liveFromPrice } from "@/lib/live-prices";
 import { isSellableFleetItem } from "@/lib/site-data";
 import { FR_PAGES, GUIDE_PAGES } from "@/lib/nav/hubs";
@@ -313,7 +321,11 @@ export function buildLlmsTxt(d: LlmsData): string {
     // The page's own checked wording (its meta description, rewritten in
     // 1c8e7711), not the old file's "lodges and hotels", which it dropped (C8).
     line(u, "/browse/stays", "Where to stay in Rodrigues", `guesthouses, self-catering houses and villas${staysFrom ? `, from ${rs(staysFrom)} a night` : " with nightly prices"}`),
-    line(u, "/browse/activities", "Things to do", "bookable activities, price per person and session length on each listing"),
+    // The page's own name since it was retitled (SEO audit 2026-09-29 C19):
+    // "Things to do" is /experiences' head term, and this line was the last
+    // place still giving it to the subset page (architecture review
+    // 2026-09-30, item 8).
+    line(u, "/browse/activities", "Activities in Rodrigues", "bookable activities, price per person and session length on each listing"),
     line(u, "/browse/tours", "Guided tours and boat trips", "Ile aux Cocos and its bird sanctuary, snorkelling at Riviere Banane, traditional fishing, lagoon trips - with local skippers"),
     line(u, "/experiences", "All experiences in one place", "the door for someone who does not yet know which kind they want"),
     ...types,
@@ -420,6 +432,27 @@ function foodFaqLive(lang: "en" | "fr", food: LlmsFood | null) {
     .map((f) => ({ q: f.question, a: f.answer }));
 }
 
+/**
+ * The guide and blog answers (lib/page-faqs.ts) are written in code, and a
+ * figure written in code is a remembered one — the island guide's budget
+ * answer carries "about Rs 3,000–5,500" a day, an estimate, not a price
+ * anybody charges. The same rule as the food answers: kept only while every
+ * Rs figure in it is one this file READ (`read`: the Île aux Cocos listing's
+ * own price, which cocosFaq() quotes), dropped rather than rewritten
+ * otherwise. Answers with no figure pass untouched. Architecture review
+ * 2026-09-30, item 8.
+ */
+function readFiguresOnly(items: PageFaq[], read: number[] = []): PageFaq[] {
+  const ok = new Set(read);
+  return items.filter((f) => rupeeFigures(f.a).every((n) => ok.has(n)));
+}
+
+/** A guide's name as the /guide hub lists it, without the count the page
+ *  computes live (the rule llms.txt already applies to its Discover lines). */
+function guideTitle(href: string, fallback: string): string {
+  return withoutCount(GUIDE_PAGES.find((g) => g.href === href)?.title ?? fallback);
+}
+
 export function buildLlmsFullTxt(d: LlmsData): string {
   const { siteUrl: u, content } = d;
   const airport = d.fares.airport;
@@ -436,6 +469,9 @@ export function buildLlmsFullTxt(d: LlmsData): string {
 
   const section = (title: string, path: string, items: { q: string; a: string; more?: string }[]) =>
     items.length ? [`## ${title}`, "", `Source: ${u}${path}`, "", ...qa(items)] : [];
+  // The Île aux Cocos cost answer quotes the listing, found the way the guide
+  // finds it; its price is the one figure that answer may carry.
+  const cocos = ileAuxCocosBooking(content.recommended.items);
 
   const out: string[] = [
     "# Roule Rodrigues — the answers in full",
@@ -447,6 +483,18 @@ export function buildLlmsFullTxt(d: LlmsData): string {
     ...section("Airport transfers", "/transfers", transferFaq(d.fares)),
     ...section("Ordering food", "/food", foodFaqLive("en", d.food)),
     ...section("Experiences", "/experiences", exp("en")),
+    // The guide pages' and the blog's own FAQs, from the module those pages
+    // render them from (lib/page-faqs.ts): every question, in their words,
+    // under the page that shows it. A blog post with no question headings has
+    // no FAQ and no section.
+    ...section(guideTitle("/guide/rodrigues", "Rodrigues Island travel guide"), "/guide/rodrigues", readFiguresOnly(rodriguesGuideFaq())),
+    ...section(
+      guideTitle("/guide/ile-aux-cocos", "Île aux Cocos"),
+      "/guide/ile-aux-cocos",
+      readFiguresOnly(cocosFaq(cocos), cocos.price ? [cocos.price] : []),
+    ),
+    ...section(guideTitle("/guide/rodriguan-food", "Rodriguan food"), "/guide/rodriguan-food", readFiguresOnly(RODRIGUAN_FOOD_FAQ)),
+    ...BLOG_POSTS.flatMap((p) => section(p.title, `/blog/${p.slug}`, readFiguresOnly(blogFaq(p)))),
     // The same modules in French: what /taxi, /food and /experiences show a
     // reader who has switched the site to French.
     ...section("Le taxi à Rodrigues (en français)", "/taxi", fromTaxi(u, taxiFaq("fr", airport), "fr")),

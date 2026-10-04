@@ -6,6 +6,8 @@ import {
   Ticket,
   ChevronRight,
   ClipboardList,
+  KeyRound,
+  Truck,
 } from "lucide-react";
 import { SITE_URL } from "@/lib/site";
 import { breadcrumbLd } from "@/lib/schema";
@@ -69,6 +71,33 @@ const DOORS = [
     // `transferDetail`) — so no method is promised here (audit C9).
     detail: "Pay the organiser the way the event shows, then show your code at the gate.",
     accent: "from-purple-500/20",
+  },
+];
+
+// ── THE TWO THINGS PEOPLE ASK THIS SCREEN FOR THAT IT COULD NOT ANSWER ──────
+// Architecture review 2026-09-30, item 4: /order is a tab-bar destination and
+// linked neither a rental nor /deliver. They are not orders — a rental is a
+// booking the owner confirms, a delivery is a request drivers quote on — so
+// they sit below the three doors as plain rows, not as a fourth door.
+//
+// Rentals go to the Rentals branch of /marketplace, which is built from the
+// live fleet and prints each category's own "from" price. Naming "scooters and
+// cars" here would be typed copy that outlives the day cars are switched off,
+// and reading the fleet would make this deliberately plain page wait on a
+// content read it otherwise never needs.
+const ALSO = [
+  {
+    href: "/marketplace#rentals",
+    title: "Rentals",
+    note: "What you can rent on the island, and from how much a day.",
+    icon: KeyRound,
+  },
+  {
+    href: "/deliver",
+    title: "Get anything moved",
+    // /deliver's own promise, word for word: drivers quote, you choose.
+    note: "Drivers send their price — you choose.",
+    icon: Truck,
   },
 ];
 
@@ -146,6 +175,28 @@ export default function OrderHubPage() {
                     size={20}
                     className="shrink-0 text-muted group-hover:text-yellow"
                   />
+                </Link>
+              );
+            })}
+          </div>
+
+          <div className="mt-6 space-y-2">
+            {ALSO.map((r) => {
+              const Icon = r.icon;
+              return (
+                <Link
+                  key={r.href}
+                  href={r.href}
+                  className="flex min-h-14 items-center gap-3 rounded-2xl border border-white/10 bg-dark-card px-5 py-4 transition-colors hover:border-yellow/40"
+                >
+                  <Icon size={19} className="shrink-0 text-yellow" aria-hidden />
+                  <span className="min-w-0 flex-1">
+                    <span className="block font-dm text-sm font-medium text-offwhite">
+                      {r.title}
+                    </span>
+                    <span className="block font-dm text-xs text-muted">{r.note}</span>
+                  </span>
+                  <ChevronRight size={18} className="shrink-0 text-muted" aria-hidden />
                 </Link>
               );
             })}

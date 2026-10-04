@@ -4,9 +4,11 @@ import { SITE_URL } from "@/lib/site";
 import { breadcrumbLd, itemListLd, placeLd } from "@/lib/schema";
 import JsonLd from "@/components/JsonLd";
 import AppPageHeader from "@/components/AppPageHeader";
-import HikingGuide, { isHike } from "@/components/HikingGuide";
+import HikingGuide from "@/components/HikingGuide";
 import { isGuide } from "@/components/GuideRoster";
 import HubBacklink from "@/components/nav/HubBacklink";
+import { hikesOnGuide } from "@/lib/guide/hub";
+import { guideTrail } from "@/lib/guide/places";
 
 export const revalidate = 3600;
 
@@ -17,9 +19,10 @@ const DESCRIPTION =
 
 export async function generateMetadata(): Promise<Metadata> {
   const content = await getContent();
-  const n = content.rideRoutes.filter((r) => isHike(r) && r.name && r.description).length;
+  const n = hikesOnGuide(content.rideRoutes).length;
   // The count comes from the same filter that builds the page, so the title can
-  // never promise a number the page does not show.
+  // never promise a number the page does not show — and the /guide hub counts
+  // with it too (architecture review 2026-09-30, item 5: the hub said 5).
   const title = n > 0 ? `The ${n} Best Hikes in Rodrigues Island | Roule Rodrigues` : TITLE;
   return {
     title,
@@ -40,7 +43,7 @@ export default async function HikingPage() {
   // Same gate the rest of the guide uses: a name and a pin is not a guide
   // entry. A trail with no description written yet stays out of the list, the
   // count and the structured data alike.
-  const trails = content.rideRoutes.filter((r) => isHike(r) && r.name && r.description);
+  const trails = hikesOnGuide(content.rideRoutes);
   // The people. Featured first, matching every other listing surface — the
   // owner's ordering decision, not alphabetical accident.
   const guides = content.recommended.items
@@ -51,11 +54,9 @@ export default async function HikingPage() {
     <>
       <JsonLd
         data={[
-          breadcrumbLd([
-            { name: "Home", url: SITE_URL },
-            { name: "Island guide", url: `${SITE_URL}/guide/rodrigues` },
-            { name: "Hiking", url: `${SITE_URL}/guide/hiking` },
-          ]),
+          // Home › Island guide (/guide) › Hiking (architecture review
+          // 2026-09-30, item 6).
+          breadcrumbLd(guideTrail(SITE_URL, { name: "Hiking", path: "/guide/hiking" })),
           itemListLd(
             "Hiking trails in Rodrigues Island",
             trails.map((r) => ({ name: r.name.trim(), url: `${SITE_URL}/guide/hiking#${r.id}` })),
@@ -63,12 +64,15 @@ export default async function HikingPage() {
           // No geo is emitted: the trail model carries a written trailhead, not
           // coordinates, and a guessed lat/lng in structured data would be a
           // lie told to a mapping engine.
+          // Each trail's node carries the anchor its article renders under
+          // (HikingGuide: id={r.id}), the same url the ItemList above names.
           ...trails.map((r) =>
             placeLd({
               name: r.name.trim(),
               description: r.description.trim(),
               category: "activity",
               image: r.image || r.images?.[0],
+              url: `${SITE_URL}/guide/hiking#${r.id}`,
             }),
           ),
         ]}

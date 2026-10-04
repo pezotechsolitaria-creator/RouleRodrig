@@ -38,6 +38,10 @@ const ACTIONS: Hit[] = [
   { group: "Go", title: "Ticketing fees", subtitle: "What the platform charges organisers", href: "/admin/managed-ticketing" },
   { group: "Go", title: "Event organisers", subtitle: "Scoped organiser accounts", href: "/admin/organizers" },
   { group: "Go", title: "Content studio", subtitle: "Everything the website shows", href: "/admin/content" },
+  // architecture review 2026-09-30, items 1, 5 and 6.
+  { group: "Go", title: "Content history", subtitle: "Every nightly copy of the website, and restore one", href: "/admin/content-history" },
+  { group: "Go", title: "Marketplace categories", subtitle: "Add, rename, reorder or switch off a shop shelf", href: "/admin/categories" },
+  { group: "Go", title: "Announcement bar", subtitle: "The message across the top of every page", href: "/admin/content#announcement" },
   { group: "Go", title: "Delivery areas & fees", subtitle: "Zones and pricing", href: "/admin/delivery-zones" },
   { group: "Go", title: "Own delivery", subtitle: "Which shops may track their own drivers", href: "/admin/own-delivery" },
   { group: "Go", title: "Payment methods", subtitle: "How each shop can be paid", href: "/admin/payment-methods" },

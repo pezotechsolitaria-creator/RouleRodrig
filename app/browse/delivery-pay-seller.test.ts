@@ -259,7 +259,12 @@ describe("the stay pages say how to pay (C4)", () => {
     const t = visible(html);
     expect(t).toContain(STAY_PAY.en);
     expect(t).toContain("You can also ask to pay in person, in cash");
-    expect(html.match(/<h2[ >]/g)?.length).toBe(3);
+    // Three note sections — the pay sentence did not become a fourth — and,
+    // since the architecture review of 2026-09-30 (item 1), the "Where to go"
+    // links after them, the page's last h2.
+    const h2s = [...html.matchAll(/<h2[^>]*>([^<]*)<\/h2>/g)].map((m) => decode(m[1]));
+    expect(h2s).toHaveLength(4);
+    expect(h2s[3]).toBe("Where to go");
   });
 
   it("/fr/hebergement-rodrigues: the 'Paie-t-on' answer offers cash, visibly and in its FAQPage", async () => {

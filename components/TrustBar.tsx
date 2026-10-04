@@ -2,6 +2,7 @@
 
 import { ShieldCheck, BadgePercent, MessageCircle, CalendarCheck } from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
+import type { RentalKind } from "@/lib/rental-conditions";
 
 // ── AND THEY HAVE TO BE IN THE READER'S LANGUAGE ───────────────────────────
 //
@@ -99,12 +100,31 @@ const CAR: Item[] = [
   },
 ];
 
-export default function TrustBar({ category }: { category?: string } = {}) {
+// ── EQUIPMENT GETS ONLY THE PROMISES THAT HOLD FOR ANY RENTAL ──────────────
+// Architecture review 2026-09-30, rentalKind. Every category that is not "car"
+// fell through to the scooter pair, so a kayak or snorkel category would have
+// opened with "Helmet included" and "Free scooter delivery". Neither pair is
+// true of equipment, and nothing else is known about it that a bar headed "Why
+// book with us" could promise — so it carries the two shared items and no
+// invented third. `kind` undefined (every live category) is "motor": the same
+// items, in the same order, as before this existed.
+function trustItems(category?: string, kind?: RentalKind): Item[] {
+  if (kind === "equipment") return SHARED;
+  return [...(category === "car" ? CAR : SCOOTER), ...SHARED];
+}
+
+export default function TrustBar({
+  category,
+  kind,
+}: { category?: string; kind?: RentalKind } = {}) {
   const { language } = useLanguage();
-  const ITEMS = [...(category === "car" ? CAR : SCOOTER), ...SHARED];
+  const ITEMS = trustItems(category, kind);
+  // Two items on a four-column desktop grid would sit in the left half with
+  // an empty right half; two columns at every width keeps the bar full.
+  const cols = ITEMS.length > 2 ? "grid-cols-2 lg:grid-cols-4" : "grid-cols-2";
   return (
     <section className="bg-dark border-y border-dark-border" aria-label="Why book with us">
-      <div className="max-w-7xl mx-auto px-6 py-6 grid grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-5">
+      <div className={`max-w-7xl mx-auto px-6 py-6 grid ${cols} gap-x-6 gap-y-5`}>
         {ITEMS.map(({ icon: Icon, title, desc }) => (
           <div key={title.en} className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-yellow/10 flex items-center justify-center shrink-0">

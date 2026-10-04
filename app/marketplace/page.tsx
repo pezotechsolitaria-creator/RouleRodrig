@@ -2,22 +2,42 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { cache } from "react";
 import {
-  ArrowRight,
   ClipboardList,
-  Landmark,
+  Flower2,
+  Footprints,
+  Map as MapIcon,
+  PartyPopper,
+  Plane,
   ShoppingBag,
+  Siren,
+  Smartphone,
   Sparkles,
   Truck,
+  UtensilsCrossed,
   Wrench,
 } from "lucide-react";
 import BackLink from "@/components/BackLink";
 import Navbar from "@/components/Navbar";
 import JsonLd from "@/components/JsonLd";
+import HubDoorCard from "@/components/marketplace/HubDoorCard";
+import RentalsSection from "@/components/marketplace/RentalsSection";
 import { getContent } from "@/lib/content";
 import { createAnonClient } from "@/lib/supabase/anon";
 import { SITE_URL } from "@/lib/site";
-import { breadcrumbLd } from "@/lib/schema";
-import { HUB_ACTIONS } from "@/lib/marketplace/hub";
+import { breadcrumbLd, itemListLd } from "@/lib/schema";
+import {
+  HUB_BRANCHES,
+  doorsOf,
+  otherShelves,
+  type HubAction,
+  type HubExperience,
+  type HubFacts,
+} from "@/lib/marketplace/hub";
+import { buildRentalsRail } from "@/lib/marketplace/rentals-rail";
+import { getMarketplaceHome } from "@/lib/marketplace/catalog";
+import { listVehicleProviders } from "@/lib/marketplace/vehicle-providers";
+import { experiencesOfType } from "@/lib/experiences";
+import { recommendedCount } from "@/lib/listing-gates";
 
 // ── BUY IT. BOOK IT. GET IT DONE. ───────────────────────────────────────────
 //
@@ -32,11 +52,17 @@ import { HUB_ACTIONS } from "@/lib/marketplace/hub";
 // look at products. Putting a card hero back on that page would undo a
 // measured decision. So the hub is its own route and /shop is one of its doors.
 //
-// ── WHY TWO CARDS ARE DARK ──────────────────────────────────────────────────
-// Because two of the six are not built. A card that pretends to work costs
-// somebody their afternoon; one that says "not yet" costs them nothing. The
-// state comes from a null href in lib/marketplace/hub.ts — one field, so the
-// link, the cursor, the wording and the aria cannot drift apart.
+// ── THE ROOT OF THE MARKETPLACE TREE (architecture review 2026-09-30) ───────
+// Five branches — Products, Services, Rentals, Tourist essentials, Requests &
+// concierge — each a group of doors onto pages that already exist. Nothing was
+// moved to make them: the doors are data in lib/marketplace/hub.ts, the Rentals
+// branch is built from the live fleet (lib/marketplace/rentals-rail.ts), and a
+// door is shown only while the page behind it has something on it. A branch
+// with no open door is not drawn at all — a heading over nothing is a door to
+// an empty room.
+//
+// A card with a null href still renders dark and says "Soon" — one field, so
+// the link, the cursor, the wording and the aria cannot drift apart.
 
 export const revalidate = 3600;
 
@@ -63,6 +89,27 @@ const listedShops = cache(async (): Promise<number | null> => {
     const { data, error } = await createAnonClient().rpc("sitemap_stores");
     if (error) return null;
     return Array.isArray(data) ? data.length : 0;
+  } catch {
+    return null;
+  }
+});
+
+/** What /shop and its shelves would show: the same marketplace_home() read
+ *  /shop renders its product count and CategoryStrip from. Null = unknown. */
+const shopHome = cache(async () => {
+  try {
+    return await getMarketplaceHome(createAnonClient());
+  } catch {
+    return null;
+  }
+});
+
+/** How many businesses /marketplace/wash lists, by its own query; null =
+ *  unknown. The line pointing at it is shown only while it lists somebody. */
+const washListed = cache(async (): Promise<number | null> => {
+  try {
+    const listed = await listVehicleProviders(createAnonClient());
+    return listed ? listed.length : null;
   } catch {
     return null;
   }
@@ -96,24 +143,73 @@ export async function generateMetadata(): Promise<Metadata> {
  *  tested in node without React. */
 const ICON: Record<string, React.ElementType> = {
   shop: ShoppingBag,
+  celebrations: PartyPopper,
   wash: Sparkles,
+  pro: Wrench,
+  massage: Flower2,
+  hiking: Footprints,
+  esim: Smartphone,
+  transfers: Plane,
+  map: MapIcon,
+  emergency: Siren,
   deliver: Truck,
   task: ClipboardList,
-  pro: Wrench,
-  admin: Landmark,
+  concierge: UtensilsCrossed,
 };
 
+const EXPERIENCE_GATES: HubExperience[] = ["massage", "hiking", "boat", "fishing"];
+
 export default async function MarketplacePage() {
-  const [content, shops] = await Promise.all([getContent(), listedShops()]);
-  const jsonLd = {
-    "@context": "https://schema.org",
-    "@graph": [
-      breadcrumbLd([
-        { name: "Roule Rodrigues", url: SITE_URL },
-        { name: "Marketplace", url: `${SITE_URL}/marketplace` },
-      ]),
-    ],
+  const [content, shops, home, wash] = await Promise.all([
+    getContent(),
+    listedShops(),
+    shopHome(),
+    washListed(),
+  ]);
+
+  const items = content.recommended?.items ?? [];
+  const facts: HubFacts = {
+    products: typeof home?.productCount === "number" ? home.productCount : null,
+    shelves: home
+      ? new Set((home.categories ?? []).filter((c) => c.count > 0).map((c) => c.slug))
+      : null,
+    experiences: Object.fromEntries(
+      EXPERIENCE_GATES.map((t) => [t, recommendedCount(content, experiencesOfType(items, t))]),
+    ) as Record<HubExperience, number | null>,
+    foodConcierge: content.foodConcierge?.enabled === true,
   };
+  const rail = buildRentalsRail(content);
+  const shelves = otherShelves(home?.categories ?? null);
+  // /marketplace/wash lists BUSINESSES, the Wash door the WORK — see below.
+  const showWashLine = wash !== 0;
+
+  const branches = HUB_BRANCHES.map((b) => {
+    const doors: HubAction[] = b.key === "rentals" ? [] : doorsOf(b.key, facts);
+    const shown =
+      b.key === "rentals"
+        ? rail.categories.length > 0
+        : doors.length > 0 ||
+          (b.key === "products" && shelves.length > 0) ||
+          (b.key === "services" && showWashLine);
+    return { ...b, doors, shown };
+  }).filter((b) => b.shown);
+
+  const jsonLd: object[] = [
+    breadcrumbLd([
+      { name: "Roule Rodrigues", url: SITE_URL },
+      { name: "Marketplace", url: `${SITE_URL}/marketplace` },
+    ]),
+  ];
+  // The rental links exactly as the Rentals section shows them — names and
+  // URLs only. The Product/Offer markup stays on the rental pages that own it.
+  if (rail.categories.length > 0) {
+    jsonLd.push(
+      itemListLd("Rentals on Rodrigues", [
+        ...rail.categories.map((c) => ({ name: c.label, url: `${SITE_URL}${c.href}` })),
+        ...rail.vehicles.map((v) => ({ name: v.name, url: `${SITE_URL}${v.href}` })),
+      ]),
+    );
+  }
 
   return (
     <>
@@ -150,96 +246,99 @@ export default async function MarketplacePage() {
             {descriptionFor(shops)}
           </p>
 
-          <div className="mt-8 grid gap-3 sm:grid-cols-2">
-            {HUB_ACTIONS.map((a) => {
-              const Icon = ICON[a.key] ?? ShoppingBag;
-              const open = a.href !== null;
-
-              const inner = (
-                <>
-                  <span
-                    className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ${
-                      open ? "bg-yellow text-dark" : "bg-white/[0.06] text-muted"
-                    }`}
+          {/* The tree at a glance, and a way to jump down it on a phone: five
+              sections is several screens. Only the branches drawn below. */}
+          <nav aria-label="Marketplace sections" className="mt-5">
+            <ul className="-mx-5 flex gap-2 overflow-x-auto px-5 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              {branches.map((b) => (
+                <li key={b.key} className="shrink-0">
+                  <a
+                    href={`#${b.key}`}
+                    className="inline-flex min-h-11 items-center rounded-full border border-white/12 px-4 font-dm text-xs font-medium text-muted transition-colors hover:border-yellow/40 hover:text-yellow"
                   >
-                    <Icon size={20} aria-hidden />
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="flex items-center gap-2">
-                      <span
-                        className={`font-syne text-[17px] font-extrabold ${
-                          open ? "text-offwhite" : "text-muted"
-                        }`}
-                      >
-                        {a.title}
-                      </span>
-                      {!open && (
-                        // The word, not a colour. A greyed card alone is a
-                        // guess; this says which it is.
-                        <span className="rounded-full border border-white/15 px-2 py-0.5 font-dm text-[10px] uppercase tracking-wider text-muted">
-                          Soon
-                        </span>
-                      )}
-                    </span>
-                    <span className="mt-0.5 block font-dm text-[13px] leading-relaxed text-muted">
-                      {a.blurb}
-                    </span>
-                  </span>
-                  {open && (
-                    <ArrowRight
-                      size={17}
-                      className="mt-1 shrink-0 text-yellow"
-                      aria-hidden
-                    />
-                  )}
-                </>
-              );
+                    {b.title}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </nav>
 
-              // A real anchor when there is somewhere to go, and a plain div
-              // when there is not — never a disabled link. A link that goes
-              // nowhere is still focusable, still announced as a link, and
-              // still tapped.
-              return open ? (
-                <Link
-                  key={a.key}
-                  href={a.href!}
-                  className="flex min-h-[88px] items-start gap-3 rounded-2xl border border-white/10 bg-dark-card p-4 transition-colors hover:border-yellow/45"
-                >
-                  {inner}
-                </Link>
-              ) : (
-                <div
-                  key={a.key}
-                  className="flex min-h-[88px] items-start gap-3 rounded-2xl border border-white/[0.06] bg-dark-card/40 p-4"
-                >
-                  {inner}
-                </div>
-              );
-            })}
-          </div>
-
-          {/* ── THE SHELF AND THE SUPPLIERS ARE DIFFERENT QUESTIONS ──────────
-              The Wash card goes to /shop/c/vehicle-care, which lists the WORK —
-              a valet you book, a shampoo you buy. This lists the BUSINESSES,
-              with whether each comes to you and whether they take a booking
-              online. Somebody who wants their car cleaned wants the first;
-              somebody who wants a particular garage wants the second.
-
-              It is a line and not a card because it is the rarer question. It
-              is here at all because the page had no inbound link the moment the
-              card was repointed, and lib/nav/reachable-pages.test.ts said so —
-              which is the same defect this whole hub exists to fix. */}
-          <p className="mt-6 font-dm text-[12.5px] leading-relaxed text-muted">
-            Looking for a particular garage?{" "}
-            <Link
-              href="/marketplace/wash"
-              className="text-yellow underline underline-offset-4"
+          {branches.map((b) => (
+            <section
+              key={b.key}
+              id={b.key}
+              aria-labelledby={`${b.key}-title`}
+              className="mt-10 scroll-mt-28 md:scroll-mt-32"
             >
-              See car wash and valeting businesses
-            </Link>
-          </p>
+              <h2
+                id={`${b.key}-title`}
+                className="font-syne text-xl font-extrabold text-offwhite"
+              >
+                {b.title}
+              </h2>
+              <p className="mt-1 font-dm text-[13px] leading-relaxed text-muted">{b.blurb}</p>
 
-          <p className="mt-2 font-dm text-[12.5px] leading-relaxed text-muted">
+              {b.key === "rentals" ? (
+                <RentalsSection rail={rail} />
+              ) : (
+                b.doors.length > 0 && (
+                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                    {b.doors.map((a) => (
+                      <HubDoorCard key={a.key} action={a} icon={ICON[a.key] ?? ShoppingBag} />
+                    ))}
+                  </div>
+                )
+              )}
+
+              {/* The rest of the live shelves, so Products reaches every one
+                  /shop's CategoryStrip does — only those with a product on
+                  them, in the owner's order (marketplace_home, M185). */}
+              {b.key === "products" && shelves.length > 0 && (
+                <p className="mt-4 font-dm text-[12.5px] leading-relaxed text-muted">
+                  More shelves:{" "}
+                  {shelves.map((s, i) => (
+                    <span key={s.slug}>
+                      {i > 0 && " · "}
+                      <Link
+                        href={`/shop/c/${s.slug}`}
+                        className="text-yellow underline underline-offset-4"
+                      >
+                        {s.name}
+                      </Link>
+                    </span>
+                  ))}
+                </p>
+              )}
+
+              {/* ── THE SHELF AND THE SUPPLIERS ARE DIFFERENT QUESTIONS ──────
+                  The Wash card goes to /shop/c/vehicle-care, which lists the
+                  WORK — a valet you book, a shampoo you buy. This lists the
+                  BUSINESSES, with whether each comes to you and whether they
+                  take a booking online. Somebody who wants their car cleaned
+                  wants the first; somebody who wants a particular garage wants
+                  the second.
+
+                  It is a line and not a card because it is the rarer question.
+                  It is here at all because the page had no inbound link the
+                  moment the card was repointed, and lib/nav/reachable-pages
+                  .test.ts said so. Since review 2026-09-30 it is shown only
+                  while that page lists somebody (its own query; unknown keeps
+                  it): "No car washes listed yet" is not a place to send anyone. */}
+              {b.key === "services" && showWashLine && (
+                <p className="mt-4 font-dm text-[12.5px] leading-relaxed text-muted">
+                  Looking for a particular garage?{" "}
+                  <Link
+                    href="/marketplace/wash"
+                    className="text-yellow underline underline-offset-4"
+                  >
+                    See car wash and valeting businesses
+                  </Link>
+                </p>
+              )}
+            </section>
+          ))}
+
+          <p className="mt-10 font-dm text-[12.5px] leading-relaxed text-muted">
             Run a business on Rodrigues?{" "}
             <Link
               href="/list-your-scooter"

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifySession, COOKIE_NAME } from '@/lib/auth';
 import { getPrivileged } from '@/lib/supabase/admin';
+import { auditDeletedRows } from '@/lib/admin/audit-delete';
 
 function isAuthed(req: NextRequest) {
   return verifySession(req.cookies.get(COOKIE_NAME)?.value);
@@ -38,7 +39,15 @@ export async function DELETE(req: NextRequest) {
   if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 });
 
   const supabase = await getPrivileged();
-  const { error } = await supabase.from('contact_submissions').delete().eq('id', id);
+  // `.select()` returns the row this removed, for the trail (architecture
+  // review 2026-09-30, item 3). The delete itself is unchanged.
+  const { data: gone, error } = await supabase.from('contact_submissions').delete().eq('id', id).select();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  await auditDeletedRows(supabase, {
+    action: 'contact_submission.delete',
+    entityType: 'contact_submission',
+    rows: gone,
+    keys: ['name', 'email', 'phone', 'scooter', 'dates', 'handled', 'created_at'],
+  });
   return NextResponse.json({ ok: true });
 }

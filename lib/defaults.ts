@@ -141,6 +141,23 @@ export interface VehicleCategory {
   depositPct?: number;
   /** Body styles offered inside this category. */
   types?: VehicleType[];
+  /**
+   * What KIND of thing is rented here (architecture review 2026-09-30).
+   *
+   * Every rental page used to assume a motor vehicle: a driving licence, fuel,
+   * mileage and the Rs 5,000 car security deposit in the conditions, "Helmet
+   * included" in the trust bar, a Car/Motorcycle node in the schema. That is
+   * right for scooters and cars and false for a kayak or snorkel gear, so a new
+   * category could not be switched on without every one of those lying.
+   *
+   *   "motor"     — licence, fuel, road rules apply (scooters, cars, e-bikes).
+   *   "equipment" — no licence, no fuel, no vehicle schema (kayaks, bicycles,
+   *                 snorkel, beach, baby or camera gear).
+   *
+   * Optional: undefined keeps today's behaviour, which treats every existing
+   * category as "motor" — so nothing live changes until the owner picks one.
+   */
+  rentalKind?: "motor" | "equipment";
 }
 
 export interface PricingRow {
@@ -295,6 +312,36 @@ export interface MapLocation {
   popular?: boolean;
   /** Lower sorts first among the picks. Absent means "a pick, in no fixed order". */
   popularRank?: number;
+  // -- A PLACE THE REST OF THE SITE CAN POINT AT (architecture review 2026-09-30)
+  // Ids made in admin look like loc-<timestamp>, and five gazetteers disagree on
+  // names, so no page could link "Port Mathurin" to the listings near it. These
+  // fields are all optional — every stored blob stays valid, no migration.
+  /**
+   * A readable, STABLE slug ("port-mathurin"). Set once: it becomes the
+   * #anchor on the theme guides and, if the place ever earns its own page,
+   * /guide/<slug>. Never changed after a page has shipped (it is an indexed URL).
+   */
+  slug?: string;
+  /** The village or area it sits in ("Port Mathurin", "Pointe Coton"). */
+  area?: string;
+  /**
+   * The owner asks for this place to have its own page at /guide/<slug>.
+   * Asking is not enough: lib/guide/location-page-gate.ts renders the page only
+   * when the place has the depth to justify it (real prose in EN and FR, photos,
+   * checked coordinates). Below the gate it stays a section on its theme guide
+   * — the repo rule is one page per theme until a place earns its own
+   * (components/PlaceGuide.tsx), because thin place pages drag the cluster down.
+   */
+  pageEnabled?: boolean;
+  /** The long read for that page, in the owner's words. Plain text paragraphs. */
+  longRead?: string;
+  longReadFr?: string;
+  /**
+   * Ids of listings in content.recommended.items that happen AT or FROM this
+   * place (a boat trip that leaves from here, a guesthouse in the village).
+   * Drives "Book near here" links; an id that no longer exists is skipped.
+   */
+  relatedListingIds?: string[];
 }
 
 export interface PlannerActivity {

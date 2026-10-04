@@ -413,6 +413,39 @@ function listWords(words: string[]): string {
   return `${words.slice(0, -1).join(", ")} and ${words[words.length - 1]}`;
 }
 
+// ── GETTING THERE (architecture review 2026-09-30, item 3) ──────────────────
+//
+// An experience page said where to meet and never how to get there, while the
+// site rents the scooters and cars that answer it and books the airport run.
+// Built only from the owner's meetingPoint, and offered only where it is
+// true: no line without a real meeting point, none when the operator already
+// brings you (a transfer or pick-up in what is included or in the price note —
+// the sunrise hike's "Free transfer to starting point"), none when the meeting
+// point is the customer's own place, and never on a chauffeur, who IS the car.
+
+/** A rental category a visitor can actually book today: href + the noun. */
+export type Wheels = { href: string; noun: string };
+
+export type GettingThere = { meet: string; wheels: Wheels[] };
+
+/** The operator comes to you, or takes you from where you are staying. */
+const BRINGS_YOU = /\btransfers?\b|pick[\s-]?up|\bcollect(?:ed|ion)?\b|\bdrop[\s-]?off\b/i;
+/** A meeting point that is wherever the customer is. */
+const YOUR_PLACE = /\byour\b|comes to you|home visit|à domicile|a domicile/i;
+
+export function gettingThere(
+  p: Pick<RecommendedPlace, "meetingPoint" | "included" | "priceNote"> & {
+    serviceType?: RecommendedPlace["serviceType"];
+  },
+  wheels: Wheels[],
+): GettingThere | null {
+  if (p.serviceType === "chauffeur") return null;
+  const meet = p.meetingPoint?.trim();
+  if (!meet || isPlaceholder(meet) || YOUR_PLACE.test(meet)) return null;
+  if ([...(p.included ?? []), p.priceNote ?? ""].some((s) => BRINGS_YOU.test(s))) return null;
+  return { meet, wheels };
+}
+
 export function placeFacts(p: FactSource): string[] {
   const facts: string[] = [];
   const provider = providerOf(p);

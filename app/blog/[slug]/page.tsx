@@ -6,7 +6,8 @@ import { getContent } from "@/lib/content";
 import { twitterImages } from "@/lib/share-image";
 import { SITE_URL } from "@/lib/site";
 import { BLOG_POSTS, getPost } from "@/lib/blog";
-import { blogPostingLd, breadcrumbLd } from "@/lib/schema";
+import { blogFaq } from "@/lib/page-faqs";
+import { blogPostingLd, breadcrumbLd, organizationLd } from "@/lib/schema";
 import JsonLd from "@/components/JsonLd";
 import Navbar from "@/components/Navbar";
 import ScrollProgress from "@/components/ScrollProgress";
@@ -81,12 +82,24 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
     content.contact.whatsappNumbers?.[0]?.number ||
     content.contact.phone ||
     "";
+  // The questions this post renders as its own headings (lib/page-faqs.ts, so
+  // /llms-full.txt quotes the same list — architecture review 2026-09-30,
+  // item 8).
+  const faq = blogFaq(post);
 
   return (
     <>
       <ScrollProgress />
       <JsonLd
         data={[
+          // ── THE AUTHOR THE ARTICLE NAMES, DEFINED WHERE IT IS NAMED ─────────
+          // BlogPosting's author and publisher are the #organization @id, and
+          // that node was defined only in the homepage graph — so on every
+          // post the byline pointed at nothing a crawler could resolve
+          // (architecture review 2026-09-30, item 6). Identity only, same @id
+          // and the same logo the homepage publishes; the homepage keeps the
+          // full node. A named Person author waits on the owner's consent.
+          organizationLd({ logo: `${SITE_URL}/icon-192.png` }),
           blogPostingLd({
             slug: post.slug,
             title: post.title,
@@ -106,26 +119,20 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
           // only when a post has question sections at all; Google has retired
           // FAQ rich results for ordinary sites, so this exists for Bing and
           // for answer engines, both of which still read it.
-          ...(() => {
-            const qs = post.sections.filter((s) => s.heading.trim().endsWith("?"));
-            return qs.length
-              ? [
-                  {
-                    "@context": "https://schema.org",
-                    "@type": "FAQPage",
-                    "@id": `${SITE_URL}/blog/${post.slug}#faq`,
-                    mainEntity: qs.map((s) => ({
-                      "@type": "Question",
-                      name: s.heading.trim(),
-                      acceptedAnswer: {
-                        "@type": "Answer",
-                        text: s.paragraphs.join(" "),
-                      },
-                    })),
-                  },
-                ]
-              : [];
-          })(),
+          ...(faq.length
+            ? [
+                {
+                  "@context": "https://schema.org",
+                  "@type": "FAQPage",
+                  "@id": `${SITE_URL}/blog/${post.slug}#faq`,
+                  mainEntity: faq.map((f) => ({
+                    "@type": "Question",
+                    name: f.q,
+                    acceptedAnswer: { "@type": "Answer", text: f.a },
+                  })),
+                },
+              ]
+            : []),
         ]}
       />
       <Navbar

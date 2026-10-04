@@ -3,6 +3,7 @@ import Link from "next/link";
 import { getContent } from "@/lib/content";
 import { SITE_URL } from "@/lib/site";
 import { breadcrumbLd } from "@/lib/schema";
+import { guideTrail } from "@/lib/guide/places";
 import { ileAuxCocosBooking, type CocosBooking } from "@/lib/ile-aux-cocos-listing";
 import JsonLd from "@/components/JsonLd";
 import AppPageHeader from "@/components/AppPageHeader";
@@ -144,11 +145,9 @@ export default async function IleAuxCocosPage() {
     <>
       <JsonLd
         data={[
-          breadcrumbLd([
-            { name: "Home", url: SITE_URL },
-            { name: "Island guide", url: `${SITE_URL}/guide/rodrigues` },
-            { name: "Île aux Cocos", url: `${SITE_URL}/guide/ile-aux-cocos` },
-          ]),
+          // Home › Island guide (/guide) › Île aux Cocos — the hub its
+          // HubBacklink goes to (architecture review 2026-09-30, item 6).
+          breadcrumbLd(guideTrail(SITE_URL, { name: "Île aux Cocos", path: "/guide/ile-aux-cocos" })),
           {
             "@context": "https://schema.org",
             "@type": "TouristAttraction",

@@ -3,9 +3,34 @@
 import { useEffect, useRef, useState } from "react";
 import { useLanguage } from "@/context/LanguageContext";
 import { Phone, CheckCircle, ChevronDown, Search } from "lucide-react";
-import { isValidPhoneNumber, parsePhoneNumberFromString, getExampleNumber, type CountryCode } from "libphonenumber-js";
+import {
+  isValidPhoneNumber, parsePhoneNumberFromString, getExampleNumber, type CountryCode, type Examples,
+} from "libphonenumber-js";
 import { absorbCountryCode } from "@/lib/phone";
-import examples from "libphonenumber-js/examples.mobile.json";
+
+// ── The example numbers arrive after the page (architecture review 2026-09-30) ──
+//
+// Perf item 2. examples.mobile.json — one sample mobile number per country,
+// used only to fill the placeholder — was a static import, so it rode in the
+// first download of every page with a phone field (the /browse booking form,
+// /deliver, checkout, place bookings). It is fetched after mount instead, once
+// per visit. Until it lands the placeholder reads "Your number", which is what
+// this field already fell back to for any country without an example.
+// Validation never used the examples and is unchanged.
+let examplesCache: Examples | null = null;
+let examplesPending: Promise<Examples> | null = null;
+
+export function loadPhoneExamples(): Promise<Examples> {
+  if (examplesCache) return Promise.resolve(examplesCache);
+  examplesPending ??= import("libphonenumber-js/examples.mobile.json").then(
+    (m) => (examplesCache = m.default),
+    (err: unknown) => {
+      examplesPending = null; // forget the failure so a later mount retries
+      throw err;
+    },
+  );
+  return examplesPending;
+}
 
 // Curated list — Mauritius first, then the markets Rodrigues actually sees.
 interface Country {
@@ -62,7 +87,8 @@ const COUNTRIES: Country[] = [
 ];
 
 // Example NATIONAL number (no country code, no trunk prefix) for the placeholder.
-function placeholderFor(iso: CountryCode): string {
+function placeholderFor(iso: CountryCode, examples: Examples | null): string {
+  if (!examples) return "Your number";
   try {
     const ex = getExampleNumber(iso, examples);
     if (!ex) return "Your number";
@@ -123,6 +149,26 @@ export default function PhoneInput({ value, onChange, disabled, inputClassName, 
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const wrapRef = useRef<HTMLDivElement>(null);
+  // Null on the server and during hydration (nothing loads before an effect),
+  // so the first client render matches the HTML; a later mount in the same
+  // visit starts from the cache and never shows the fallback at all.
+  const [examples, setExamples] = useState<Examples | null>(examplesCache);
+
+  useEffect(() => {
+    if (examples) return;
+    let live = true;
+    loadPhoneExamples().then(
+      (ex) => {
+        if (live) setExamples(ex);
+      },
+      () => {
+        /* offline: the placeholder stays "Your number" */
+      },
+    );
+    return () => {
+      live = false;
+    };
+  }, [examples]);
 
   // Reset the local number when the parent clears the field (e.g. after submit)
   useEffect(() => {
@@ -231,7 +277,7 @@ export default function PhoneInput({ value, onChange, disabled, inputClassName, 
             // Lets a password manager or the browser fill this, and satisfies
             // WCAG 1.3.5 — none of this form's fields declared their purpose.
             autoComplete="tel"
-            placeholder={placeholderFor(country.iso)}
+            placeholder={placeholderFor(country.iso, examples)}
             value={num}
             // A typed or pasted country code goes into the PICKER rather than
             // sitting in the box beside it. Without this, entering a number the

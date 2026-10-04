@@ -3,6 +3,8 @@ import { getContent } from "@/lib/content";
 import { realProse } from "@/lib/place-prose";
 import { SITE_URL } from "@/lib/site";
 import { breadcrumbLd, itemListLd, placeLd } from "@/lib/schema";
+import { THEME_GUIDES, guideTrail, placesOnGuide } from "@/lib/guide/places";
+import { locationPageHrefs, placeAnchors } from "@/lib/guide/location-page-gate";
 import JsonLd from "@/components/JsonLd";
 import AppPageHeader from "@/components/AppPageHeader";
 import PlaceGuide from "@/components/PlaceGuide";
@@ -41,24 +43,24 @@ export default async function ViewpointsPage() {
   // admin placeholder ("Add a description.", with or without pasted
   // coordinates) as their entire prose — rendered to every visitor and every
   // crawler on the site's best-ranking page.
-  const places = content.mapLocations.filter(
-    (l) =>
-      (l.category === "viewpoint" || l.category === "landmark") &&
-      Boolean(realProse(l.story) || realProse(l.description)),
-  );
+  //
+  // The rule is shared now (lib/guide/places.ts, architecture review
+  // 2026-09-30 item 8), so a landmark card elsewhere on the site can link
+  // #its-anchor here knowing this page renders it.
+  const places = placesOnGuide(content.mapLocations, THEME_GUIDES.viewpoints);
+  const anchors = placeAnchors(content.mapLocations);
+  const pages = locationPageHrefs(content.mapLocations);
+  const entryUrl = (id: string) => `${SITE_URL}/guide/viewpoints#${anchors[id]}`;
 
   return (
     <>
       <JsonLd
         data={[
-          breadcrumbLd([
-            { name: "Home", url: SITE_URL },
-            { name: "Island guide", url: `${SITE_URL}/guide/rodrigues` },
-            { name: "Viewpoints", url: `${SITE_URL}/guide/viewpoints` },
-          ]),
+          // Home › Island guide (/guide) › Viewpoints (item 6).
+          breadcrumbLd(guideTrail(SITE_URL, { name: "Viewpoints", path: "/guide/viewpoints" })),
           itemListLd(
             "Viewpoints & landmarks in Rodrigues Island",
-            places.map((p) => ({ name: p.name.trim() })),
+            places.map((p) => ({ name: p.name.trim(), url: entryUrl(p.id) })),
           ),
           ...places.map((p) =>
             placeLd({
@@ -68,6 +70,7 @@ export default async function ViewpointsPage() {
               lat: p.lat,
               lng: p.lng,
               image: p.image,
+              url: entryUrl(p.id),
             }),
           ),
         ]}
@@ -75,6 +78,8 @@ export default async function ViewpointsPage() {
       <AppPageHeader logo={content.branding.logo} />
       <PlaceGuide
         guideHref="/guide/viewpoints"
+        anchors={anchors}
+        pages={pages}
         eyebrow="ISLAND GUIDE"
         title="Viewpoints & landmarks in Rodrigues"
         intro="Rodrigues is only 18 km long, but it's volcanic and steep — which means the whole island opens up from a handful of high points. These are the ones worth the ride, and what you'll see from each."

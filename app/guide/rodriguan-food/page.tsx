@@ -3,6 +3,7 @@ import Link from "next/link";
 import { getContent } from "@/lib/content";
 import { SITE_URL } from "@/lib/site";
 import { breadcrumbLd } from "@/lib/schema";
+import { guideTrail } from "@/lib/guide/places";
 import JsonLd from "@/components/JsonLd";
 import AppPageHeader from "@/components/AppPageHeader";
 import HubBacklink from "@/components/nav/HubBacklink";
@@ -136,11 +137,9 @@ export default async function RodriguanFoodPage() {
     <>
       <JsonLd
         data={[
-          breadcrumbLd([
-            { name: "Home", url: SITE_URL },
-            { name: "Island guide", url: `${SITE_URL}/guide/rodrigues` },
-            { name: "Rodriguan food", url: `${SITE_URL}/guide/rodriguan-food` },
-          ]),
+          // Home › Island guide (/guide) › Rodriguan food — the hub its
+          // HubBacklink goes to (architecture review 2026-09-30, item 6).
+          breadcrumbLd(guideTrail(SITE_URL, { name: "Rodriguan food", path: "/guide/rodriguan-food" })),
           {
             "@context": "https://schema.org",
             "@type": "FAQPage",

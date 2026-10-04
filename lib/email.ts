@@ -1076,6 +1076,26 @@ export async function sendAvailabilityConfirmed(b: {
   });
 }
 
+/**
+ * Where a customer whose rental fell through is sent to find another: the
+ * listing for the kind of thing they asked for.
+ *
+ * Architecture review 2026-09-30. The declined and the expired emails both
+ * linked /browse/scooter whatever was booked, so a customer turned down for a
+ * car was sent to the scooter listing. vehicleCategory() reads the booking's
+ * own fleet row (id or name) and falls back to "scooter" for an unknown one —
+ * the same default pricing uses, and what these links said before. A category
+ * the owner has since paused still answers 200 with its own "not available
+ * right now" notice and a link to what is (M190), not a 404.
+ *
+ * Concatenated rather than templated: the path is a runtime value the static
+ * checker in lib/email/links.test.ts cannot resolve, so it is pinned by
+ * lib/email-recovery-link.test.ts instead.
+ */
+async function rentalRecoveryHref(vehicle: string): Promise<string> {
+  return SITE_URL + "/browse/" + encodeURIComponent(await vehicleCategory(vehicle));
+}
+
 /** Not available — say so quickly, and never leave them waiting. */
 export async function sendVehicleUnavailable(b: {
   id: string;
@@ -1094,10 +1114,10 @@ export async function sendVehicleUnavailable(b: {
     ${paragraph(`${b.name}, we're sorry — <strong>${b.scooter}</strong> isn't free for ${fmtDate(b.start_date)} → ${fmtDate(b.end_date)}. You have not been charged anything.`)}
     ${b.note ? paragraph(`<strong style="color:${C.ink}">From us:</strong> ${escapeHtml(b.note)}`) : ""}
     ${paragraph(`We'd still like to get you on the road. Reply to this email or message us on WhatsApp and we'll find you something that works for those dates.`)}
-    ${/* /browse/scooter, singular. The plural 404s, and this was the ONLY
-          recovery link in the one email that tells somebody their booking
-          could not be met. */ ""}
-    ${paragraph(`<a href="${SITE_URL}/browse/scooter" style="color:${C.ink};font-weight:600">See what else is available</a>`)}
+    ${/* The ONLY recovery link in the one email that tells somebody their
+          booking could not be met — to the category they booked, not always
+          scooters (rentalRecoveryHref). */ ""}
+    ${paragraph(`<a href="${await rentalRecoveryHref(b.scooter)}" style="color:${C.ink};font-weight:600">See what else is available</a>`)}
     ${sepFr()}
     ${frHeading("Indisponible")}
     ${paragraph(`${b.name}, nous sommes désolés — <strong>${b.scooter}</strong> n'est pas libre du ${fmtDate(b.start_date)} au ${fmtDate(b.end_date)}. Rien ne vous a été débité.`)}
@@ -1152,7 +1172,7 @@ export async function sendRequestExpired(b: {
   const body = `
     ${paragraph(`${b.name}, your request for <strong>${b.scooter}</strong> (${fmtDate(b.start_date)} → ${fmtDate(b.end_date)}) has expired because we did not get back to you in time. That one is on us, and <strong>you have not been charged anything</strong>.`)}
     ${paragraph(`If you still want it, reply to this email or message us on WhatsApp and we will sort it today — those dates may well still be free.`)}
-    ${paragraph(`<a href="${SITE_URL}/browse/scooter" style="color:${C.ink};font-weight:600">Book again in a minute</a>`)}
+    ${paragraph(`<a href="${await rentalRecoveryHref(b.scooter)}" style="color:${C.ink};font-weight:600">Book again in a minute</a>`)}
     ${sepFr()}
     ${frHeading("Demande expirée")}
     ${paragraph(`${b.name}, votre demande pour <strong>${b.scooter}</strong> (${fmtDate(b.start_date)} → ${fmtDate(b.end_date)}) a expiré : nous ne vous avons pas répondu à temps. Cela vient de nous, et <strong>rien ne vous a été débité</strong>.`)}

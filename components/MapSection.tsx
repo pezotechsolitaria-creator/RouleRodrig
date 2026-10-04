@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { motion, AnimatePresence } from "framer-motion";
-import { Navigation, Car, ChevronDown, X, ChevronLeft, ChevronRight, ZoomIn, BookOpen, Volume2, Square } from "lucide-react";
+import { Navigation, Car, ChevronDown, X, ChevronLeft, ChevronRight, ZoomIn, BookOpen, Volume2, Square, ArrowUpRight } from "lucide-react";
 import type { MapLocation } from "@/lib/defaults";
 import {
   NO_SIGNALS,
@@ -19,6 +19,7 @@ import { speakText, stopSpeaking, primeVoices } from "@/lib/speak";
 import type { Language } from "@/lib/i18n";
 import { TAXI_HERE_LABEL, taxiToPlaceHref } from "@/lib/rides/deep-link";
 import { mapSummary } from "@/lib/map-summary";
+import { placeAnchors, placeIdForHash } from "@/lib/guide/location-page-gate";
 
 // Load Leaflet map only on client (no SSR — window required)
 const IslandMap = dynamic(() => import("./IslandMap"), { ssr: false });
@@ -46,9 +47,20 @@ const POPULAR_LABEL: Record<Language, string> = {
   cr: "Popiler",
 };
 
+// The guides are written in English (and /fr/plages-rodrigues in French); the
+// label follows the visitor's language, the page it opens is the guide's own.
+// "Gid Zil" is the Kreol nav label for the island guide (lib/i18n.ts).
+const GUIDE_LINK_LABEL: Record<Language, string> = {
+  en: "Read in the guide",
+  fr: "Lire dans le guide",
+  cr: "Get dan Gid Zil",
+};
+
 export default function MapSection({
   locations,
   popularity,
+  anchors,
+  guideLinks = {},
 }: {
   locations?: MapLocation[];
   /**
@@ -57,10 +69,24 @@ export default function MapSection({
    * state on the day it shipped -- no page-view table existed yet.
    */
   popularity?: Record<string, Popularity>;
+  /**
+   * id → #anchor, the same readable anchor the guides use for each place
+   * (architecture review 2026-09-30, item 3), so /map#trou-d-argent opens on
+   * Trou d'Argent. Computed here from `locations` when the page does not pass
+   * it — the same function, over the same list.
+   */
+  anchors?: Record<string, string>;
+  /**
+   * id → where the place is written about: its guide entry (/guide/beaches#…)
+   * or its own page. Computed on the server (lib/guide/places.ts) so the
+   * guide rules never ship to the browser; a place with no entry gets no link.
+   */
+  guideLinks?: Record<string, string>;
 }) {
   const { t, language } = useLanguage();
   const catLabel = (k: string) => CATEGORY_LABEL_I18N[language]?.[k] ?? k;
   const locs = locations ?? [];
+  const anchorOf = useMemo(() => anchors ?? placeAnchors(locations ?? []), [anchors, locations]);
   const [filter, setFilter] = useState<string>("all");
 
   // Portal target for the photo lightbox (escapes Leaflet's stacking context).
@@ -76,6 +102,34 @@ export default function MapSection({
     setSpeakingStory(id);
     speakText(text, language, () => setSpeakingStory((c) => (c === id ? null : c)));
   };
+  // ── OPEN ON THE PLACE THE LINK NAMED (architecture review 2026-09-30, item 3) ──
+  // Every guide entry now links "On the map" to /map#<anchor>. The row is in
+  // the server HTML, so the browser's own jump gets close; this finishes it:
+  // clears a category filter that would hide the row, scrolls the list box
+  // (a nested scroller the browser's jump does not reliably move), opens the
+  // place's story, and rings the row so the eye finds it. Also on hashchange,
+  // for a link followed from this same page.
+  const [focused, setFocused] = useState<string | null>(null);
+  useEffect(() => {
+    const open = () => {
+      // Old links name the admin id (#loc-17…); they still find their place.
+      const id = placeIdForHash(window.location.hash, locations ?? [], anchorOf);
+      if (!id) return;
+      setFilter("all");
+      setFocused(id);
+      setOpenStory(id);
+      requestAnimationFrame(() => {
+        const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+        document
+          .getElementById(anchorOf[id] ?? id)
+          ?.scrollIntoView({ block: "center", behavior: reduce ? "auto" : "smooth" });
+      });
+    };
+    open();
+    window.addEventListener("hashchange", open);
+    return () => window.removeEventListener("hashchange", open);
+  }, [anchorOf, locations]);
+
   const storyLabel = language === "fr" ? "L'histoire de Ti Roulé" : language === "cr" ? "Zistwar Ti Roulé" : "Ti Roulé's story";
   const listenLabel = language === "fr" ? "Écouter" : language === "cr" ? "Ekoute" : "Listen";
   const stopLabel = language === "fr" ? "Arrêter" : language === "cr" ? "Aret" : "Stop";
@@ -134,7 +188,10 @@ export default function MapSection({
     // An arrival jumps — no smooth scroll to wait for (and a throttled tab
     // never ran one). A second pass after the map above has loaded, in case
     // it moved the list.
-    const jump = () => document.getElementById(`map-loc-${id}`)?.scrollIntoView({ block: "center" });
+    // The row's id is the place's readable anchor (the one the guides link
+    // to, /map#<anchor>), so both arrivals — ?loc=<id> from search and
+    // #<anchor> from a guide — find the same element.
+    const jump = () => document.getElementById(anchorOf[id] ?? id)?.scrollIntoView({ block: "center" });
     const t1 = window.setTimeout(jump, 250);
     const t2 = window.setTimeout(jump, 1200);
     const t3 = window.setTimeout(() => setFocusLoc(null), 3600);
@@ -336,9 +393,11 @@ export default function MapSection({
                 return (
                   <div
                     key={loc.id}
-                    id={`map-loc-${loc.id}`}
-                    className={`group flex items-start gap-3 bg-dark-card border rounded-xl p-4 hover:border-yellow/40 transition-colors ${
-                      focusLoc === loc.id ? "border-yellow ring-2 ring-yellow/40" : "border-dark-border"
+                    // The place's readable anchor, the one the guides link to
+                    // (and the one ?loc=<id> from site search jumps to).
+                    id={anchorOf[loc.id] ?? loc.id}
+                    className={`group flex scroll-mt-24 items-start gap-3 bg-dark-card border rounded-xl p-4 hover:border-yellow/40 transition-colors ${
+                      focused === loc.id || focusLoc === loc.id ? "border-yellow ring-2 ring-yellow/40" : "border-dark-border"
                     }`}
                   >
                     {imgs.length ? (
@@ -394,6 +453,19 @@ export default function MapSection({
                         >
                           <Car size={11} /> {TAXI_HERE_LABEL[language]}
                         </Link>
+                        {/* Where this place is written about, when a guide
+                            covers it. The map linked each place to Google Maps
+                            and a taxi, and never to the guide entry that
+                            describes it (architecture review 2026-09-30,
+                            item 3). */}
+                        {guideLinks[loc.id] && (
+                          <Link
+                            href={guideLinks[loc.id]}
+                            className="inline-flex items-center gap-1 mt-2 text-[11px] font-dm text-yellow/70 hover:text-yellow transition-colors"
+                          >
+                            <ArrowUpRight size={11} /> {GUIDE_LINK_LABEL[language]}
+                          </Link>
+                        )}
                         {(() => {
                           const story = localize(language, loc.story, loc.storyFr, loc.storyCr);
                           if (!story) return null;

@@ -34,6 +34,15 @@ export type HubLink = {
    * formatted; this file never holds one.
    */
   priced?: { from: "scooter" | "car" | "stays"; blurb: (price: string) => string };
+  /**
+   * The title led by the live count the target page prints in its own H1, for
+   * a caller that has read the content (lib/guide/hub.ts). `of` names the list
+   * that page counts; `title(n)` must equal the page's H1 whenever the page has
+   * entries (lib/guide/hub.test.ts renders both), and names no number when it
+   * has none. `title` above is the same line with no number, for callers that
+   * have not read anything (llms.txt).
+   */
+  counted?: { of: "beaches" | "hikes" | "plages"; title: (n: number) => string };
 };
 
 // ── NO PRICE IS TYPED IN THIS FILE (SEO audit 2026-09-29 C1) ────────────────
@@ -41,6 +50,14 @@ export type HubLink = {
 // charged from Rs 1,899: a hand-typed figure that drifted the day the owner
 // repriced. The /fr hub now reads the fleet and the stays and fills the price
 // in; without a live figure it shows the blurb, which names none.
+//
+// ── NOR A COUNT (architecture review 2026-09-30, item 5) ────────────────────
+// Same drift, different number: the hub said "The 5 best hikes" while
+// /guide/hiking showed 2, "The 20 best beaches" and "Les 19 plus belles
+// plages" were typed on the day they were true, and the /guide ItemList
+// published the wrong one to Google. The pages count their own lists live, so
+// the hubs now ask them (`counted`, resolved in lib/guide/hub.ts) and never
+// type a number here.
 
 /** The English island guide. */
 export const GUIDE_PAGES: HubLink[] = [
@@ -51,8 +68,13 @@ export const GUIDE_PAGES: HubLink[] = [
   },
   {
     href: "/guide/beaches",
-    title: "The 20 best beaches in Rodrigues",
+    title: "The best beaches in Rodrigues",
     blurb: "Every beach worth the drive, with how to reach each one.",
+    // The H1 of app/guide/beaches/page.tsx.
+    counted: {
+      of: "beaches",
+      title: (n) => (n > 0 ? `The ${n} best beaches in Rodrigues` : "The best beaches in Rodrigues"),
+    },
   },
   {
     href: "/guide/viewpoints",
@@ -61,8 +83,13 @@ export const GUIDE_PAGES: HubLink[] = [
   },
   {
     href: "/guide/hiking",
-    title: "The 5 best hikes in Rodrigues",
+    title: "The best hikes in Rodrigues",
     blurb: "Trail by trail, with how long each one really takes.",
+    // The H1 of components/HikingGuide.tsx, word for word, its empty state too.
+    counted: {
+      of: "hikes",
+      title: (n) => (n > 0 ? `The ${n} best hikes in Rodrigues` : "Hiking in Rodrigues"),
+    },
   },
   {
     href: "/guide/routes",
@@ -95,8 +122,14 @@ export const FR_PAGES: HubLink[] = [
   },
   {
     href: "/fr/plages-rodrigues",
-    title: "Les 19 plus belles plages de Rodrigues",
+    title: "Les plus belles plages de Rodrigues",
     blurb: "Chaque plage, comment y aller et laquelle choisir selon la journée.",
+    // Le H1 de app/fr/plages-rodrigues/page.tsx, compté sur la même liste.
+    counted: {
+      of: "plages",
+      title: (n) =>
+        n > 0 ? `Les ${n} plus belles plages de Rodrigues` : "Les plus belles plages de Rodrigues",
+    },
   },
   {
     href: "/fr/que-faire-a-rodrigues",

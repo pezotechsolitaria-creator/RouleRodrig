@@ -7,7 +7,8 @@ import JsonLd from "@/components/JsonLd";
 import { breadcrumbLd, itemListLd } from "@/lib/schema";
 import { SITE_URL } from "@/lib/site";
 import { getContent } from "@/lib/content";
-import { GUIDE_PAGES } from "@/lib/nav/hubs";
+import { guideHubLinks } from "@/lib/guide/hub";
+import { guideTrail } from "@/lib/guide/places";
 import { ogImages } from "@/lib/share-image";
 
 export const revalidate = 3600;
@@ -41,20 +42,26 @@ export const metadata: Metadata = {
 
 export default async function GuideHubPage() {
   const content = await getContent();
+  // ── THE LIST, COUNTED FROM WHAT EACH PAGE SHOWS (architecture review 2026-09-30) ──
+  // Titles carry the count the target page prints ("The 2 best hikes", not the
+  // "5" typed here once, which this page also published in its ItemList —
+  // item 5). /guide/shops is listed only while it has a shop to show, and a
+  // place that has earned a page of its own joins the list the hour it passes
+  // the gate (item 2). See lib/guide/hub.ts.
+  const guides = guideHubLinks(content);
 
   return (
     <>
       <JsonLd
         data={[
-          breadcrumbLd([
-            { name: "Roule Rodrigues", url: SITE_URL },
-            { name: "Guides", url: `${SITE_URL}/guide` },
-          ]),
-          // The same eight links the page renders, so the markup can never
-          // describe content a visitor cannot see.
+          // Home › Island guide: the name every guide's own trail gives this
+          // page (item 6), rather than "Roule Rodrigues › Guides".
+          breadcrumbLd(guideTrail(SITE_URL)),
+          // The same links the page renders, so the markup can never describe
+          // content a visitor cannot see.
           itemListLd(
             "Rodrigues Island guides",
-            GUIDE_PAGES.map((g) => ({ name: g.title, url: `${SITE_URL}${g.href}` })),
+            guides.map((g) => ({ name: g.title, url: `${SITE_URL}${g.href}` })),
           ),
         ]}
       />
@@ -79,13 +86,15 @@ export default async function GuideHubPage() {
           <h1 className="mt-1 font-syne text-3xl font-extrabold uppercase leading-[0.95] sm:text-4xl">
             Rodrigues, explained
           </h1>
+          {/* No number: "Eight guides" was true until a shop pin came and went
+              or a place earned its own page. The list below is the count. */}
           <p className="mt-3 max-w-xl font-dm text-sm leading-relaxed text-muted">
-            Eight guides written by people who live here — where the beaches are, which hike is
+            Guides written by people who live here — where the beaches are, which hike is
             worth the morning, and what the octopus season actually means.
           </p>
 
           <ul className="mt-8 space-y-2.5">
-            {GUIDE_PAGES.map((g) => (
+            {guides.map((g) => (
               <li key={g.href}>
                 <Link
                   href={g.href}

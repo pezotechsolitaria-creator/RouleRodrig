@@ -5,6 +5,7 @@ import { getPrivileged } from '@/lib/supabase/admin';
 import { notifyBookingStatus } from '@/lib/notifications/booking-status';
 import { sendPaymentReceipt } from '@/lib/receipts/payment-receipt';
 import { audit } from '@/lib/admin/audit';
+import { deleteBookingIfUnpaid } from '@/lib/admin/booking-delete-server';
 
 // Every status the rest of the code understands. The column has no CHECK, and
 // this route used to write any string it was sent — a typo created a booking
@@ -149,18 +150,19 @@ export async function PATCH(req: NextRequest) {
   return NextResponse.json({ ok: true });
 }
 
+// Admin keeps everything (architecture review 2026-09-30, item 3): a booking
+// with money, a confirmation, a completion or a no-show on it is refused with
+// a sentence the desk shows as it is, and "Cancel" is offered instead. Every
+// delete that goes ahead is audited with the row's key fields. The rule and
+// the guarded delete live in lib/admin/booking-delete*.ts, shared with the
+// reservations desk.
 export async function DELETE(req: NextRequest) {
   if (!isAuthed(req)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const { id } = await req.json() as { id: string };
+  const body = (await req.json().catch(() => null)) as { id?: unknown } | null;
+  const id = typeof body?.id === 'string' ? body.id : '';
   if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 });
 
   const supabase = await getPrivileged();
-  const { error } = await supabase
-    .from('bookings')
-    .delete()
-    .eq('id', id);
-
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ ok: true });
+  return deleteBookingIfUnpaid(supabase, 'vehicle', id);
 }

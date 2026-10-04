@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { SITE_URL } from '@/lib/site';
 import { updateSession } from '@/lib/supabase/middleware';
 import { WORLD_COOKIE, WORLD_PAGE, parseWorld } from '@/lib/worlds';
+// Plain data with no imports of its own, which is what lets the edge bundle
+// carry it (the /local-guide/<page> alias below). Anything server-only
+// imported into lib/nav/hubs.ts would now break this file's build.
+import { GUIDE_PAGES } from '@/lib/nav/hubs';
 
 // Canonical host, derived from NEXT_PUBLIC_SITE_URL so this can never disagree
 // with the canonical tags, the sitemap or the JSON-LD — they all read the same
@@ -65,6 +69,14 @@ export async function middleware(req: NextRequest) {
     // a path somebody shortens a URL to. /explore is the page that actually
     // answers "show me what there is".
     '/browse': '/explore',
+    // Architecture review 2026-09-30, item 5. The brief called the guide the
+    // "Local Guide" and expected it at /local-guide; it lives at /guide, which
+    // is indexed, hreflang-paired with /fr and the only search authority the
+    // site has, so it does not move. The name somebody types lands on it.
+    '/local-guide': '/guide',
+    // "Rentals" is a branch of the marketplace tree, drawn from the live fleet
+    // on /marketplace — the one page that lists every rental category.
+    '/rentals': '/marketplace#rentals',
   };
   const guessed = GUESSED[pathname.replace(/\/+$/, '') || '/'];
   if (guessed) {
@@ -72,6 +84,23 @@ export async function middleware(req: NextRequest) {
     // browser's cache permanently would make them impossible to change if
     // either destination ever moves.
     return NextResponse.redirect(new URL(guessed, req.url), 307);
+  }
+
+  // ── /local-guide/<page>: THE SAME GUIDE, ONLY WHERE THAT PAGE EXISTS ──────
+  // Somebody who guessed /local-guide/beaches means /guide/beaches, and gets
+  // it — but only for a page the guide actually has. GUIDE_PAGES is the
+  // complete list (lib/nav/hubs.test.ts fails a guide missing from it), so a
+  // guess outside it lands on the /guide hub rather than on a 404, and never
+  // on a page invented from whatever was typed. Same 307, same reason.
+  //
+  // A place page behind the content gate (app/guide/[place]) is not in that
+  // list, and cannot be: whether one exists is a read of the whole content row,
+  // which the edge should not make for every typed alias. Its guess lands on
+  // the hub, which links every place page that exists.
+  if (pathname.startsWith('/local-guide/')) {
+    const want = `/guide${pathname.slice('/local-guide'.length).replace(/\/+$/, '')}`;
+    const exists = GUIDE_PAGES.some((g) => g.href === want);
+    return NextResponse.redirect(new URL(exists ? want : '/guide', req.url), 307);
   }
 
   // ── "/" ANSWERS WITH THE WORLD YOU CHOSE ───────────────────────────────────

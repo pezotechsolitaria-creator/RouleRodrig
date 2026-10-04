@@ -5,8 +5,9 @@ import { useLanguage } from "@/context/LanguageContext";
 
 // Opens the Ti Roulé chat via the same event the hero button uses. Placed at the
 // end of a blog article so the reader's journey continues: Google → blog →
-// Ti Roulé → booking. Requires <TiRouleGuide> to be mounted on the page (it
-// listens for "tiroule:open").
+// Ti Roulé → booking. Works on any page under the root layout: GlobalTiRoule
+// listens for "tiroule:open" and fetches the chat on the first one
+// (architecture review 2026-09-30).
 export default function AskTiRouleButton({
   labelEn = "Ask Ti Roulé to personalise this",
   labelFr = "Demander à Ti Roulé de personnaliser",

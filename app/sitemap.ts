@@ -7,6 +7,7 @@ import {
   recommendedCount,
 } from "@/lib/listing-gates";
 import { placeSlug, placesWithOwnPage } from "@/lib/place-slug";
+import { locationPages, storedSlug } from "@/lib/guide/location-page-gate";
 import { SITE_URL } from "@/lib/site";
 import {
   getFleetView,
@@ -235,6 +236,20 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         priority: 0.7,
       });
     }
+
+    // ── A PLACE'S OWN PAGE, ONCE IT HAS EARNED ONE (architecture review 2026-09-30) ──
+    // /guide/<slug> renders only for places that pass the content gate
+    // (lib/guide/location-page-gate.ts) and 404s for everything else, so this
+    // lists exactly that set, from the same function the page resolves with.
+    // Empty on the day it shipped: no place has the long read yet.
+    extra.push(
+      ...locationPages(content.mapLocations).map((p) => ({
+        url: `${SITE_URL}/guide/${storedSlug(p)}`,
+        lastModified: contentAt,
+        changeFrequency: "monthly" as const,
+        priority: 0.7,
+      })),
+    );
   } catch {
     // Never let a DB hiccup produce a broken sitemap — ship the static routes.
   }

@@ -41,8 +41,14 @@ describe("every guide links back to the list of guides", () => {
     // A tripwire: an empty list makes the assertion below vacuous.
     expect(pages.length).toBeGreaterThan(5);
     // The hub lists /guide/rodrigues et al; every directory here should be in it.
+    // Except a dynamic segment: /guide/[place] is one directory standing for
+    // however many places pass the content gate, and the hub lists THOSE from
+    // the data (lib/guide/hub.ts, architecture review 2026-09-30) — the same
+    // exemption lib/nav/hubs.test.ts makes. The backlink check below still
+    // covers it.
     const listed = new Set(GUIDE_PAGES.map((p) => p.href));
-    expect(pages.filter((p) => !listed.has(p.route)).map((p) => p.route)).toEqual([]);
+    const statics = pages.filter((p) => !p.route.includes("["));
+    expect(statics.filter((p) => !listed.has(p.route)).map((p) => p.route)).toEqual([]);
   });
 
   it("every one renders a link up to /guide", () => {

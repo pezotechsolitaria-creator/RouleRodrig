@@ -33,7 +33,6 @@ import PaymentHelp from "@/components/payments/PaymentHelp";
 import PhoneInput from "@/components/PhoneInput";
 import SuccessBurst from "@/components/SuccessBurst";
 import BookingTimeline from "@/components/BookingTimeline";
-import { downloadReceipt as saveReceiptPdf } from "@/lib/receipt";
 import { isValidPhone, isValidEmail } from "@/lib/phone";
 // Pricing is SHARED with /api/bookings — the summary the customer sees here
 // and the figures the server stores are the same arithmetic by construction.
@@ -348,13 +347,26 @@ export default function BookingSection({
   const emailOk = isValidEmail(form.email); // email is now required for confirmations/receipts
   const emailInvalid = !!form.email && !isValidEmail(form.email); // only flag inline once they've typed something wrong
 
-  function downloadReceipt() {
+  async function downloadReceipt() {
     if (!lastBooking) return;
     const short = (lastBooking.bookingId || "").replace(/-/g, "").slice(0, 6).toUpperCase() || Date.now().toString(36).toUpperCase().slice(-6);
     // M220: a customer who asked to pay in cash is not "due" a deposit — the
     // owner decides how it is paid — so their receipt names what they asked
     // for instead of a deposit and a balance they may never owe.
     const cashAsked = !!lastBooking.inPerson && !depositPaid;
+    // ── FETCHED ON THE TAP (architecture review 2026-09-30, perf item 2) ──
+    // The PDF writer and its embedded logo were a static import, so every
+    // /browse page downloaded them for a button that only exists once a
+    // booking has been made. The receipt below is built from the same state as
+    // before, so what it says cannot change. If the fetch fails (offline) the
+    // button stays where it is and the next tap tries again.
+    let saveReceiptPdf: typeof import("@/lib/receipt").downloadReceipt;
+    try {
+      ({ downloadReceipt: saveReceiptPdf } = await import("@/lib/receipt"));
+    } catch (err) {
+      console.error("Receipt code failed to load", err);
+      return;
+    }
     saveReceiptPdf({
       ref: `RR-${short}`,
       heading: depositPaid ? "Deposit receipt" : "Booking receipt",

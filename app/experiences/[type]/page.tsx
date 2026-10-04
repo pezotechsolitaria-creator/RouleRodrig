@@ -1,21 +1,24 @@
 import { fitTitleWithTails } from "@/lib/fit-title";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import Link from "next/link";
+import { ChevronRight } from "lucide-react";
 import BackLink from "@/components/BackLink";
-import { getFleetView } from "@/lib/site-data";
+import { getFleetView, isSellableFleetItem } from "@/lib/site-data";
 import { SITE_NAME, SITE_URL } from "@/lib/site";
-import { SERVICE_TYPES, type ServiceType } from "@/lib/defaults";
+import { SERVICE_TYPES, type ServiceType, type VehicleCategory } from "@/lib/defaults";
 import {
   EXPERIENCES,
   experiencesOfType,
   fromPriceOf,
   experienceFaq,
   providerOf,
+  type Wheels,
 } from "@/lib/experiences";
 import { breadcrumbLd, itemListLd, experienceLd, sellerLd } from "@/lib/schema";
 import { placeHref } from "@/lib/place-href";
 import { findPlaceBySlug, placeSlug, placesWithOwnPage } from "@/lib/place-slug";
-import { placePrice } from "@/lib/place-detail";
+import { guidesForListing, placePrice } from "@/lib/place-detail";
 import { experienceMetaDescription } from "@/lib/experience-meta";
 import { recommendedCount, robotsWhileEmpty } from "@/lib/listing-gates";
 import PlaceDetail from "./PlaceDetail";
@@ -56,6 +59,29 @@ function copyFor(type: string) {
   return (SERVICE_TYPES as readonly string[]).includes(type)
     ? EXPERIENCES[type as ServiceType]
     : null;
+}
+
+// ── WHAT A VISITOR CAN RENT TO REACH A MEETING POINT (architecture review
+// 2026-09-30, item 3) ─────────────────────────────────────────────────────────
+// Read here, on the server, because isSellableFleetItem lives beside the
+// privileged reads and lib/experiences.ts is also bundled for the browser. A
+// category is offered only while it is switched on AND has a priced unit —
+// the same test /browse/<category> applies before it shows a Book button — so
+// "Rent a car" never opens a page that says cars are unavailable. Scooters and
+// cars only: they are the rentals that get somebody to a jetty.
+const WHEEL_NOUNS: Record<string, string> = { scooter: "scooter", car: "car" };
+
+function bookableWheels(
+  categories: VehicleCategory[] | undefined,
+  fleet: { category?: string; price: string }[] | undefined,
+): Wheels[] {
+  return Object.keys(WHEEL_NOUNS)
+    .filter(
+      (id) =>
+        (categories ?? []).some((c) => c.id === id && c.enabled) &&
+        (fleet ?? []).some((f) => (f.category ?? "scooter") === id && isSellableFleetItem(f)),
+    )
+    .map((id) => ({ href: `/browse/${id}`, noun: WHEEL_NOUNS[id] }));
 }
 
 export async function generateMetadata({
@@ -189,11 +215,15 @@ export default async function ExperiencePage({ params }: { params: Promise<{ typ
   // shadow a listing — hasOwnPage() refuses any place whose slug is a service
   // type — so the listing always wins the name it already owns.
   if (!copy) {
-    const { content, businessWhatsApp } = await getFleetView();
+    const { content, fleet, businessWhatsApp } = await getFleetView();
     const place = findPlaceBySlug(content.recommended.items, type);
     if (!place) notFound();
     return (
-      <PlaceDetail place={place} businessWhatsApp={businessWhatsApp} />
+      <PlaceDetail
+        place={place}
+        businessWhatsApp={businessWhatsApp}
+        wheels={bookableWheels(content.vehicleCategories, fleet)}
+      />
     );
   }
 
@@ -204,6 +234,10 @@ export default async function ExperiencePage({ params }: { params: Promise<{ typ
   // a human cannot read on the page, which is both a Google requirement and
   // the reason this pattern is worth copying from the scooter page.
   const faq = experienceFaq(copy, places);
+  // The guide pages that genuinely cover what this page sells: /guide/hiking
+  // on the hiking page, and a place's own guide when one of these listings has
+  // one (architecture review 2026-09-30, item 3). No guide, no block.
+  const guides = guidesForListing(places, copy.slug);
 
   return (
     <>
@@ -302,6 +336,24 @@ export default async function ExperiencePage({ params }: { params: Promise<{ typ
           <p className="mt-2 max-w-2xl font-dm text-sm text-muted">{copy.subtitle}</p>
 
           <ExperienceMarket copy={copy} places={places} whatsapp={businessWhatsApp} />
+
+          {guides.length > 0 && (
+            <div className="mt-10 grid gap-2 sm:grid-cols-2">
+              {guides.map((g) => (
+                <Link
+                  key={g.href}
+                  href={g.href}
+                  className="flex min-h-11 items-center justify-between gap-3 rounded-2xl border border-dark-border bg-dark-card px-4 py-3.5 transition-colors hover:border-yellow/50"
+                >
+                  <span className="min-w-0">
+                    <span className="block font-syne text-sm font-bold text-offwhite">{g.label}</span>
+                    <span className="mt-0.5 block font-dm text-xs text-muted">{g.blurb}</span>
+                  </span>
+                  <ChevronRight size={18} className="shrink-0 text-yellow" />
+                </Link>
+              ))}
+            </div>
+          )}
 
           {faq.length > 0 && (
             <section className="mt-16 border-t border-dark-border pt-10">

@@ -5,7 +5,9 @@ import { breadcrumbLd, itemListLd } from "@/lib/schema";
 import JsonLd from "@/components/JsonLd";
 import AppPageHeader from "@/components/AppPageHeader";
 import ExploreClient, { type ExploreItem } from "@/components/ExploreClient";
+import RentalsAndDeliverLinks from "@/components/marketplace/RentalsAndDeliverLinks";
 import { placeHref } from "@/lib/place-href";
+import { rentalCategories } from "@/lib/marketplace/rentals-rail";
 
 export const revalidate = 3600;
 
@@ -168,6 +170,18 @@ export default async function ExplorePage() {
         counts={counts}
         foodEnabled={content.foodConcierge?.enabled}
         foodImage={content.foodConcierge?.coverImage}
+      />
+      {/* The rental pages and /deliver had no link from here (architecture
+          review 2026-09-30, item 4). Only the categories the owner has
+          switched on AND priced, with their live "from" figure; outside the
+          ItemList above, which lists things to do, not things to rent. */}
+      <RentalsAndDeliverLinks
+        categories={rentalCategories(content).map(({ id, label, href, fromPerDay }) => ({
+          id,
+          label,
+          href,
+          fromPerDay,
+        }))}
       />
     </>
   );

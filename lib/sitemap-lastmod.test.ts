@@ -56,9 +56,11 @@ describe("pages rendered from site_content carry that row's date", () => {
     const uses = SRC.match(/lastModified: contentAt/g) ?? [];
     // Homepage, browse categories, vehicle pages, /guide/shops, /experiences,
     // /experiences/[type], /map, /taxi — and, since M191, each experience's
-    // own page. All nine are rendered from the site_content row, which is the
-    // property this counts; the number is only the way it is counted.
-    expect(uses.length).toBe(9);
+    // own page; since the architecture review of 2026-09-30, each place's own
+    // /guide/<slug> page, whose every word is the place's site_content entry.
+    // All ten are rendered from the site_content row, which is the property
+    // this counts; the number is only the way it is counted.
+    expect(uses.length).toBe(10);
   });
 
   it("survives a database failure without a date rather than with a wrong one", () => {

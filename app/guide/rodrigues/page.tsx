@@ -2,9 +2,14 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight, Compass, MessageCircle } from "lucide-react";
 import { getContent } from "@/lib/content";
+import type { SiteContent } from "@/lib/defaults";
 import { SITE_URL } from "@/lib/site";
 import { RODRIGUES_KNOWLEDGE } from "@/lib/rodrigues-knowledge";
 import { breadcrumbLd, touristDestinationLd } from "@/lib/schema";
+import { getPost } from "@/lib/blog";
+import { rentalCategories } from "@/lib/marketplace/rentals-rail";
+import { THEME_GUIDES, guideEntryHref, guideTrail, placesOnGuide, type ThemeGuideHref } from "@/lib/guide/places";
+import { locationPageHrefs, placeAnchors } from "@/lib/guide/location-page-gate";
 import JsonLd from "@/components/JsonLd";
 import AppPageHeader from "@/components/AppPageHeader";
 import HubBacklink from "@/components/nav/HubBacklink";
@@ -43,6 +48,92 @@ const TITLES: Record<string, string> = {
 function humanize(id: string): string {
   const words = id.replace(/([a-z0-9])([A-Z])/g, "$1 $2").toLowerCase();
   return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
+// ── EACH SECTION HANDS ON TO THE PAGE THAT OWNS ITS SUBJECT ─────────────────
+// (architecture review 2026-09-30, item 7)
+//
+// This is the page the sitewide footer calls "Island guide", and its sixteen
+// sections answered each question in a paragraph and stopped: "a scooter or a
+// car gives you the most freedom" linked no scooter and no car, "Île aux
+// Cocos" did not link the Île aux Cocos guide. Its French twin already sends
+// readers on to the rental pages. A link where the reader has just read the
+// question is the one they follow; the same link in a list at the bottom is
+// one they scroll past.
+//
+// Only where the section is ABOUT the target. A place link is built from the
+// map data and names an anchor only when that guide renders it — the name is
+// matched, never assumed — so a section about a place that is not written up
+// yet links the guide, or nothing.
+
+type Onward = { href: string; label: string };
+
+const fold = (s: string) =>
+  s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+
+// The rentals the "getting around" answer names — "a scooter or a car" — in
+// that order, and only those a visitor can book today. rentalCategories() is
+// the gate /marketplace, /more, /explore and /shop already read: switched on
+// by the owner AND holding a priced unit. Typed links outlived the day the
+// owner paused Cars (2026-09-09) and sent the island guide's readers to "Cars
+// are not available to book right now" (architecture review 2026-09-30, item
+// 7, fixer round). Other categories stay off this list: the prose does not
+// name them, and "Rent a bicycles" is what mapping every category would read.
+const WHEELS = [
+  { id: "scooter", label: "Rent a scooter" },
+  { id: "car", label: "Rent a car" },
+] as const;
+
+function bookableWheels(content: SiteContent): Onward[] {
+  const live = new Map(rentalCategories(content).map((c) => [c.id, c.href]));
+  return WHEELS.flatMap((w) => {
+    const href = live.get(w.id);
+    return href ? [{ href, label: w.label }] : [];
+  });
+}
+
+function onwardLinks(
+  content: Pick<SiteContent, "mapLocations">,
+  wheels: Onward[],
+): Record<string, Onward[]> {
+  const anchors = placeAnchors(content.mapLocations);
+  const pages = locationPageHrefs(content.mapLocations);
+  /** The guide entry of the first place on `guide` whose name contains `words`. */
+  const entry = (guide: ThemeGuideHref, words: string): string | null => {
+    const p = placesOnGuide(content.mapLocations, guide).find((l) => fold(l.name).includes(words));
+    return p ? guideEntryHref(p, anchors, pages) : null;
+  };
+  /** A blog post, titled by the post itself, or nothing if it is gone. */
+  const post = (slug: string): Onward[] => {
+    const p = getPost(slug);
+    return p ? [{ href: `/blog/${slug}`, label: p.title }] : [];
+  };
+  const place = (href: string | null, label: string): Onward[] => (href ? [{ href, label }] : []);
+  const hasShops = placesOnGuide(content.mapLocations, THEME_GUIDES.shops).length > 0;
+  const trou = entry(THEME_GUIDES.beaches, "trou d argent");
+  const limon = entry(THEME_GUIDES.viewpoints, "mont limon");
+
+  return {
+    getThere: [
+      { href: "/transfers", label: "Airport transfers from Plaine Corail" },
+      ...post("how-to-get-around-rodrigues"),
+    ],
+    bestTime: post("best-time-to-visit-rodrigues"),
+    gettingAround: [...wheels, ...post("how-to-get-around-rodrigues")],
+    tortoises: place(entry(THEME_GUIDES.viewpoints, "leguat"), "On the viewpoints & landmarks guide"),
+    cocos: [{ href: "/guide/ile-aux-cocos", label: "Île aux Cocos: why you cannot go on your own" }],
+    caves: place(entry(THEME_GUIDES.viewpoints, "caverne patate"), "On the viewpoints & landmarks guide"),
+    trouDArgent: trou
+      ? [{ href: trou, label: "Trou d'Argent on the beaches guide" }]
+      : [{ href: "/guide/beaches", label: "Every beach in Rodrigues" }],
+    montLimon: limon
+      ? [{ href: limon, label: "Mont Limon on the viewpoints guide" }]
+      : [{ href: "/guide/viewpoints", label: "Viewpoints & landmarks worth the ride" }],
+    food: [{ href: "/guide/rodriguan-food", label: "Rodriguan food, and why the octopus has a season" }],
+    culture: hasShops ? [{ href: "/guide/shops", label: "Where to shop in Rodrigues" }] : [],
+    activities: [{ href: "/experiences", label: "Boat trips and guided excursions in Rodrigues" }],
+    hiddenGems: [{ href: "/guide/beaches", label: "Every beach in Rodrigues, mapped by locals" }],
+  };
 }
 
 const DESCRIPTION =
@@ -85,6 +176,12 @@ export const metadata: Metadata = {
 
 export default async function RodriguesGuidePage() {
   const content = await getContent();
+  const wheels = bookableWheels(content);
+  const onward = onwardLinks(content, wheels);
+  // The hero's rental button is the first bookable wheel: the scooter page
+  // normally, the car page while scooters are paused, and no button at all
+  // while neither can be booked — "Plan my trip" still leads somewhere.
+  const heroRental = wheels[0];
 
   // Every Q&A below is rendered on the page, so FAQPage markup is legitimate
   // here — this is what feeds Google's "People also ask" and AI answers.
@@ -104,13 +201,12 @@ export default async function RodriguesGuidePage() {
         data={[
           faqLd,
           touristDestinationLd(),
-          breadcrumbLd([
-            { name: "Home", url: SITE_URL },
-            {
-              name: "Rodrigues Island guide",
-              url: `${SITE_URL}/guide/rodrigues`,
-            },
-          ]),
+          // Home › Island guide (/guide) › this guide. It used to BE the
+          // "Island guide" crumb, while its HubBacklink goes to /guide
+          // (architecture review 2026-09-30, item 6).
+          breadcrumbLd(
+            guideTrail(SITE_URL, { name: "Rodrigues Island travel guide", path: "/guide/rodrigues" }),
+          ),
         ]}
       />
       <AppPageHeader logo={content.branding.logo} />
@@ -142,12 +238,19 @@ export default async function RodriguesGuidePage() {
               </Link>
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
-              <Link
-                href="/#explore"
-                className="inline-flex items-center gap-2 rounded-full bg-yellow px-6 py-3 font-syne font-bold text-dark text-sm transition-transform hover:scale-[1.03]"
-              >
-                Rent a scooter or car <ArrowRight size={16} />
-              </Link>
+              {/* The rental page itself, as the French twin's first button is.
+                  It said "scooter or car" and opened the homepage's #explore
+                  grid, one more tap from either (item 7). The car is linked
+                  where the guide talks about getting around. Gated like those
+                  links, so a paused category never gets the page's first button. */}
+              {heroRental && (
+                <Link
+                  href={heroRental.href}
+                  className="inline-flex items-center gap-2 rounded-full bg-yellow px-6 py-3 font-syne font-bold text-dark text-sm transition-transform hover:scale-[1.03]"
+                >
+                  {heroRental.label} <ArrowRight size={16} />
+                </Link>
+              )}
               <Link
                 href="/trip-planner"
                 className="inline-flex items-center gap-2 rounded-full border border-white/20 px-6 py-3 font-syne font-bold text-white text-sm transition-colors hover:bg-white/10"
@@ -169,6 +272,20 @@ export default async function RodriguesGuidePage() {
                 <p className="mt-3 font-dm text-muted leading-relaxed">
                   {k.en}
                 </p>
+                {(onward[k.id]?.length ?? 0) > 0 && (
+                  <ul className="mt-2 flex flex-wrap gap-x-5">
+                    {onward[k.id].map((l) => (
+                      <li key={l.href}>
+                        <Link
+                          href={l.href}
+                          className="inline-flex min-h-11 items-center gap-1.5 font-dm text-sm text-yellow/80 hover:text-yellow transition-colors"
+                        >
+                          {l.label} <ArrowRight size={14} />
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                )}
                 {k.place && (
                   <a
                     href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(k.place)}`}

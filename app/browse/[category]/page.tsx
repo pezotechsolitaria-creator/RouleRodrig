@@ -3,8 +3,20 @@ import type { ReactNode } from "react";
 import { notFound, redirect } from "next/navigation";
 import { SITE_URL } from "@/lib/site";
 import { fromPriceOf } from "@/lib/experiences";
-import { breadcrumbLd, itemListLd, productLd, stayLd, experienceLd, sellerLd } from "@/lib/schema";
+import { listingFaq, listingPlaces } from "@/lib/experiences-faq";
+import {
+  breadcrumbLd,
+  itemListLd,
+  productLd,
+  stayLd,
+  experienceLd,
+  sellerLd,
+  faqPageLd,
+} from "@/lib/schema";
 import JsonLd from "@/components/JsonLd";
+import ListingFaq from "@/components/browse/ListingFaq";
+import WhereToGo, { type GuideLink } from "@/components/browse/WhereToGo";
+import { ILE_AUX_COCOS_GUIDE } from "@/lib/ile-aux-cocos-listing";
 import {
   getFleetView,
   buildBrowseCategories,
@@ -18,11 +30,11 @@ import BrowseTabs from "@/components/BrowseTabs";
 import Fleet from "@/components/Fleet";
 import TrustBar from "@/components/TrustBar";
 import BookingSection from "@/components/BookingSection";
-import { pickConditions } from "@/lib/rental-conditions";
+import { pickConditions, rentalKindOf } from "@/lib/rental-conditions";
 import { vehicleHref, vehicleName } from "@/lib/vehicle-slug";
 import RecommendedPlaces from "@/components/RecommendedPlaces";
 import { placeHref } from "@/lib/place-href";
-import { placePrice } from "@/lib/place-detail";
+import { GUIDE_FOR_PLACE, placePrice } from "@/lib/place-detail";
 import GettingAround from "@/components/GettingAround";
 import CategoryNotes, { type CategoryNote } from "@/components/browse/CategoryNotes";
 import WhatsAppButton from "@/components/WhatsAppButton";
@@ -139,6 +151,16 @@ const PLACE_SLUGS: Record<
      */
     hubHref?: string;
     hubLabel?: string;
+    /**
+     * A visible FAQ built from THIS page's listings (architecture review
+     * 2026-09-30, item 2): lib/experiences-faq.ts listingFaq(), the hub's own
+     * answers kept where they are true here, the price range read off these
+     * cards. Never the rental conditions, which were taken off these pages
+     * for answering driving-licence questions (see `seo` below).
+     */
+    faq?: { heading: string; headingFr: string };
+    /** The "Where to go" links under everything else (item 1; see WhereToGo). */
+    whereToGo?: GuideLink[];
   }
 > = {
   restaurants: {
@@ -164,6 +186,10 @@ const PLACE_SLUGS: Record<
     headingFr: "Activités à Rodrigues",
     introFr:
       "Des activités à Rodrigues que vous réservez directement auprès de la personne qui les propose. Le prix par personne et, lorsqu’elle est indiquée, la durée de la séance figurent sur chaque fiche.",
+    faq: {
+      heading: "Activities in Rodrigues — common questions",
+      headingFr: "Activités à Rodrigues — questions fréquentes",
+    },
   },
   tours: {
     label: "Guided Tours",
@@ -202,6 +228,10 @@ const PLACE_SLUGS: Record<
           "Ce sont des skippers de l’île, nommés sur leur propre fiche : la plongée en apnée à Rivière Banane, la balade en mer et la pêche traditionnelle sont toutes menées par Arnaud. Vous réservez auprès d’une personne, pas d’un guichet.",
       },
     ],
+    faq: {
+      heading: "Tours and boat trips — common questions",
+      headingFr: "Excursions et sorties en mer — questions fréquentes",
+    },
   },
   // ── WHY THIS ONE CARRIES COPY AND THE OTHERS DO NOT (M146) ───────────
   // /browse/stays was indexed and drew zero impressions for any
@@ -243,7 +273,76 @@ const PLACE_SLUGS: Record<
         bodyFr: `Chaque hébergement est tenu par un propriétaire local indépendant. Vous réservez ou vous vous renseignez directement auprès de lui et vous convenez des détails avec la personne qui tient les lieux, pas avec une agence qui n’a jamais vu la chambre. ${STAY_PAY.fr}`,
       },
     ],
+    whereToGo: [
+      {
+        href: "/guide/rodrigues",
+        label: {
+          en: "The Rodrigues island guide",
+          fr: "Le guide de l’île Rodrigues",
+          cr: "Gid zil Rodrig",
+        },
+      },
+      {
+        href: "/guide/beaches",
+        label: { en: "The beaches of Rodrigues", fr: "Les plages de Rodrigues", cr: "Bann laplaz Rodrig" },
+      },
+    ],
   },
+};
+
+// ── WHERE TO GO (architecture review 2026-09-30, item 1) ────────────────────
+// The guides link to these pages and these pages linked back to none of them:
+// only the per-vehicle pages carried "Where people take it". So a renter who is
+// not ready to book had nowhere to go but away, and the guides — the only
+// pages with search authority — got nothing back from the pages that sell.
+//
+// Fixed routes, each one a page that exists whatever the data holds (none of
+// them 404s on an empty list), labelled by what the page is and with no count:
+// the guides count their own entries live, and a number typed here would drift
+// the way the hub titles did. Rendered at the very bottom — below the fleet,
+// the booking form and the notes, never above the booking flow.
+//
+// Each label in English, French and Kreol, rendered by the client leaf
+// components/browse/WhereToGo.tsx: the notes above it follow the visitor's
+// language, and a block that stayed English under them read as broken. It
+// still server-renders, so a crawler reads the links without a script.
+const VIEWPOINTS: GuideLink = {
+  href: "/guide/viewpoints",
+  label: { en: "Viewpoints and landmarks", fr: "Points de vue et sites", cr: "Bel vi ek sit pou vizite" },
+};
+const MAP_LINK: GuideLink = {
+  href: "/map",
+  label: { en: "The island map", fr: "La carte de l’île", cr: "Kart zil la" },
+};
+const RIDE_GUIDES: Record<"scooter" | "car", GuideLink[]> = {
+  scooter: [
+    {
+      href: "/guide/routes",
+      label: {
+        en: "Scooter routes around the island",
+        fr: "Itinéraires en scooter autour de l’île",
+        cr: "Bann trazet skooter dan lil",
+      },
+    },
+    {
+      href: "/guide/beaches",
+      label: { en: "Beaches worth the ride", fr: "Les plages qui valent le trajet", cr: "Laplaz ki vo lapenn" },
+    },
+    VIEWPOINTS,
+    MAP_LINK,
+  ],
+  car: [
+    {
+      href: "/guide/routes",
+      label: { en: "Routes around the island", fr: "Itinéraires autour de l’île", cr: "Bann trazet dan lil" },
+    },
+    {
+      href: "/guide/beaches",
+      label: { en: "Beaches worth the drive", fr: "Les plages qui valent le trajet", cr: "Laplaz ki vo lapenn" },
+    },
+    VIEWPOINTS,
+    MAP_LINK,
+  ],
 };
 
 // ── The vehicle pages said almost nothing (the stays fault, on the pages
@@ -598,7 +697,14 @@ export default async function BrowsePage({
   // question the visible panel does not render — which is the exact thing
   // Google's FAQ guideline forbids, and the exact thing that happens when two
   // lists are maintained separately.
-  const conditionItems = pickConditions(content.faq?.items, category);
+  //
+  // With the category's rentalKind (architecture review 2026-09-30, rentalKind
+  // fix-up): only the per-vehicle page passed it, so /browse/kayak -- the page
+  // with the booking form -- would still have listed a licence, fuel, mileage
+  // and the Rs 5,000 car deposit as the terms of hiring a kayak, in the panel
+  // and in the FAQPage. "motor" (every live category) returns the same list.
+  const kind = rentalKindOf(content.vehicleCategories, category);
+  const conditionItems = pickConditions(content.faq?.items, category, kind);
 
   // Breadcrumb trail (Home › This page) + the listing itself, so Google shows
   // a real trail under the result instead of a bare URL.
@@ -884,6 +990,9 @@ export default async function BrowsePage({
                   url: `${SITE_URL}${vehicleHref(first)}`,
                   rating: ratings[first.id],
                   category: first.category ?? "scooter",
+                  // The same kind the vehicle's own page passes, so the two
+                  // pages never type one model differently.
+                  rentalKind: kind,
                 });
               }),
             ],
@@ -958,8 +1067,11 @@ export default async function BrowsePage({
               TrustBar sat in the codebase with zero importers. Every claim
               here is already true elsewhere on the site (a free helmet is in
               t.booking.included; the 3+/7+ day discounts are in
-              lib/booking-pricing), so nothing new is being promised. */}
-          <TrustBar category={vcat.id} />
+              lib/booking-pricing), so nothing new is being promised.
+              `kind`: an equipment category gets only the promises true of any
+              rental, never "Helmet included" or "Free scooter delivery"
+              (architecture review 2026-09-30, rentalKind fix-up). */}
+          <TrustBar category={vcat.id} kind={kind} />
           <BookingSection
             fleet={items}
             category={category}
@@ -1051,6 +1163,12 @@ export default async function BrowsePage({
               </div>
             </div>
           ) : null}
+          {/* Last on the page, after the booking form and the cost table
+              (architecture review 2026-09-30, item 1). Scooters and cars only:
+              a category the owner adds is not assumed to go touring. */}
+          {vcat.id === "scooter" || vcat.id === "car" ? (
+            <WhereToGo links={RIDE_GUIDES[vcat.id]} />
+          ) : null}
         </main>
         {footer}
       </>
@@ -1102,6 +1220,19 @@ export default async function BrowsePage({
       ...(place.costNote ? [place.costNote(items.map(placePrice))] : []),
       ...(place.notes ?? []),
     ];
+    // The FAQ, from these same cards (item 2): the price each one prints,
+    // whether its form can take a payment, and whether the Île aux Cocos
+    // excursion is among them — found the way its guide finds it. Both
+    // languages are built here; the English is also the FAQPage below, so the
+    // markup and the server HTML are one list.
+    const faqInput = place.faq
+      ? {
+          places: listingPlaces(items),
+          cocosListed: items.some((i) => GUIDE_FOR_PLACE(i)?.href === ILE_AUX_COCOS_GUIDE),
+        }
+      : null;
+    const faqEn = faqInput ? listingFaq("en", faqInput) : [];
+    const faqFr = faqInput ? listingFaq("fr", faqInput) : [];
     // The listings' markup (see THE PRICE, WHERE A MACHINE CAN READ IT below).
     const placeNodes = items.map((i) => {
       const image = i.image
@@ -1166,6 +1297,11 @@ export default async function BrowsePage({
             "@graph": placeGraph,
           }}
         />
+        {/* FAQPage from the SAME list <ListingFaq> prints in English (item 2),
+            and only where that list has questions. */}
+        {faqEn.length ? (
+          <JsonLd data={faqPageLd(`${SITE_URL}/browse/${category}`, faqEn)} />
+        ) : null}
         {/* "span", not the default h1. This branch rendered place.label —
             "Accommodations" — as the <h1> while the actual keyword heading,
             "Where to Stay in Rodrigues", sat below it as an <h2> inside
@@ -1193,6 +1329,12 @@ export default async function BrowsePage({
             whatsapp={businessWhatsApp}
           />
           {placeNotes.length ? <CategoryNotes notes={placeNotes} /> : null}
+          {place.faq && faqEn.length ? (
+            <ListingFaq
+              en={{ heading: place.faq.heading, items: faqEn }}
+              fr={{ heading: place.faq.headingFr, items: faqFr }}
+            />
+          ) : null}
           {/* The French twin as a real link, not only an hreflang annotation.
               META.stays has declared /fr/hebergement-rodrigues for weeks and
               this branch never rendered it, so the only routes into the French
@@ -1216,6 +1358,7 @@ export default async function BrowsePage({
               </p>
             </div>
           ) : null}
+          {place.whereToGo?.length ? <WhereToGo links={place.whereToGo} /> : null}
         </main>
         {footer}
       </>

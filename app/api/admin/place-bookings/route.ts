@@ -6,6 +6,7 @@ import { PAYMENT_WINDOW_HOURS } from '@/lib/holds';
 import { sendPlaceAvailabilityConfirmed, sendPlaceUnavailable } from '@/lib/email';
 import { sendPaymentReceipt } from '@/lib/receipts/payment-receipt';
 import { audit } from '@/lib/admin/audit';
+import { deleteBookingIfUnpaid } from '@/lib/admin/booking-delete-server';
 
 // ── THE OWNER DECIDES AVAILABILITY, AND THE CUSTOMER IS TOLD (M127) ────────
 //
@@ -207,14 +208,17 @@ export async function PATCH(req: NextRequest) {
   });
 }
 
+// Admin keeps everything (architecture review 2026-09-30, item 3): the same
+// guarded, audited delete as the rentals desk — a paid, confirmed, completed
+// or no-show reservation is refused with a sentence for the owner, and the
+// desk offers Cancel instead. See lib/admin/booking-delete*.ts.
 export async function DELETE(req: NextRequest) {
   if (!isAuthed(req)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const { id } = await req.json() as { id: string };
+  const body = (await req.json().catch(() => null)) as { id?: unknown } | null;
+  const id = typeof body?.id === 'string' ? body.id : '';
   if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 });
 
   const supabase = await getPrivileged();
-  const { error } = await supabase.from('place_bookings').delete().eq('id', id);
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ ok: true });
+  return deleteBookingIfUnpaid(supabase, 'place', id);
 }

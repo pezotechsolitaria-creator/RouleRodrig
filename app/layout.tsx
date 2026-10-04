@@ -20,6 +20,7 @@ import SiteFooter from "@/components/SiteFooter";
 import NavDepth from "@/components/NavDepth";
 import GlobalTiRoule from "@/components/GlobalTiRoule";
 import GlobalSearch from "@/components/search/GlobalSearch";
+import SkipLink from "@/components/SkipLink";
 import { getContent } from "@/lib/content";
 import { priceNumber } from "@/lib/site-data";
 import { cheapestDailyRate, defaultMetaDescription } from "@/lib/home-description";
@@ -490,6 +491,11 @@ export default async function RootLayout({
             in the tree honour the OS setting without touching a single one. */}
         <MotionProvider>
           <LanguageProvider>
+            {/* The FIRST focusable element on every page (architecture review
+                2026-09-30): nothing above it takes focus — the splash is
+                aria-hidden and has no controls — and it sits inside the
+                language provider only so it can speak EN/FR/CR. */}
+            <SkipLink />
             {/* The world is chosen inside the language provider because the
               gateway speaks all three languages, and above everything else
               because the choice colours the entire site. */}

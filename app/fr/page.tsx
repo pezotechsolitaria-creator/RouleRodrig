@@ -9,6 +9,7 @@ import { breadcrumbLd, itemListLd } from "@/lib/schema";
 import { SITE_URL } from "@/lib/site";
 import { getContent } from "@/lib/content";
 import { FR_PAGES } from "@/lib/nav/hubs";
+import { hubTitle } from "@/lib/guide/hub";
 import { ogImages } from "@/lib/share-image";
 import { hubBlurb } from "@/lib/live-prices";
 
@@ -31,8 +32,10 @@ export const revalidate = 3600;
 // being greeted in English has been told something about how much the French
 // half of this site is looked after.
 
+// No count (architecture review 2026-09-30, item 5): this said 11 guides and
+// "Onze" below while FR_PAGES listed 12. The list is the count.
 const DESCRIPTION =
-  "Rodrigues en français, par des gens qui y vivent : 11 guides sur les plages, les activités, où dormir, le taxi et la location de scooter ou de voiture.";
+  "Rodrigues en français, par des gens qui y vivent : nos guides sur les plages, les activités, où dormir, le taxi et la location de scooter ou de voiture.";
 
 // The "dès Rs …" in a blurb is read from the same content the landing page it
 // links reads (hubBlurb, SEO audit 2026-09-29 C1): the car line said Rs 1 499
@@ -55,6 +58,9 @@ export const metadata: Metadata = {
 
 export default async function FrHubPage() {
   const content = await getContent();
+  // "Les 19 plus belles plages" was typed the day it was true; the page counts
+  // its own list, and so does this now (lib/guide/hub.ts, item 5).
+  const pages = FR_PAGES.map((p) => ({ ...p, title: hubTitle(content, p) }));
 
   return (
     <>
@@ -66,7 +72,7 @@ export default async function FrHubPage() {
           ]),
           itemListLd(
             "Guides Rodrigues en français",
-            FR_PAGES.map((p) => ({ name: p.title, url: `${SITE_URL}${p.href}` })),
+            pages.map((p) => ({ name: p.title, url: `${SITE_URL}${p.href}` })),
           ),
         ]}
       />
@@ -98,12 +104,12 @@ export default async function FrHubPage() {
             Rodrigues, par les locaux
           </h1>
           <p className="mt-3 max-w-xl font-dm text-sm leading-relaxed text-muted">
-            Onze guides en français : où se baigner, quoi faire, comment se déplacer et combien ça
+            Nos guides en français : où se baigner, quoi faire, comment se déplacer et combien ça
             coûte vraiment — écrits par des gens qui vivent ici.
           </p>
 
           <ul className="mt-8 space-y-2.5">
-            {FR_PAGES.map((p) => (
+            {pages.map((p) => (
               <li key={p.href}>
                 <Link
                   href={p.href}

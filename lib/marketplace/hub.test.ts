@@ -1,5 +1,14 @@
 import { describe, it, expect } from "vitest";
-import { HUB_ACTIONS, isVehicleTrade, VEHICLE_WORDS } from "./hub";
+import {
+  HUB_ACTIONS,
+  HUB_BRANCHES,
+  doorsOf,
+  gateIsOpen,
+  isVehicleTrade,
+  otherShelves,
+  VEHICLE_WORDS,
+  type HubFacts,
+} from "./hub";
 
 // ── THE HUB, AND THE ONE FILTER IT DEPENDS ON ───────────────────────────────
 //
@@ -16,11 +25,31 @@ import { HUB_ACTIONS, isVehicleTrade, VEHICLE_WORDS } from "./hub";
 //   whole failure this page exists to fix.
 
 describe("the menu cannot lie about what is open", () => {
-  it("offers the six the brief asked for", () => {
-    expect(HUB_ACTIONS).toHaveLength(6);
+  it("keeps the six doors it always had, and adds the tree's doors (review 2026-09-30)", () => {
+    // This pinned exactly six until the architecture review of 30 Sep 2026
+    // made the hub the root of the Marketplace tree. The six are all still
+    // here; the new ones are listed by name so an accidental addition or loss
+    // still fails, as the old length check did.
+    const keys = HUB_ACTIONS.map((a) => a.key);
     for (const key of ["shop", "wash", "deliver", "task", "pro", "celebrations"]) {
-      expect(HUB_ACTIONS.map((a) => a.key)).toContain(key);
+      expect(keys).toContain(key);
     }
+    expect(keys).toEqual([
+      "shop",
+      "wash",
+      "deliver",
+      "task",
+      "pro",
+      "celebrations",
+      "massage",
+      "hiking",
+      "concierge",
+      "esim",
+      "transfers",
+      "map",
+      "emergency",
+    ]);
+    expect(new Set(keys).size).toBe(keys.length);
   });
 
   it("never again marks a live flow as coming soon", () => {
@@ -73,6 +102,116 @@ describe("the menu cannot lie about what is open", () => {
     }
     const titles = HUB_ACTIONS.map((a) => a.title);
     expect(new Set(titles).size).toBe(titles.length);
+  });
+});
+
+// ── THE TREE, AND THE RULE THAT NO DOOR OPENS ON AN EMPTY ROOM ──────────────
+//
+// Architecture review 2026-09-30, item 1. Five branches of doors onto pages
+// that exist; a door shows only while its page has something on it, and a
+// read that failed is unknown — which keeps the door, as listing-gates keeps a
+// page indexable — rather than stripping the hub for an hour of ISR.
+
+/** Everything read, everything stocked. */
+const FULL: HubFacts = {
+  products: 12,
+  shelves: new Set(["vehicle-care", "professional-services", "celebrations", "honey"]),
+  experiences: { massage: 2, hiking: 1, boat: 3, fishing: 1 },
+  foodConcierge: true,
+};
+
+describe("the marketplace tree", () => {
+  it("has the brief's five branches, in its order", () => {
+    expect(HUB_BRANCHES.map((b) => b.key)).toEqual([
+      "products",
+      "services",
+      "rentals",
+      "essentials",
+      "requests",
+    ]);
+  });
+
+  it("files every door under one branch, and none under Rentals", () => {
+    // Rentals is drawn from the live fleet (rentals-rail.ts). A typed door
+    // there would outlive the day the owner switches a category off.
+    const branches = new Set(HUB_BRANCHES.map((b) => b.key));
+    for (const a of HUB_ACTIONS) expect(branches.has(a.branch), a.key).toBe(true);
+    expect(HUB_ACTIONS.filter((a) => (a.branch as string) === "rentals")).toEqual([]);
+  });
+
+  it("groups the doors as the brief's tree does", () => {
+    const keys = (b: Parameters<typeof doorsOf>[0]) => doorsOf(b, FULL).map((a) => a.key);
+    expect(keys("products")).toEqual(["shop", "celebrations"]);
+    expect(keys("services")).toEqual(["wash", "pro", "massage", "hiking"]);
+    expect(keys("essentials")).toEqual(["esim", "transfers", "map", "emergency"]);
+    expect(keys("requests")).toEqual(["deliver", "task", "concierge"]);
+  });
+
+  it("essentials are links to the pages that own them, nothing more", () => {
+    const hrefs = doorsOf("essentials", FULL).map((a) => a.href);
+    expect(hrefs).toEqual(["/esim", "/transfers", "/map", "/emergency"]);
+  });
+});
+
+describe("a door is shown only while its room has something in it", () => {
+  it("closes each shelf door on its own empty shelf, and only that one", () => {
+    const facts = { ...FULL, shelves: new Set(["celebrations"]) };
+    expect(doorsOf("services", facts).map((a) => a.key)).toEqual(["massage", "hiking"]);
+    expect(doorsOf("products", facts).map((a) => a.key)).toEqual(["shop", "celebrations"]);
+  });
+
+  it("closes Shop when /shop would render its launch state", () => {
+    const facts = { ...FULL, products: 0, shelves: new Set<string>() };
+    expect(doorsOf("products", facts)).toEqual([]);
+  });
+
+  it("closes massage and hiking when the vertical has no provider", () => {
+    const facts: HubFacts = { ...FULL, experiences: { massage: 0, hiking: 0, boat: 1, fishing: 1 } };
+    expect(doorsOf("services", facts).map((a) => a.key)).toEqual(["wash", "pro"]);
+  });
+
+  it("closes the food concierge when the owner has switched it off", () => {
+    expect(doorsOf("requests", { ...FULL, foodConcierge: false }).map((a) => a.key)).toEqual([
+      "deliver",
+      "task",
+    ]);
+  });
+
+  it("keeps every door when the reads failed — unknown is not empty", () => {
+    const unknown: HubFacts = {
+      products: null,
+      shelves: null,
+      experiences: { massage: null, hiking: null, boat: null, fishing: null },
+      foodConcierge: true,
+    };
+    for (const a of HUB_ACTIONS) expect(gateIsOpen(a.gate, unknown), a.key).toBe(true);
+  });
+
+  it("still shows a not-yet-open door as Soon, whatever its gate says", () => {
+    const soon = [{ ...HUB_ACTIONS[1], href: null }];
+    const empty = { ...FULL, shelves: new Set<string>() };
+    expect(doorsOf("services", empty, soon).map((a) => a.key)).toEqual(["wash"]);
+  });
+});
+
+describe("the other live shelves under Products", () => {
+  const cats = [
+    { slug: "honey", name: "Honey", count: 4 },
+    { slug: "celebrations", name: "Celebrations", count: 2 },
+    { slug: "vehicle-care", name: "Vehicle Care", count: 1 },
+    { slug: "spices-piment", name: "Spices & piment", count: 0 },
+    { slug: "handicraft", name: "  Handicraft ", count: 3 },
+  ];
+
+  it("lists shelves with something on them that no door already opens", () => {
+    expect(otherShelves(cats)).toEqual([
+      { slug: "honey", name: "Honey" },
+      { slug: "handicraft", name: "Handicraft" },
+    ]);
+  });
+
+  it("lists nothing when the read failed", () => {
+    expect(otherShelves(null)).toEqual([]);
   });
 });
 

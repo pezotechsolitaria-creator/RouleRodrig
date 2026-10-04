@@ -38,6 +38,9 @@ import { parseSlotRange } from "@/lib/orders/slot";
 import { amountPaidRupees, cashToCollect, isPayInPerson } from "@/lib/bookings/in-person";
 // The ONLY import here, and it keeps this module pure: lib/money.ts has no
 // database and no React either. It carries the rule this file broke.
+// The delivery leg lists and their words, written once for /deliver. Pure too:
+// no database, no React (architecture review 2026-09-30, item 2).
+import { BROKEN_LEGS, DEAD_LEGS, legCopy } from "@/lib/delivery/request-status";
 
 export const ACTIVITY_KINDS = ["vehicle", "place", "order", "ride", "delivery", "service"] as const;
 export type ActivityKind = (typeof ACTIVITY_KINDS)[number];
@@ -266,18 +269,83 @@ const DELIVERY_LABEL: Record<ActivityStage, string> = {
   cancelled: "Cancelled",
 };
 
-export function deliveryStage(status: string | null | undefined): ActivityStage {
+// ── THE REQUEST IS NOT THE JOURNEY (architecture review 2026-09-30, item 2) ──
+// delivery_requests.status goes to 'accepted' when a quote is taken and nothing
+// ever moves it back: driver_cannot_complete() and admin_reassign_delivery()
+// write only the deliveries row (see DEAD_LEGS in lib/delivery/request-status).
+// Read alone, it kept a delivered job — and one whose driver had walked away —
+// under "Coming up" as "Driver booked" for ever: the defect M141/M145 fixed on
+// /deliver, reproduced on /orders. The latest deliveries.status, the same leg
+// my_delivery_requests() hands /deliver as deliveryStatus, is the truth about
+// the journey; the request only says whether a choice was made.
+
+/** A driver is moving: the customer's "Happening now", as for a ride. */
+const MOVING_LEGS = ["going_to_pickup", "arrived_at_pickup", "picked_up", "out_for_delivery", "arrived"];
+
+/**
+ * An open request past its expires_at. The status stays 'open' until
+ * sweep_delivery_requests() runs, and a sweep that has not fired is not an
+ * answer to give a customer — requestStatusCopy() reads it the same way.
+ */
+function openButExpired(status: string | null | undefined, expiresAt: string | null | undefined, now: number) {
+  if (status !== "open" || !expiresAt) return false;
+  const t = Date.parse(expiresAt);
+  return !Number.isNaN(t) && t <= now;
+}
+
+export function deliveryStage(
+  status: string | null | undefined,
+  /** The LATEST deliveries.status for the request, once a quote was accepted. */
+  leg?: string | null,
+  /** delivery_requests.expires_at. */
+  expiresAt?: string | null,
+  now: number = Date.now(),
+): ActivityStage {
   switch (status) {
-    case "accepted":
+    case "accepted": {
+      if (leg === "delivered") return "done";
+      // Over, and the goods did not arrive: an operator killed it, the driver
+      // failed it, or it went back. Nothing further happens on its own.
+      if ((DEAD_LEGS as readonly string[]).includes(leg ?? "")) return "cancelled";
+      // The driver is gone or a human has to step in. Still going to happen,
+      // so it stays ahead of the customer — but never as "Driver booked".
+      if ((BROKEN_LEGS as readonly string[]).includes(leg ?? "")) return "pending";
+      if (MOVING_LEGS.includes(leg ?? "")) return "active";
+      // assigned, created, or no leg read: a quote was taken and a driver has
+      // it, which is what this said before the leg was known.
       return "confirmed";
+    }
     // An expired request had no driver take it in time. Nothing further
     // happens, so it belongs with cancelled rather than pretending to be live.
     case "cancelled":
     case "expired":
       return "cancelled";
     default:
-      return "pending"; // open
+      // open
+      return openButExpired(status, expiresAt, now) ? "cancelled" : "pending";
   }
+}
+
+/**
+ * The word on a delivery's badge. The stage's own word, except where the leg
+ * says something truer: "Delivered", "Could not be delivered", "Finding
+ * another driver" — legCopy()'s English, the words /deliver shows for the
+ * same job. And "Expired" for a request nobody took: the customer did not
+ * cancel it, and a history that says they did is one they will dispute.
+ */
+export function deliveryLabel(
+  status: string | null | undefined,
+  leg: string | null | undefined,
+  expiresAt?: string | null,
+  now: number = Date.now(),
+): string {
+  const stage = deliveryStage(status, leg, expiresAt, now);
+  if (status === "accepted" && leg) {
+    const ended = leg === "delivered" || (DEAD_LEGS as readonly string[]).includes(leg);
+    if (ended || (BROKEN_LEGS as readonly string[]).includes(leg)) return legCopy(leg, "en").label;
+  }
+  if (status === "expired" || openButExpired(status, expiresAt, now)) return "Expired";
+  return DELIVERY_LABEL[stage];
 }
 
 export function orderStage(status: string | null | undefined): ActivityStage {
@@ -619,6 +687,11 @@ export type DeliveryRow = {
   dropoff_text?: string | null;
   created_at?: string | null;
   status?: string | null;
+  /** delivery_requests.expires_at: an open request past it is expired. */
+  expires_at?: string | null;
+  /** The LATEST deliveries.status for this request (item 2 of the
+   *  architecture review 2026-09-30). Null before a quote is accepted. */
+  delivery_status?: string | null;
 };
 
 export type ServiceBookingRow = {
@@ -654,8 +727,8 @@ export function serviceToActivity(row: ServiceBookingRow): Activity {
   };
 }
 
-export function deliveryToActivity(row: DeliveryRow): Activity {
-  const stage = deliveryStage(row.status);
+export function deliveryToActivity(row: DeliveryRow, now: number = Date.now()): Activity {
+  const stage = deliveryStage(row.status, row.delivery_status, row.expires_at, now);
   return {
     kind: "delivery",
     id: row.id,
@@ -668,7 +741,7 @@ export function deliveryToActivity(row: DeliveryRow): Activity {
     amountCents: null,
     currency: "MUR",
     stage,
-    statusLabel: activityLabel("delivery", stage),
+    statusLabel: deliveryLabel(row.status, row.delivery_status, row.expires_at, now),
     // The tracker takes the id alone, so this one needs nothing typed at all.
     href: `/deliver/${row.id}`,
   };

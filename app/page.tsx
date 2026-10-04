@@ -11,6 +11,7 @@ import {
 import { homeDescription, rentalFromPrices } from "@/lib/home-description";
 import { isSeedContent } from "@/lib/llms-txt";
 import { placeHref } from "@/lib/place-href";
+import { shownRating } from "@/lib/business-rating";
 import JsonLd from "@/components/JsonLd";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 import { foodCardImages } from "@/lib/food/queries";
@@ -62,9 +63,12 @@ const SERVICE_URL: Record<string, string> = {
 const FREE_TOOLS = [
   { name: "Rodrigues Island travel guide", href: "/guide/rodrigues" },
   { name: "Rodrigues trip planner", href: "/trip-planner" },
+  // The map is /map. This entry named the interactive map and pointed at
+  // /guide/beaches, the written beach guide rather than the map it names
+  // (architecture review 2026-09-30, item 5).
   {
     name: "Interactive island map — beaches & viewpoints",
-    href: "/guide/beaches",
+    href: "/map",
   },
   {
     name: "Ti Roulé — AI island guide (English, French, Creole)",
@@ -74,6 +78,9 @@ const FREE_TOOLS = [
 
 export default async function Home() {
   const { content, fleet, recentBookings, reviews } = await getFleetView();
+  // The rating the reviews section prints, from the list it is handed below
+  // (see the aggregateRating and lib/business-rating.ts).
+  const rating = shownRating(reviews);
 
   // "What are you looking for?" categories (shared with the /browse pages).
   const browseCats = buildBrowseCategories(content, fleet, recentBookings);
@@ -425,15 +432,20 @@ export default async function Home() {
         // the AutoRental node, where it is true. Per-vehicle stars stay dark
         // until reviews arrive carrying a vehicle — which the review form now
         // asks for, so the count starts with the next one.
-        ...(reviews.length
+        //
+        // The SAME rating the page prints (architecture review 2026-09-30,
+        // item 5 fix-up). A first draft of item 5 counted every approved review
+        // here while the reviews section still printed the average and count of
+        // the twelve newest — so from the thirteenth review on, the markup would have
+        // stated a rating no visitor could find, which the rich-result rules
+        // forbid. Counting them all has to start in components/ReviewsContact
+        // (see lib/business-rating.ts); this follows whatever it prints.
+        ...(rating
           ? {
               aggregateRating: {
                 "@type": "AggregateRating",
-                ratingValue:
-                  Math.round(
-                    (reviews.reduce((s, r) => s + r.rating, 0) / reviews.length) * 10,
-                  ) / 10,
-                reviewCount: reviews.length,
+                ratingValue: rating.ratingValue,
+                reviewCount: rating.reviewCount,
                 bestRating: 5,
                 worstRating: 1,
               },
