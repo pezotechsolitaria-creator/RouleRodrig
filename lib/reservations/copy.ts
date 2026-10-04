@@ -48,6 +48,7 @@ type HubCopy = {
   people: string;
   payPaypal: (amount: string) => string;
   paypalFee: (fee: string) => string;
+  cardFee: (fee: string) => string;
   paypalDone: string;
   paypalError: string;
   account: string;
@@ -117,6 +118,7 @@ export const HUB_COPY: Record<ResLang, HubCopy> = {
     people: "People",
     payPaypal: (a) => `Pay ${a}`,
     paypalFee: (f) => `includes ${f} PayPal fee`,
+    cardFee: (f) => `includes ${f} card fee`,
     paypalDone: "Payment received. Updating your reservation…",
     paypalError: "The payment didn't go through. You have not been charged.",
     account: "Account",
@@ -192,6 +194,7 @@ export const HUB_COPY: Record<ResLang, HubCopy> = {
     people: "Personnes",
     payPaypal: (a) => `Payer ${a}`,
     paypalFee: (f) => `dont ${f} de frais PayPal`,
+    cardFee: (f) => `dont ${f} de frais de carte`,
     paypalDone: "Paiement reçu. Mise à jour de votre réservation…",
     paypalError: "Le paiement n'a pas abouti. Vous n'avez pas été débité.",
     account: "Compte",
@@ -267,6 +270,7 @@ export const HUB_COPY: Record<ResLang, HubCopy> = {
     people: "Dimounn",
     payPaypal: (a) => `Pey ${a}`,
     paypalFee: (f) => `ladan ${f} fre PayPal`,
+    cardFee: (f) => `ladan ${f} fre kart`,
     paypalDone: "Peyman resevwar. Nou pe met ou rezervasion azour…",
     paypalError: "Peyman la pa finn pase. Pa finn pran ou kas.",
     account: "Kont",

@@ -30,7 +30,8 @@ export type PaymentPolicy = {
   hold_capacity_on: "confirm" | "request";
 };
 
-const ONLINE: PaymentMethodId[] = ["mcb_juice", "bank_transfer", "paypal"];
+// Card first: a visitor's natural way to pay, processed by PayPal (M242).
+const ONLINE: PaymentMethodId[] = ["card", "mcb_juice", "bank_transfer", "paypal"];
 
 /** Defaults per product type, until the owner edits one in settings. */
 export const DEFAULT_POLICIES: Record<ProductType, PaymentPolicy> = {

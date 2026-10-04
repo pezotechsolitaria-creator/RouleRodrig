@@ -74,12 +74,15 @@ export default function ReservationHub({
   unavailable,
   whatsapp,
   againHref,
+  onlinePayments,
 }: {
   token: string;
   initial: GuestView | null;
   unavailable: boolean;
   whatsapp: string | null;
   againHref: string;
+  /** PayPal is live: card and PayPal account can really be paid. */
+  onlinePayments: boolean;
 }) {
   const { language } = useLanguage();
   const lang = toLang(language);
@@ -186,6 +189,7 @@ export default function ReservationHub({
       token={token}
       whatsapp={whatsapp}
       againHref={againHref}
+      onlinePayments={onlinePayments}
       act={act}
       refresh={refresh}
     />
@@ -202,6 +206,7 @@ function Hub({
   token,
   whatsapp,
   againHref,
+  onlinePayments,
   act,
   refresh,
 }: {
@@ -214,6 +219,7 @@ function Hub({
   token: string;
   whatsapp: string | null;
   againHref: string;
+  onlinePayments: boolean;
   act: (body: Record<string, unknown>) => Promise<boolean>;
   refresh: (force?: boolean) => Promise<void>;
 }) {
@@ -329,7 +335,7 @@ function Hub({
       )}
 
       {hub.payable && (
-        <PaymentPanel view={v} lang={lang} left={left} loading={loading} token={token} act={act} refresh={refresh} />
+        <PaymentPanel view={v} lang={lang} left={left} loading={loading} token={token} onlinePayments={onlinePayments} act={act} refresh={refresh} />
       )}
 
       {/* ── What happens next ── */}
@@ -553,6 +559,7 @@ function PaymentPanel({
   left,
   loading,
   token,
+  onlinePayments,
   act,
   refresh,
 }: {
@@ -561,11 +568,14 @@ function PaymentPanel({
   left: string | null;
   loading: boolean;
   token: string;
+  onlinePayments: boolean;
   act: (body: Record<string, unknown>) => Promise<boolean>;
   refresh: (force?: boolean) => Promise<void>;
 }) {
   const c = HUB_COPY[lang];
-  const methods = (v.methods ?? []).filter((m) => m.id !== "paypal" || paypalAvailable());
+  // Card and PayPal account go through PayPal: offered only while it is live
+  // and its button can load. Everything else is always available.
+  const methods = (v.methods ?? []).filter((m) => (m.id !== "paypal" && m.id !== "card") || (onlinePayments && paypalAvailable()));
   const [chosen, setChosen] = useState<string>(() => v.paymentReportedMethod ?? methods[0]?.id ?? "");
   const due = dueNow(v);
   const method = methods.find((m) => m.id === chosen) ?? methods[0];
@@ -654,13 +664,15 @@ function PaymentPanel({
                 </>
               )}
 
-              {method.id === "paypal" && (
+              {(method.id === "paypal" || method.id === "card") && (
                 <div className="mt-3">
                   <ReservationPayPal
+                    key={method.id}
                     token={token}
+                    funding={method.id === "card" ? "card" : "paypal"}
                     dueMur={due}
                     payLabel={c.payPaypal}
-                    feeLabel={c.paypalFee}
+                    feeLabel={method.id === "card" ? c.cardFee : c.paypalFee}
                     doneLabel={c.paypalDone}
                     errorLabel={c.paypalError}
                     onPaid={() => void refresh(true)}

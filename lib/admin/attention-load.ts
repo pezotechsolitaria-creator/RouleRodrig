@@ -2,6 +2,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { attentionItems, type AttentionCounts, type AttentionItem, type OrderQueues } from "./ops";
 import { countUnrecordedCash, islandToday, type DeskRow } from "./booking-money";
+import { paypalMode } from "@/lib/paypal";
 
 // ── WHAT NEEDS A PERSON, GATHERED ONCE ──────────────────────────────────────
 //
@@ -204,6 +205,7 @@ export async function loadAttentionCounts(
     pendingVehicleBookings: n(pendingBookings),
     pendingPlaceBookings: n(pendingPlaces),
     pendingReservations: n(pendingReservations),
+    paypalTestMode: paypalMode() === "sandbox",
     reportedReservationPayments: n(reportedReservations),
     unhandledSubmissions: n(submissions),
     pendingReviews: n(reviews),

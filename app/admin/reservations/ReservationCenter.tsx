@@ -167,6 +167,10 @@ async function api<T>(url: string, init?: RequestInit): Promise<T> {
 
 export default function ReservationCenter() {
   const [tab, setTab] = useState<"desk" | "settings">("desk");
+  // The bell's "Card & PayPal are in TEST mode" lands here (?tab=settings).
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("tab") === "settings") setTab("settings");
+  }, []);
   return (
     <div>
       <div className="mb-5 inline-flex rounded-xl border border-dark-border bg-dark-card p-1">
@@ -655,7 +659,7 @@ function Actions({ detail, due, onDone }: { detail: Detail; due: number; onDone:
             <label className="block">
               <span className="mb-1 block font-dm text-[11px] text-muted">How</span>
               <select value={method} onChange={(e) => setMethod(e.target.value as PaymentMethodId)} className={input}>
-                {PAYMENT_METHOD_IDS.filter((m) => m !== "card").map((m) => (
+                {PAYMENT_METHOD_IDS.map((m) => (
                   <option key={m} value={m}>
                     {METHOD_LABEL[m]}
                   </option>
@@ -716,6 +720,7 @@ function Actions({ detail, due, onDone }: { detail: Detail; due: number; onDone:
 type SettingsData = {
   methods: { id: string; enabled: boolean; channel: string; label_i18n: Record<string, string>; instructions_i18n: Record<string, string>; sort: number }[];
   types: { type: ProductType; custom: boolean; policy: PaymentPolicy; defaults: PaymentPolicy }[];
+  paypal: "live" | "sandbox" | "off";
 };
 
 const TYPE_LABEL: Record<ProductType, string> = {
@@ -748,12 +753,13 @@ function Settings() {
 
   return (
     <div className="space-y-8">
+      <PayPalStatus mode={data.paypal} />
       <section>
         <h2 className="font-syne text-lg font-bold">Payment methods</h2>
         <p className="mt-1 font-dm text-sm text-muted">What a guest can choose once you confirm. Changes apply straight away.</p>
         <div className="mt-3 space-y-2.5">
           {data.methods.map((m) => (
-            <MethodEditor key={m.id} method={m} onSaved={load} />
+            <MethodEditor key={m.id} method={m} paypal={data.paypal} onSaved={load} />
           ))}
         </div>
       </section>
@@ -772,12 +778,57 @@ function Settings() {
   );
 }
 
-function MethodEditor({ method: m, onSaved }: { method: SettingsData["methods"][number]; onSaved: () => Promise<void> }) {
+// ── Card & PayPal: live or test ──────────────────────────────────────────────
+//
+// Card payments are PayPal's card form (Stripe does not serve Mauritius), so
+// both depend on PayPal's mode. Until 5 Oct 2026 the site ran PayPal's TEST
+// mode without anything saying so; this panel is where that is now said.
+
+function PayPalStatus({ mode }: { mode: SettingsData["paypal"] }) {
+  if (mode === "live") {
+    return (
+      <section className="rounded-xl border border-green-500/30 bg-green-500/[0.06] p-4">
+        <p className="font-syne text-sm font-bold text-green-400">Card & PayPal are live</p>
+        <p className="mt-1 font-dm text-sm text-offwhite/85">
+          Guests can pay by Visa or Mastercard (no PayPal account needed) or with PayPal. The money arrives in your PayPal balance; the booking is marked paid by itself.
+        </p>
+      </section>
+    );
+  }
+  return (
+    <section className="rounded-xl border border-red-500/30 bg-red-500/[0.06] p-4">
+      <p className="font-syne text-sm font-bold text-red-300">
+        {mode === "sandbox" ? "Card & PayPal are in TEST mode — no customer can pay online" : "Card & PayPal are not set up"}
+      </p>
+      <p className="mt-1 font-dm text-sm text-offwhite/85">
+        {mode === "sandbox"
+          ? "The site is connected to PayPal's test system, which refuses real cards. Guests are not shown Card or PayPal until it is live."
+          : "Guests are not shown Card or PayPal until PayPal is connected."}{" "}
+        To turn it on (about 10 minutes):
+      </p>
+      <ol className="mt-2 list-decimal space-y-1.5 pl-5 font-dm text-sm text-offwhite/85">
+        <li>
+          At <span className="text-offwhite">developer.paypal.com</span>, log in with your PayPal <strong>business</strong> account → Apps &amp; Credentials → switch to <strong>Live</strong> → Create App. Copy the Client ID and the Secret.
+        </li>
+        <li>
+          In PayPal: Account Settings → Website payments → Website preferences → <strong>PayPal account optional: On</strong>. This is what lets people pay by card without a PayPal account.
+        </li>
+        <li>
+          In Vercel → this project → Settings → Environment Variables (Production): set <code className="text-yellow">NEXT_PUBLIC_PAYPAL_CLIENT_ID</code> to the live Client ID, <code className="text-yellow">PAYPAL_SECRET</code> to the live Secret, and <code className="text-yellow">PAYPAL_ENV</code> to <code className="text-yellow">live</code>.
+        </li>
+        <li>Redeploy (Deployments → the latest → Redeploy). This panel turns green when it worked.</li>
+      </ol>
+    </section>
+  );
+}
+
+function MethodEditor({ method: m, paypal, onSaved }: { method: SettingsData["methods"][number]; paypal: SettingsData["paypal"]; onSaved: () => Promise<void> }) {
   const [enabled, setEnabled] = useState(m.enabled);
   const [label, setLabel] = useState({ en: m.label_i18n.en ?? "", fr: m.label_i18n.fr ?? "", cr: m.label_i18n.cr ?? "" });
   const [ins, setIns] = useState({ en: m.instructions_i18n.en ?? "", fr: m.instructions_i18n.fr ?? "", cr: m.instructions_i18n.cr ?? "" });
   const [state, setState] = useState<"idle" | "saving" | "saved" | string>("idle");
-  const isCard = m.id === "card";
+  // Card and PayPal account are both PayPal underneath.
+  const viaPayPal = m.id === "card" || m.id === "paypal";
   const input = "w-full rounded-lg border border-dark-border bg-dark px-3 py-2 font-dm text-sm text-offwhite focus:border-yellow focus:outline-none";
 
   async function save() {
@@ -785,7 +836,7 @@ function MethodEditor({ method: m, onSaved }: { method: SettingsData["methods"][
     try {
       await api("/api/admin/reservations", {
         method: "POST",
-        body: JSON.stringify({ action: "method", id: m.id, enabled, label_i18n: label, instructions_i18n: isCard ? undefined : ins }),
+        body: JSON.stringify({ action: "method", id: m.id, enabled, label_i18n: label, instructions_i18n: ins }),
       });
       setState("saved");
       await onSaved();
@@ -798,21 +849,26 @@ function MethodEditor({ method: m, onSaved }: { method: SettingsData["methods"][
     <details className="rounded-xl border border-dark-border bg-dark-card">
       <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3">
         <span className="font-dm text-sm text-offwhite">{m.label_i18n.en ?? m.id}</span>
-        <span className={`font-dm text-xs ${m.enabled ? "text-yellow" : "text-muted"}`}>{isCard ? "Off — needs a card processor" : m.enabled ? "On" : "Off"}</span>
+        <span className={`text-right font-dm text-xs ${m.enabled ? "text-yellow" : "text-muted"}`}>
+          {!m.enabled ? "Off" : viaPayPal && paypal !== "live" ? "On — hidden until PayPal is live" : "On"}
+        </span>
       </summary>
       <div className="space-y-3 border-t border-dark-border px-4 pb-4 pt-3">
         <label className="flex items-center gap-2 font-dm text-sm text-offwhite">
-          <input type="checkbox" className="accent-yellow" checked={enabled} disabled={isCard} onChange={(e) => setEnabled(e.target.checked)} />
+          <input type="checkbox" className="accent-yellow" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />
           Offer this method
         </label>
+        {viaPayPal && (
+          <p className="font-dm text-xs text-muted">
+            Processed by PayPal{m.id === "card" ? " — Visa and Mastercard, no PayPal account needed" : ""}. The money arrives in your PayPal balance and the booking is marked paid by itself.
+          </p>
+        )}
         {(["en", "fr", "cr"] as const).map((l) => (
           <div key={l} className="grid gap-2 sm:grid-cols-[110px_1fr]">
             <span className="pt-2 font-bebas text-[10px] tracking-[0.2em] text-muted">{l === "en" ? "ENGLISH" : l === "fr" ? "FRENCH" : "KREOL"}</span>
             <div className="space-y-1.5">
               <input value={label[l]} onChange={(e) => setLabel((s) => ({ ...s, [l]: e.target.value }))} placeholder="Name" className={input} maxLength={60} />
-              {!isCard && (
-                <textarea rows={2} value={ins[l]} onChange={(e) => setIns((s) => ({ ...s, [l]: e.target.value }))} placeholder="What the guest should do" className={input} maxLength={600} />
-              )}
+              <textarea rows={2} value={ins[l]} onChange={(e) => setIns((s) => ({ ...s, [l]: e.target.value }))} placeholder="What the guest should do" className={input} maxLength={600} />
             </div>
           </div>
         ))}
@@ -897,7 +953,7 @@ function PolicyEditor({ entry, onSaved }: { entry: SettingsData["types"][number]
         <div>
           <span className="mb-1 block font-dm text-[11px] text-muted">Methods offered</span>
           <div className="flex flex-wrap gap-2">
-            {PAYMENT_METHOD_IDS.filter((m) => m !== "card").map((m) => (
+            {PAYMENT_METHOD_IDS.map((m) => (
               <label key={m} className={`inline-flex min-h-[36px] cursor-pointer items-center gap-1.5 rounded-lg border px-2.5 font-dm text-xs ${p.allowed_methods.includes(m) ? "border-yellow text-yellow" : "border-dark-border text-muted"}`}>
                 <input
                   type="checkbox"

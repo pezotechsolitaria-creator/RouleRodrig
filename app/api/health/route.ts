@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { hasServiceRole } from "@/lib/supabase/admin";
 import { hasSharedLimiter, sharedLimiterDiagnostics } from "@/lib/rate-limit";
 import { emailProviderName } from "@/lib/email";
+import { paypalMode } from "@/lib/paypal";
 
 export const dynamic = "force-dynamic";
 
@@ -22,7 +23,7 @@ export const dynamic = "force-dynamic";
 // red test at the moment it is introduced rather than a wrong number on a
 // dashboard nobody re-reads. The duplication stays — a static service worker
 // genuinely cannot import from the bundle — but it is no longer unguarded.
-const SW_CACHE_VERSION = "rr-cache-v390";
+const SW_CACHE_VERSION = "rr-cache-v391";
 
 // ── Health / readiness / liveness ────────────────────────────────────────────
 // GET /api/health           → readiness (checks the database dependency)
@@ -46,6 +47,9 @@ function buildInfo() {
     branch: process.env.VERCEL_GIT_COMMIT_REF ?? "local",
     env: process.env.VERCEL_ENV ?? process.env.NODE_ENV ?? "unknown",
     swCache: SW_CACHE_VERSION,
+    // "live" | "sandbox" | "off". The site ran sandbox for months with nothing
+    // saying so (lib/paypal.ts paypalMode); this answers it without a login.
+    paypal: paypalMode(),
     // WHERE this function actually ran. vercel.json pins `regions: ["fra1"]` to
     // sit beside the Frankfurt database, but a plan can silently ignore that —
     // and without this field the only way to tell a working pin from an ignored

@@ -29,6 +29,21 @@ export function paypalConfigured(): boolean {
   return !!CLIENT_ID && !!SECRET;
 }
 
+/**
+ * Whether PayPal can take REAL money.
+ *
+ * Found 5 Oct 2026: the site had been running PayPal's SANDBOX since PayPal
+ * was added — the public client id is a sandbox app, PAYPAL_ENV was never set
+ * (it defaults to "sandbox"), and not one capture had ever been recorded. A
+ * customer pressing "Pay" was sent to sandbox.paypal.com, which takes only
+ * test accounts. Nothing anywhere said so. This is the single answer every
+ * screen now asks: "live" means cards and PayPal accounts really pay.
+ */
+export function paypalMode(): "live" | "sandbox" | "off" {
+  if (!paypalConfigured()) return "off";
+  return ENV === "live" ? "live" : "sandbox";
+}
+
 // ── Rs → EUR, from live rates, server-side, cached 1h ────────────────────────
 let rateCache: { eurPerMur: number; at: number } | null = null;
 async function eurPerMur(): Promise<number> {
@@ -170,6 +185,9 @@ export async function captureOrder(orderId: string): Promise<{
   amount: string | null;
   currency: string | null;
   referenceId: string | null;
+  /** How the buyer paid: a card typed into PayPal's card form, or a PayPal
+   *  account. Read from PayPal's answer, never from the browser. */
+  source: "card" | "paypal" | null;
 }> {
   const token = await accessToken();
   const res = await fetch(`${BASE}/v2/checkout/orders/${orderId}/capture`, {
@@ -179,6 +197,7 @@ export async function captureOrder(orderId: string): Promise<{
   if (!res.ok) throw new Error(`PayPal capture failed: ${res.status} ${await res.text()}`);
   const j = (await res.json()) as {
     status?: string;
+    payment_source?: Record<string, unknown>;
     purchase_units?: {
       reference_id?: string;
       payments?: { captures?: { id: string; amount?: { value: string; currency_code: string } }[] };
@@ -192,7 +211,17 @@ export async function captureOrder(orderId: string): Promise<{
     amount: cap?.amount?.value ?? null,
     currency: cap?.amount?.currency_code ?? null,
     referenceId: unit?.reference_id ?? null,
+    source: paymentSourceOf(j.payment_source),
   };
+}
+
+/** "card" when PayPal's answer carries payment_source.card, "paypal" for a
+ *  wallet, null when PayPal did not say. */
+export function paymentSourceOf(ps: Record<string, unknown> | undefined | null): "card" | "paypal" | null {
+  if (!ps) return null;
+  if ("card" in ps) return "card";
+  if ("paypal" in ps) return "paypal";
+  return null;
 }
 
 // ── Fixed-price EUR orders (the eSIM store) ──────────────────────────────────

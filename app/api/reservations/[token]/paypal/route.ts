@@ -82,11 +82,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
   const r = await load(token);
   if (!r) return NextResponse.json({ error: "not_found" }, { status: 404 });
   const payable = r.reservation_status === "confirmed" && ["payment_pending", "partially_paid", "failed"].includes(r.payment_status);
-  const allowed = (r.payment_policy_snapshot?.allowed_methods ?? []).includes("paypal");
+  // Card and PayPal account are the same PayPal order; either one allows it.
+  const methods = r.payment_policy_snapshot?.allowed_methods ?? [];
+  const allowed = methods.includes("paypal") || methods.includes("card");
   const due = remaining(r);
 
   if (parsed.data.step === "create") {
-    if (!payable || !allowed || due <= 0) return NextResponse.json({ error: "This reservation can't be paid by PayPal now." }, { status: 409 });
+    if (!payable || !allowed || due <= 0) return NextResponse.json({ error: "This reservation can't be paid online now." }, { status: 409 });
     const eur = await murToEur(withPayPalFee(due).total);
     const order = await createEurOrder({
       // Unique per amount, so PayPal's own idempotency never replays an old total.
@@ -114,7 +116,15 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
   const eurPerMurNow = Number(await murToEur(1000)) / 1000;
   const paidMur = resolvePaidAmountMur(Number(cap.amount), { depositMur: due }, (mur) => mur * eurPerMurNow);
   const res = paidMur
-    ? await adminAction(r.id, "mark_paid", { method: "paypal", amount_mur: paidMur, external_ref: cap.captureId, actor: "system", actor_label: "PayPal" })
+    ? await adminAction(r.id, "mark_paid", {
+        // From PayPal's answer, never from the browser: a card typed into
+        // PayPal's card form is recorded as card.
+        method: cap.source === "card" ? "card" : "paypal",
+        amount_mur: paidMur,
+        external_ref: cap.captureId,
+        actor: "system",
+        actor_label: cap.source === "card" ? "Card (PayPal)" : "PayPal",
+      })
     : { ok: false, error: "amount_mismatch" };
   if (!res.ok) {
     // The hold lapsed, or the amount was wrong: give the money back now.

@@ -36,6 +36,7 @@ function loadSdk(): Promise<void> {
 
 export default function ReservationPayPal({
   token,
+  funding = "paypal",
   dueMur,
   payLabel,
   feeLabel,
@@ -44,6 +45,8 @@ export default function ReservationPayPal({
   onPaid,
 }: {
   token: string;
+  /** "card": PayPal's own card form, no PayPal account; "paypal": the wallet. */
+  funding?: "card" | "paypal";
   dueMur: number;
   payLabel: (amount: string) => string;
   feeLabel: (fee: string) => string;
@@ -84,9 +87,14 @@ export default function ReservationPayPal({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
+    const paypal = window.paypal as typeof window.paypal & { FUNDING?: { CARD: string; PAYPAL: string } };
     window.paypal
       .Buttons({
-        style: { color: "gold", shape: "pill", label: "pay", height: 44 },
+        // One button per method, so "Card" never opens a PayPal login and
+        // "PayPal" never shows a card form. The card button expands PayPal's
+        // own card fields in place.
+        fundingSource: funding === "card" ? (paypal.FUNDING?.CARD ?? "card") : (paypal.FUNDING?.PAYPAL ?? "paypal"),
+        style: funding === "card" ? { color: "black", shape: "pill", height: 44 } : { color: "gold", shape: "pill", label: "pay", height: 44 },
         createOrder: async () => {
           const res = await post({ step: "create" });
           const j = await res.json().catch(() => ({}));
@@ -118,7 +126,7 @@ export default function ReservationPayPal({
         setState("error");
         setMsg(errorLabel);
       });
-  }, [ready, token, state, errorLabel]);
+  }, [ready, token, state, errorLabel, funding]);
 
   if (!CLIENT_ID) return null;
 

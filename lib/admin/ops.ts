@@ -49,6 +49,8 @@ export type AttentionCounts = {
   awaitingPaymentConfirmation?: OrderQueues;
   pendingVehicleBookings?: number;
   pendingPlaceBookings?: number;
+  /** M242 · PayPal (and so every card payment) is in sandbox: nothing real can be paid online. */
+  paypalTestMode?: boolean;
   /** M240 · requests to book that nobody has answered yet. */
   pendingReservations?: number;
   /** M240 · guests who tapped "I've paid" — check the account, then record it. */
@@ -215,6 +217,17 @@ export function attentionItems(c: AttentionCounts): AttentionItem[] {
     // clearing work matters while a customer physically cannot buy. This is
     // the cost of M89 made visible, and it clears itself one merchant at a
     // time as bank details arrive.
+    // M242. Every card and PayPal button on the site led to PayPal's TEST
+    // checkout, which takes no real card — for as long as PayPal has existed
+    // here, with nothing to say so. A shut door, so critical, until the live
+    // keys are in Vercel.
+    {
+      key: "paypal-test-mode",
+      label: "Card & PayPal are in TEST mode — no customer can pay online",
+      count: c.paypalTestMode ? 1 : 0,
+      severity: "critical",
+      href: "/admin/reservations?tab=settings",
+    },
     {
       key: "payment-blocked-stores",
       label: "Live shops with no bank details — they cannot take an order",

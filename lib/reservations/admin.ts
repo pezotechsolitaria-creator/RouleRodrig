@@ -1,6 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { deskCounts, inFilter, legalActions, type DeskFilter } from "./admin-actions";
+import { paypalMode } from "@/lib/paypal";
 import { DEFAULT_POLICIES, PRODUCT_TYPES, resolvePolicy, type PaymentPolicy, type ProductType } from "./policy";
 import { todayMU } from "./server";
 import type { PaymentStatus, ReservationStatus } from "./status";
@@ -127,7 +128,8 @@ export async function readSettings(admin: SupabaseClient) {
     return { type: t, custom: Boolean(row), policy: resolvePolicy(t, row?.policy ?? null), defaults: DEFAULT_POLICIES[t] };
   });
   const products = stored.filter((r) => r.scope_type === "product");
-  return { methods: (m.data ?? []) as MethodRow[], types, products };
+  // "live" | "sandbox" | "off": card and PayPal take real money only when live.
+  return { methods: (m.data ?? []) as MethodRow[], types, products, paypal: paypalMode() };
 }
 
 export async function saveMethod(
@@ -135,8 +137,8 @@ export async function saveMethod(
   id: string,
   patch: { enabled?: boolean; label_i18n?: Record<string, string>; instructions_i18n?: Record<string, string>; sort?: number },
 ) {
-  // Card stays off until a real card processor exists: no fake card option.
-  if (id === "card" && patch.enabled) throw Object.assign(new Error("Card payments need a card processor first."), { status: 400 });
+  // Card is processed by PayPal (M242): it can be switched on, and the booking
+  // page shows it only while PayPal is live.
   const { error } = await admin
     .from("reservation_payment_methods")
     .update({ ...patch, updated_at: new Date().toISOString() })
