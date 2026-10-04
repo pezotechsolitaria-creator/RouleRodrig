@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { getPrivileged, hasServiceRole } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 import { guardShared } from "@/lib/rate-limit";
 
 // ── A driver who closed the tab gets back in (M100) ────────────────────────
@@ -44,10 +45,28 @@ export async function POST(req: NextRequest) {
   const parsed = schema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: NO_MATCH }, { status: 400 });
 
+  // ── THE ACCOUNT DOOR (M172, fixed by M232) ──────────────────────────────
+  // A signed-in driver is remembered so /account can open his page next time.
+  // The function binds taxi_drivers.user_id — but it runs under the service
+  // role, where auth.uid() is null, so it never bound anybody. The user is
+  // verified HERE, from the request's own session, and passed explicitly.
+  // Anonymous visitors still sign in exactly as before, just without the
+  // binding. Never a client grant: the rate limit above is the only defence
+  // against guessing codes, and a direct RPC would bypass it.
+  let userId: string | null = null;
+  try {
+    const session = await createClient();
+    const { data: { user } } = await session.auth.getUser();
+    userId = user?.id ?? null;
+  } catch {
+    userId = null;
+  }
+
   const supabase = await getPrivileged();
   const { data, error } = await supabase.rpc("driver_link_by_code", {
     p_code: parsed.data.code,
     p_phone: parsed.data.phone,
+    p_user_id: userId,
   });
 
   if (error) {
