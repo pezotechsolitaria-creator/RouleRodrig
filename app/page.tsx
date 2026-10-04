@@ -13,7 +13,7 @@ import { isSeedContent } from "@/lib/llms-txt";
 import { placeHref } from "@/lib/place-href";
 import { shownRating } from "@/lib/business-rating";
 import JsonLd from "@/components/JsonLd";
-import { createClient as createSupabaseClient } from "@/lib/supabase/server";
+import { createAnonClient } from "@/lib/supabase/anon";
 import { foodCardImages } from "@/lib/food/queries";
 import { listPublicEvents } from "@/lib/events/queries";
 import Hero from "@/components/Hero";
@@ -209,6 +209,25 @@ export default async function Home() {
       })),
   ].slice(0, 10);
 
+  // ── THE HOMEPAGE IS CACHED AGAIN ───────────────────────────────────────────
+  // It declared revalidate = 60 and was served "private, no-store", MISS, on
+  // every request (live, 1 Oct 2026): the two reads below used the SESSION
+  // client, and touching cookies opts the whole route into dynamic rendering.
+  // So the page that earns 41 of the site's 49 search clicks was rebuilt for
+  // every visitor. Both reads are public catalogue data — dish photos and
+  // public events — so the cookieless client is the right one anyway: the
+  // session client could even add a signed-in shop owner's unpublished events
+  // to the strip. Same anon key, same RLS. A missing key costs the two strips,
+  // never the page.
+  const publicDb = (() => {
+    try {
+      return createAnonClient();
+    } catch (err) {
+      console.error("homepage: public client unavailable", err);
+      return null;
+    }
+  })();
+
   // Per-card image galleries so the homepage cards auto-cycle through the real
   // photos of each category's contents (all scooters, all cars, all stays…).
   const galleryOf = (items: { image?: string; images?: string[] }[]) =>
@@ -236,13 +255,13 @@ export default async function Home() {
     // on a gradient. Read through the public catalog RPC, so it can only ever
     // show a dish a customer could actually open. A failure costs the card its
     // photos, never the homepage.
-    food: await foodCardImages(await createSupabaseClient()),
+    food: publicDb ? await foodCardImages(publicDb) : [],
   };
 
   // Upcoming ticketed events for the homepage promo strip. Only what is still
   // ahead and not cancelled, soonest first — a homepage advertising a concert
   // that happened last week is worse than one advertising nothing.
-  const promoEvents = (await listPublicEvents(await createSupabaseClient()))
+  const promoEvents = (publicDb ? await listPublicEvents(publicDb) : [])
     .filter((e) => e.phase === "upcoming" || e.phase === "in_progress")
     .slice(0, 6)
     .map((e) => ({

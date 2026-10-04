@@ -3,6 +3,9 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { getPrivileged, hasServiceRole } from "@/lib/supabase/admin";
 import { vehicleName } from "@/lib/vehicle-name";
 import { IN_PROGRESS_LEGS } from "@/lib/delivery/clear";
+import { hiddenKeysFor } from "@/lib/hide/server";
+import { hideKey } from "@/lib/hide/kinds";
+import { escapeLike, sameEmail } from "@/lib/email-match";
 import {
   vehicleToActivity, placeToActivity,
   rideToActivity, deliveryToActivity, serviceToActivity,
@@ -78,8 +81,16 @@ export async function listActivitiesForCustomer(opts: {
 
   const admin = await getPrivileged();
   const email = opts.verifiedEmail?.trim().toLowerCase() ?? "";
+  // ── AN EMAIL IS NOT A PATTERN ─────────────────────────────────────────────
+  // ilike was used here believing a plain address "carries no wildcards". It
+  // does: `_` is one. j_doe@gmail.com matched jxdoe@gmail.com, so a customer
+  // whose address holds an underscore could be shown a stranger's rentals and
+  // rides. Two layers now: the wildcards are escaped for the query, and every
+  // row is re-checked for exact equality below (sameEmail), which holds even
+  // for a character PostgREST treats specially. Found 2 Oct 2026.
+  const pattern = escapeLike(email);
 
-  const [vehicles, places, rides, deliveriesMine, deliveriesGuest, bookings] =
+  const [vehicles, places, rides, deliveriesMine, deliveriesGuest, bookings, hidden] =
     await Promise.all([
     email
       ? admin
@@ -87,7 +98,7 @@ export async function listActivitiesForCustomer(opts: {
           // total_amount + pay_in_person (M220): a booking paid in person shows
           // what is still to pay, not an unpaid deposit as if it were paid.
           .select("id, scooter, start_date, end_date, status, amount_paid, deposit_amount, total_amount, pay_in_person, email")
-          .ilike("email", email)
+          .ilike("email", pattern)
           .order("start_date", { ascending: false })
           .limit(50)
       : Promise.resolve({ data: [], error: null }),
@@ -95,7 +106,7 @@ export async function listActivitiesForCustomer(opts: {
       ? admin
           .from("place_bookings")
           .select("id, place_name, category, start_date, end_date, status, deposit_paid_at, amount_paid, deposit_amount, pay_in_person, email")
-          .ilike("email", email)
+          .ilike("email", pattern)
           .order("start_date", { ascending: false })
           .limit(50)
       : Promise.resolve({ data: [], error: null }),
@@ -110,7 +121,7 @@ export async function listActivitiesForCustomer(opts: {
       ? admin
           .from("ride_requests")
           .select("id, service, pickup_label, dropoff_label, scheduled_at, created_at, quoted_price, currency, status, customer_email")
-          .ilike("customer_email", email)
+          .ilike("customer_email", pattern)
           .order("created_at", { ascending: false })
           .limit(50)
       : Promise.resolve({ data: [], error: null }),
@@ -133,8 +144,8 @@ export async function listActivitiesForCustomer(opts: {
     email
       ? admin
           .from("delivery_requests")
-          .select("id, what, pickup_text, dropoff_text, created_at, status, expires_at")
-          .ilike("guest_email", email)
+          .select("id, what, pickup_text, dropoff_text, created_at, status, expires_at, guest_email")
+          .ilike("guest_email", pattern)
           .order("created_at", { ascending: false })
           .limit(50)
       : Promise.resolve({ data: [], error: null }),
@@ -151,6 +162,9 @@ export async function listActivitiesForCustomer(opts: {
       .eq("created_by", opts.userId)
       .order("starts_at", { ascending: false })
       .limit(50),
+    // M234: what this customer cleared from the list. Fails OPEN — an empty
+    // set on a failed read shows a cleared item again, never hides one.
+    hiddenKeysFor(opts.userId),
   ]);
 
   if (vehicles.error) { console.error("activity feed: bookings failed", vehicles.error); partial = true; }
@@ -160,11 +174,12 @@ export async function listActivitiesForCustomer(opts: {
   if (deliveriesGuest.error) { console.error("activity feed: delivery_requests (guest) failed", deliveriesGuest.error); partial = true; }
   if (bookings.error) { console.error("activity feed: service_bookings failed", bookings.error); partial = true; }
 
-  // `ilike` with a plain address is an exact match — the string carries no
-  // wildcards. It is used rather than `eq` only to be case-insensitive, and the
-  // value is the session's own email, so there is no caller-controlled pattern
-  // here (contrast M11, where a caller-supplied '%' matched every row).
+  // ilike is used to be case-insensitive, with the session's own address
+  // ESCAPED (see `pattern` above) — and, because escaping is a promise about
+  // PostgREST rather than a proof, every row is checked for exact equality
+  // here before it is shown. A row that is not this person's never renders.
   for (const row of (vehicles.data ?? []) as Record<string, unknown>[]) {
+    if (!sameEmail(row.email, email) || hidden.has(hideKey("booking", String(row.id)))) continue;
     activities.push(
       vehicleToActivity(
         {
@@ -185,6 +200,7 @@ export async function listActivitiesForCustomer(opts: {
   }
 
   for (const row of (places.data ?? []) as Record<string, unknown>[]) {
+    if (!sameEmail(row.email, email) || hidden.has(hideKey("place_booking", String(row.id)))) continue;
     activities.push(
       placeToActivity(
         {
@@ -205,6 +221,7 @@ export async function listActivitiesForCustomer(opts: {
   }
 
   for (const row of (rides.data ?? []) as Record<string, unknown>[]) {
+    if (!sameEmail(row.customer_email, email) || hidden.has(hideKey("ride", String(row.id)))) continue;
     activities.push(
       rideToActivity({
         id: String(row.id),
@@ -224,10 +241,12 @@ export async function listActivitiesForCustomer(opts: {
   // as a guest and later signed up with that address matches both. Keyed by id
   // so it appears once.
   const deliveryRows = new Map<string, Record<string, unknown>>();
-  for (const list of [deliveriesMine.data ?? [], deliveriesGuest.data ?? []]) {
-    for (const row of list as Record<string, unknown>[]) {
-      deliveryRows.set(String(row.id), row);
-    }
+  for (const row of (deliveriesMine.data ?? []) as Record<string, unknown>[]) {
+    deliveryRows.set(String(row.id), row);
+  }
+  // The guest half is matched by address, so it gets the same exact check.
+  for (const row of (deliveriesGuest.data ?? []) as Record<string, unknown>[]) {
+    if (sameEmail(row.guest_email, email)) deliveryRows.set(String(row.id), row);
   }
   const facts = await readDeliveryFacts(admin, [...deliveryRows.keys()]);
   // The customer is told the list may be behind rather than shown "Driver
@@ -257,6 +276,7 @@ export async function listActivitiesForCustomer(opts: {
   }
 
   for (const row of (bookings.data ?? []) as Record<string, unknown>[]) {
+    if (hidden.has(hideKey("service_booking", String(row.id)))) continue;
     const store = (Array.isArray(row.stores) ? row.stores[0] : row.stores) as
       | { name?: string; slug?: string }
       | null;

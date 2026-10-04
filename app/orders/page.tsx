@@ -15,6 +15,8 @@ import { STATUS_LABEL, type OrderStatus } from "@/lib/orders/status";
 import { centsToDecimalString, centsToDisplay } from "@/lib/money";
 import OrdersFilterBar from "@/components/orders/OrdersFilterBar";
 import { Badge } from "@/components/ui/badge";
+import ClearableRow from "@/components/orders/ClearableRow";
+import { hideKindForActivity, FINISHED_ORDER_STATUSES } from "@/lib/hide/kinds";
 
 export const metadata: Metadata = {
   // A TAB NEEDS A NAME. With only `robots` here the page inherited the root
@@ -77,6 +79,17 @@ export default async function CustomerOrdersPage({
     if (safe) query = query.ilike("order_number", `%${safe}%`);
   }
 
+  // ── WHAT THE CUSTOMER CLEARED (M234) ─────────────────────────────────────
+  // Excluded IN the query, not filtered afterwards, so the page count and the
+  // pagination stay exact. Read on the customer's own session. The ids come
+  // from the database as uuids, so nothing user-typed reaches the filter.
+  // A failed read clears nothing: the orders simply show, as before.
+  const { data: hiddenRows } = await supabase.rpc("my_hidden_items");
+  const hiddenOrderIds = ((hiddenRows ?? []) as { kind: string; item_id: string }[])
+    .filter((h) => h.kind === "order" && /^[0-9a-f-]{36}$/i.test(h.item_id))
+    .map((h) => h.item_id);
+  if (hiddenOrderIds.length > 0) query = query.not("id", "in", `(${hiddenOrderIds.join(",")})`);
+
   const { data, count, error } = await query;
   // Same reasoning as the detail page: without this, a database fault renders
   // the "no orders yet" empty state to a customer who does have orders.
@@ -113,6 +126,14 @@ export default async function CustomerOrdersPage({
   const amountNotes: AmountNotes = {
     to_pay_in_person: t.ordersPage.amountToPayInPerson,
     paid: t.ordersPage.amountPaid,
+  };
+  // M234: the clear control's words, in the customer's language.
+  const clearCopy: ClearCopy = {
+    clearItem: t.ordersPage.clearItem,
+    clearedItem: t.ordersPage.clearedItem,
+    undo: t.ordersPage.undo,
+    clearStillLive: t.ordersPage.clearStillLive,
+    clearFailed: t.ordersPage.clearFailed,
   };
 
   return (
@@ -159,9 +180,10 @@ export default async function CustomerOrdersPage({
           <section className="mt-6">
             <h2 className="font-bebas text-[11px] tracking-[0.3em] text-yellow">BOOKINGS</h2>
             <div className="mt-2.5 space-y-4">
-              {grouped.now.length > 0 && <ActivityGroup title={t.ordersPage.happeningNow} items={grouped.now} notes={amountNotes} />}
-              {grouped.upcoming.length > 0 && <ActivityGroup title={t.ordersPage.comingUp} items={grouped.upcoming} notes={amountNotes} />}
-              {grouped.past.length > 0 && <ActivityGroup title="Past" items={grouped.past} notes={amountNotes} dim />}
+              {grouped.now.length > 0 && <ActivityGroup title={t.ordersPage.happeningNow} items={grouped.now} notes={amountNotes} clearCopy={clearCopy} />}
+              {grouped.upcoming.length > 0 && <ActivityGroup title={t.ordersPage.comingUp} items={grouped.upcoming} notes={amountNotes} clearCopy={clearCopy} />}
+              {/* Only what is over can be cleared — the database refuses the rest. */}
+              {grouped.past.length > 0 && <ActivityGroup title="Past" items={grouped.past} notes={amountNotes} clearCopy={clearCopy} clearable dim />}
             </div>
           </section>
         )}
@@ -190,8 +212,14 @@ export default async function CustomerOrdersPage({
               // slot card. A cancelled booking must not read "Tomorrow, 12:00".
               const slot = slotCardApplies(o.status) ? parseSlotRange(o.pickup_slot as string | null) : null;
               return (
-                <Link
+                <ClearableRow
                   key={o.id}
+                  kind="order"
+                  id={o.id}
+                  clearable={(FINISHED_ORDER_STATUSES as readonly string[]).includes(o.status)}
+                  copy={clearCopy}
+                >
+                <Link
                   href={`/orders/${o.id}`}
                   className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-dark-card p-4 transition-colors hover:border-yellow/30"
                 >
@@ -217,6 +245,7 @@ export default async function CustomerOrdersPage({
                     </Badge>
                   </div>
                 </Link>
+                </ClearableRow>
               );
             })}
           </div>
@@ -264,22 +293,34 @@ export default async function CustomerOrdersPage({
  * backend produced a thing.
  */
 type AmountNotes = Record<ActivityAmountNote, string>;
+type ClearCopy = Parameters<typeof ClearableRow>[0]["copy"];
 
 function ActivityGroup({
-  title, items, notes, dim = false,
+  title, items, notes, clearCopy, clearable = false, dim = false,
 }: {
   title: string;
   items: Activity[];
   notes: AmountNotes;
+  clearCopy: ClearCopy;
+  /** Offer "clear from my list" — the Past group only. */
+  clearable?: boolean;
   dim?: boolean;
 }) {
   return (
     <div className={dim ? "opacity-70" : ""}>
       <p className="font-dm text-xs text-muted">{title}</p>
       <div className="mt-1.5 space-y-2">
-        {items.map((a) => (
-          <Link
+        {items.map((a) => {
+          const hideKind = hideKindForActivity(a.kind);
+          return (
+          <ClearableRow
             key={`${a.kind}-${a.id}`}
+            kind={hideKind ?? "booking"}
+            id={a.id}
+            clearable={clearable && hideKind !== null}
+            copy={clearCopy}
+          >
+          <Link
             href={a.href}
             className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-dark-card p-4 transition-colors hover:border-yellow/30"
           >
@@ -321,7 +362,9 @@ function ActivityGroup({
               </Badge>
             </div>
           </Link>
-        ))}
+          </ClearableRow>
+          );
+        })}
       </div>
     </div>
   );

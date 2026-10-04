@@ -41,3 +41,22 @@ export const HIDE_REFUSAL_COPY: Record<HideRefusal, { en: string; fr: string }> 
 
 /** The key a list uses to drop a cleared item: `${kind}:${id}`. */
 export const hideKey = (kind: HideKind, id: string): string => `${kind}:${id}`;
+
+/**
+ * Which hide kind an activity row is, or null when it is cleared elsewhere.
+ * A delivery request is cleared on /deliver by M227's own marker (a guest can
+ * hold one without an account), so this list never offers it.
+ */
+export function hideKindForActivity(kind: string): HideKind | null {
+  switch (kind) {
+    case "vehicle": return "booking";
+    case "place": return "place_booking";
+    case "ride": return "ride";
+    case "service": return "service_booking";
+    case "order": return "order";
+    default: return null;
+  }
+}
+
+/** Order statuses that are over — the same list set_my_item_hidden accepts. */
+export const FINISHED_ORDER_STATUSES = ["collected", "cancelled", "refunded"] as const;

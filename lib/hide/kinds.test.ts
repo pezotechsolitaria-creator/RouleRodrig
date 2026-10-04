@@ -36,7 +36,9 @@ describe("the database half never writes the record it hides", () => {
     // Exact email equality, never ilike: an underscore is an ilike wildcard.
     // Checked on the SQL with its comments removed — the comment explaining
     // why there is no ilike would otherwise fail this test.
-    const code = M234.split("\n").map((l) => l.replace(/--.*$/, "")).join("\n");
+    // Split on either line ending: git checks this file out with CRLF on
+    // Windows, and a trailing \r stops `--.*$` from matching at all.
+    const code = M234.split(/\r?\n/).map((l) => l.replace(/--.*$/, "")).join("\n");
     expect(code).not.toMatch(/ilike/i);
     expect(M234).toMatch(/lower\(btrim\(b\.email\)\) = v_email/);
   });

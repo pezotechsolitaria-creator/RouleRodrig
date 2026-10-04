@@ -947,6 +947,13 @@ const translations = {
       // never reads as money already handed over.
       amountToPayInPerson: "to pay in person",
       amountPaid: "paid",
+      // M234: clearing a finished item from this list. The record is kept;
+      // only this customer's list stops showing it.
+      clearItem: "Clear from my list",
+      clearedItem: "Cleared from your list.",
+      undo: "Undo",
+      clearStillLive: "This is still in progress, so it stays on your list until it is finished.",
+      clearFailed: "That could not be cleared. Please try again in a moment.",
     },
     rating: {
       rateWhatYouBought: "Rate what you bought",
@@ -1914,6 +1921,11 @@ const translations = {
       yourNote: "Votre note",
       amountToPayInPerson: "à payer sur place",
       amountPaid: "payé",
+      clearItem: "Retirer de ma liste",
+      clearedItem: "Retiré de votre liste.",
+      undo: "Annuler",
+      clearStillLive: "C’est toujours en cours : cela reste dans votre liste jusqu’à la fin.",
+      clearFailed: "Impossible de retirer cet élément. Réessayez dans un instant.",
     },
     rating: {
       rateWhatYouBought: "Notez ce que vous avez acheté",
@@ -2858,6 +2870,12 @@ const translations = {
       yourNote: "Ou not",
       amountToPayInPerson: "pou pey lor plas",
       amountPaid: "peye",
+      // French until written in Kreol by a native speaker (owner's rule).
+      clearItem: "Retirer de ma liste",
+      clearedItem: "Retiré de votre liste.",
+      undo: "Annuler",
+      clearStillLive: "C’est toujours en cours : cela reste dans votre liste jusqu’à la fin.",
+      clearFailed: "Impossible de retirer cet élément. Réessayez dans un instant.",
     },
     rating: {
       rateWhatYouBought: "Not seki ou finn aste",
