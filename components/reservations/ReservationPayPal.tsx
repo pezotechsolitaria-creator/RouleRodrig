@@ -10,15 +10,12 @@ import { formatMur } from "@/lib/reservations/policy";
 // The existing PayPal integration, pointed at /api/reservations/[token]/paypal:
 // OUR server prices the order (what is still due, plus PayPal's fee, in EUR)
 // and OUR server captures and records it. This component never sends an
-// amount. Renders nothing until NEXT_PUBLIC_PAYPAL_CLIENT_ID is set.
-
-const CLIENT_ID = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID || "";
-
-export const paypalAvailable = (): boolean => Boolean(CLIENT_ID);
+// amount. The Client ID is handed down by the server page (lib/paypal.ts
+// paypalPublicClientId), read at run time; no ID, no button.
 
 /** Load the SDK once per page, and wait for it even when another component
  *  (PayPalDeposit) already started loading it. */
-function loadSdk(): Promise<void> {
+function loadSdk(clientId: string): Promise<void> {
   if (window.paypal) return Promise.resolve();
   return new Promise((resolve, reject) => {
     const id = "paypal-sdk";
@@ -26,7 +23,7 @@ function loadSdk(): Promise<void> {
     if (!s) {
       s = document.createElement("script");
       s.id = id;
-      s.src = `https://www.paypal.com/sdk/js?client-id=${encodeURIComponent(CLIENT_ID)}&currency=EUR&intent=capture`;
+      s.src = `https://www.paypal.com/sdk/js?client-id=${encodeURIComponent(clientId)}&currency=EUR&intent=capture`;
       document.body.appendChild(s);
     }
     s.addEventListener("load", () => resolve(), { once: true });
@@ -35,6 +32,7 @@ function loadSdk(): Promise<void> {
 }
 
 export default function ReservationPayPal({
+  clientId,
   token,
   funding = "paypal",
   dueMur,
@@ -44,6 +42,7 @@ export default function ReservationPayPal({
   errorLabel,
   onPaid,
 }: {
+  clientId: string;
   token: string;
   /** "card": PayPal's own card form, no PayPal account; "paypal": the wallet. */
   funding?: "card" | "paypal";
@@ -63,9 +62,9 @@ export default function ReservationPayPal({
   const fee = Math.round((dueMur * PAYPAL_FEE_PERCENT) / 100);
 
   useEffect(() => {
-    if (!CLIENT_ID) return;
+    if (!clientId) return;
     let on = true;
-    loadSdk()
+    loadSdk(clientId)
       .then(() => on && setReady(true))
       .catch(() => {
         if (!on) return;
@@ -75,7 +74,7 @@ export default function ReservationPayPal({
     return () => {
       on = false;
     };
-  }, [errorLabel]);
+  }, [clientId, errorLabel]);
 
   useEffect(() => {
     if (!ready || !window.paypal || !box.current || state === "paid") return;
@@ -128,7 +127,7 @@ export default function ReservationPayPal({
       });
   }, [ready, token, state, errorLabel, funding]);
 
-  if (!CLIENT_ID) return null;
+  if (!clientId) return null;
 
   if (state === "paid") {
     return (

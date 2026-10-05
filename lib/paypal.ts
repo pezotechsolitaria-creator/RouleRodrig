@@ -12,7 +12,27 @@
 
 import { PAYPAL_FEE_PERCENT } from "./site";
 
-const CLIENT_ID = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID || "";
+// ── The Client ID, read at RUN time, under any of its names ─────────────────
+//
+// NEXT_PUBLIC_* is baked into the build, so it needs a rebuild to change and
+// is lost entirely under a slightly different name. On 6 Oct 2026 the live ID
+// was saved as NEXT_PAYPAL_CLIENT_ID, and Vercel will not read a production
+// value back to fix it by script. The ID is public by design — PayPal's own
+// script tag carries it — so the server now reads it at run time under any of
+// these names and hands it to the browser (/api/paypal/client-id).
+const CLIENT_ID_NAMES = ["NEXT_PUBLIC_PAYPAL_CLIENT_ID", "NEXT_PAYPAL_CLIENT_ID", "PAYPAL_CLIENT_ID"] as const;
+function readClientId(): { id: string; from: (typeof CLIENT_ID_NAMES)[number] | null } {
+  // Written out, not process.env[name]: Next inlines NEXT_PUBLIC_* only when
+  // it sees the literal property access.
+  const values = [
+    process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID,
+    process.env.NEXT_PAYPAL_CLIENT_ID,
+    process.env.PAYPAL_CLIENT_ID,
+  ];
+  const i = values.findIndex((v) => typeof v === "string" && v.trim() !== "");
+  return i === -1 ? { id: "", from: null } : { id: String(values[i]).trim(), from: CLIENT_ID_NAMES[i] };
+}
+const { id: CLIENT_ID, from: CLIENT_ID_FROM } = readClientId();
 const SECRET = process.env.PAYPAL_SECRET || "";
 const ENV = (process.env.PAYPAL_ENV || "sandbox").toLowerCase();
 const BASE = ENV === "live" ? "https://api-m.paypal.com" : "https://api-m.sandbox.paypal.com";
@@ -101,18 +121,27 @@ export async function paypalKeysWork(): Promise<"ok" | "rejected" | "off"> {
 }
 
 /**
- * Which of the three settings this deployment can SEE — booleans, never a
- * value. On 6 Oct 2026 the Client ID was saved as NEXT_PAYPAL_CLIENT_ID
- * (no _PUBLIC_), which Next.js never sends to the browser; this names that.
+ * Which settings this deployment can SEE — never a value: whether each is
+ * present, and which NAME the Client ID was found under.
  */
-export function paypalEnvPresence(): Record<string, boolean> {
+export function paypalEnvPresence(): Record<string, boolean | string | null> {
   return {
-    NEXT_PUBLIC_PAYPAL_CLIENT_ID: Boolean(CLIENT_ID),
+    clientIdFrom: CLIENT_ID_FROM,
     PAYPAL_SECRET: Boolean(SECRET),
     PAYPAL_ENV_is_live: ENV === "live",
-    // The misspelling seen in production, reported so its fix is obvious.
-    NEXT_PAYPAL_CLIENT_ID_misnamed: Boolean(process.env.NEXT_PAYPAL_CLIENT_ID),
   };
+}
+
+/**
+ * The Client ID the BROWSER may use, or null. Public by design. In production
+ * only while PayPal is live: a sandbox button on the real site takes a
+ * customer's card number and charges nothing. Previews and local runs may use
+ * a sandbox for testing.
+ */
+export function paypalPublicClientId(): string | null {
+  if (!paypalConfigured()) return null;
+  if (process.env.VERCEL_ENV === "production" && ENV !== "live") return null;
+  return CLIENT_ID;
 }
 
 // ── Create a deposit order (amount computed server-side, in EUR) ─────────────

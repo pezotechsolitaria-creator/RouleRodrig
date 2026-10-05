@@ -4,7 +4,7 @@ import { placeHref } from "@/lib/place-href";
 import AppPageHeader from "@/components/AppPageHeader";
 import ReservationHub from "@/components/reservations/ReservationHub";
 import { viewByToken } from "@/lib/reservations/server";
-import { paypalMode } from "@/lib/paypal";
+import { paypalMode, paypalPublicClientId } from "@/lib/paypal";
 
 // ── /booking/[token] — the guest's reservation ──────────────────────────────
 //
@@ -44,7 +44,7 @@ export default async function BookingPage({ params }: { params: Promise<{ token:
           unavailable={view === undefined}
           whatsapp={whatsapp}
           againHref={againHref}
-          onlinePayments={paypalMode() === "live"}
+          paypalClientId={paypalMode() === "live" ? paypalPublicClientId() : null}
         />
       </main>
     </>

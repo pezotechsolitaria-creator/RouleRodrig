@@ -4,9 +4,10 @@ import { useEffect, useRef, useState } from "react";
 import { CheckCircle, Loader2, ShieldCheck, Zap } from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
 import { PAYPAL_FEE_PERCENT } from "@/lib/site";
+import { usePayPalClientId } from "@/lib/paypal-client";
 
 // PayPal deposit button, shown after a booking is created. Renders nothing
-// unless NEXT_PUBLIC_PAYPAL_CLIENT_ID is set, so the site is unaffected until
+// unless PayPal is set up (lib/paypal-client.ts), so the site is unaffected until
 // PayPal is configured. Charges in EUR (PayPal doesn't support MUR); the amount
 // comes from the server, not this component.
 declare global {
@@ -17,7 +18,6 @@ declare global {
   }
 }
 
-const CLIENT_ID = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID || "";
 
 export default function PayPalDeposit({
   bookingId,
@@ -45,6 +45,8 @@ export default function PayPalDeposit({
   onFailedChange?: (failed: boolean) => void;
 }) {
   const { language } = useLanguage();
+  // Read from the server at run time (lib/paypal-client.ts); null while asking.
+  const clientId = usePayPalClientId();
   // Vehicles may let the customer pay the deposit OR the full total.
   const canPayFull = typeof fullMur === "number" && fullMur > depositMur;
   const [mode, setMode] = useState<"deposit" | "full">("deposit");
@@ -82,17 +84,17 @@ export default function PayPalDeposit({
 
   // Load the PayPal SDK once.
   useEffect(() => {
-    if (!CLIENT_ID) return;
+    if (!clientId) return;
     if (window.paypal) { setReady(true); return; }
     const id = "paypal-sdk";
     if (document.getElementById(id)) return;
     const s = document.createElement("script");
     s.id = id;
-    s.src = `https://www.paypal.com/sdk/js?client-id=${encodeURIComponent(CLIENT_ID)}&currency=EUR&intent=capture`;
+    s.src = `https://www.paypal.com/sdk/js?client-id=${encodeURIComponent(clientId)}&currency=EUR&intent=capture`;
     s.onload = () => setReady(true);
     s.onerror = () => { setState("error"); setMsg(T.err); };
     document.body.appendChild(s);
-  }, [T.err]);
+  }, [clientId, T.err]);
 
   // Render the buttons once the SDK is ready.
   useEffect(() => {
@@ -129,7 +131,7 @@ export default function PayPalDeposit({
       .catch(() => { setState("error"); setMsg(T.err); });
   }, [ready, bookingId, kind, mode, state, onPaid, T.err]);
 
-  if (!CLIENT_ID) return null;
+  if (!clientId) return null;
 
   if (state === "paid") {
     return (

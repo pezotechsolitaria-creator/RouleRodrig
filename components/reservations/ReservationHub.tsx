@@ -9,7 +9,7 @@ import { HUB_COPY, waText, type ResLang } from "@/lib/reservations/copy";
 import { formatMur } from "@/lib/reservations/policy";
 import { countdown, hubView, type NodeState, type TimelineNode } from "@/lib/reservations/timeline";
 import type { GuestView } from "@/lib/reservations/view";
-import ReservationPayPal, { paypalAvailable } from "./ReservationPayPal";
+import ReservationPayPal from "./ReservationPayPal";
 
 // ── The guest's reservation hub ─────────────────────────────────────────────
 //
@@ -74,15 +74,15 @@ export default function ReservationHub({
   unavailable,
   whatsapp,
   againHref,
-  onlinePayments,
+  paypalClientId,
 }: {
   token: string;
   initial: GuestView | null;
   unavailable: boolean;
   whatsapp: string | null;
   againHref: string;
-  /** PayPal is live: card and PayPal account can really be paid. */
-  onlinePayments: boolean;
+  /** Set only while PayPal is live: card and PayPal account really pay. */
+  paypalClientId: string | null;
 }) {
   const { language } = useLanguage();
   const lang = toLang(language);
@@ -189,7 +189,7 @@ export default function ReservationHub({
       token={token}
       whatsapp={whatsapp}
       againHref={againHref}
-      onlinePayments={onlinePayments}
+      paypalClientId={paypalClientId}
       act={act}
       refresh={refresh}
     />
@@ -206,7 +206,7 @@ function Hub({
   token,
   whatsapp,
   againHref,
-  onlinePayments,
+  paypalClientId,
   act,
   refresh,
 }: {
@@ -219,7 +219,7 @@ function Hub({
   token: string;
   whatsapp: string | null;
   againHref: string;
-  onlinePayments: boolean;
+  paypalClientId: string | null;
   act: (body: Record<string, unknown>) => Promise<boolean>;
   refresh: (force?: boolean) => Promise<void>;
 }) {
@@ -335,7 +335,7 @@ function Hub({
       )}
 
       {hub.payable && (
-        <PaymentPanel view={v} lang={lang} left={left} loading={loading} token={token} onlinePayments={onlinePayments} act={act} refresh={refresh} />
+        <PaymentPanel view={v} lang={lang} left={left} loading={loading} token={token} paypalClientId={paypalClientId} act={act} refresh={refresh} />
       )}
 
       {/* ── What happens next ── */}
@@ -559,7 +559,7 @@ function PaymentPanel({
   left,
   loading,
   token,
-  onlinePayments,
+  paypalClientId,
   act,
   refresh,
 }: {
@@ -568,14 +568,14 @@ function PaymentPanel({
   left: string | null;
   loading: boolean;
   token: string;
-  onlinePayments: boolean;
+  paypalClientId: string | null;
   act: (body: Record<string, unknown>) => Promise<boolean>;
   refresh: (force?: boolean) => Promise<void>;
 }) {
   const c = HUB_COPY[lang];
   // Card and PayPal account go through PayPal: offered only while it is live
   // and its button can load. Everything else is always available.
-  const methods = (v.methods ?? []).filter((m) => (m.id !== "paypal" && m.id !== "card") || (onlinePayments && paypalAvailable()));
+  const methods = (v.methods ?? []).filter((m) => (m.id !== "paypal" && m.id !== "card") || Boolean(paypalClientId));
   const [chosen, setChosen] = useState<string>(() => v.paymentReportedMethod ?? methods[0]?.id ?? "");
   const due = dueNow(v);
   const method = methods.find((m) => m.id === chosen) ?? methods[0];
@@ -668,6 +668,7 @@ function PaymentPanel({
                 <div className="mt-3">
                   <ReservationPayPal
                     key={method.id}
+                    clientId={paypalClientId ?? ""}
                     token={token}
                     funding={method.id === "card" ? "card" : "paypal"}
                     dueMur={due}

@@ -13,6 +13,7 @@ import { HOME_CODE, type Destination } from "@/lib/esim/destinations";
 import CompatChecker from "./CompatChecker";
 import { prefersReducedMotion, waLink } from "./ui/scroll";
 import { COPY, type UiLang } from "./copy";
+import { usePayPalClientId } from "@/lib/paypal-client";
 
 // ── The checkout sheet ───────────────────────────────────────────────────────
 //
@@ -32,7 +33,6 @@ type PayPalButtons = {
 type PayPalNS = { Buttons: (opts: unknown) => PayPalButtons };
 const paypalNS = () => (window as unknown as { paypal?: PayPalNS }).paypal;
 
-const CLIENT_ID = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID || "";
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/;
 
 function useAttribution(): Record<string, string> {
@@ -82,6 +82,8 @@ export default function CheckoutSheet({
   const [error, setError] = useState<string | null>(null);
   const [touched, setTouched] = useState(false);
   const [sdkReady, setSdkReady] = useState(false);
+  // The PayPal Client ID, read from the server at run time (lib/paypal-client.ts).
+  const clientId = usePayPalClientId();
   const [processing, setProcessing] = useState(false);
   const [notified, setNotified] = useState(false);
 
@@ -130,7 +132,7 @@ export default function CheckoutSheet({
 
   // ── PayPal SDK, loaded once per page (shared id with the rental button).
   useEffect(() => {
-    if (!selling || !CLIENT_ID) return;
+    if (!selling || !clientId) return;
     if (paypalNS()) {
       setSdkReady(true);
       return;
@@ -149,11 +151,11 @@ export default function CheckoutSheet({
     }
     const s = document.createElement("script");
     s.id = id;
-    s.src = `https://www.paypal.com/sdk/js?client-id=${encodeURIComponent(CLIENT_ID)}&currency=EUR&intent=capture`;
+    s.src = `https://www.paypal.com/sdk/js?client-id=${encodeURIComponent(clientId)}&currency=EUR&intent=capture`;
     s.onload = onLoad;
     s.onerror = onErr;
     document.body.appendChild(s);
-  }, [selling, t.payFail]);
+  }, [selling, clientId, t.payFail]);
 
   const validate = useCallback((): boolean => {
     setTouched(true);
