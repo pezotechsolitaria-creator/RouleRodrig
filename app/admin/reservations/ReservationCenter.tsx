@@ -721,6 +721,9 @@ type SettingsData = {
   methods: { id: string; enabled: boolean; channel: string; label_i18n: Record<string, string>; instructions_i18n: Record<string, string>; sort: number }[];
   types: { type: ProductType; custom: boolean; policy: PaymentPolicy; defaults: PaymentPolicy }[];
   paypal: "live" | "sandbox" | "off";
+  /** PayPal's own answer to the keys: "rejected" means a wrong Secret or a
+   *  Client ID from the other mode. */
+  paypalKeys: "ok" | "rejected" | "off";
 };
 
 const TYPE_LABEL: Record<ProductType, string> = {
@@ -753,7 +756,7 @@ function Settings() {
 
   return (
     <div className="space-y-8">
-      <PayPalStatus mode={data.paypal} />
+      <PayPalStatus mode={data.paypal} keys={data.paypalKeys} />
       <section>
         <h2 className="font-syne text-lg font-bold">Payment methods</h2>
         <p className="mt-1 font-dm text-sm text-muted">What a guest can choose once you confirm. Changes apply straight away.</p>
@@ -784,7 +787,17 @@ function Settings() {
 // both depend on PayPal's mode. Until 5 Oct 2026 the site ran PayPal's TEST
 // mode without anything saying so; this panel is where that is now said.
 
-function PayPalStatus({ mode }: { mode: SettingsData["paypal"] }) {
+function PayPalStatus({ mode, keys }: { mode: SettingsData["paypal"]; keys: SettingsData["paypalKeys"] }) {
+  if (mode === "live" && keys === "rejected") {
+    return (
+      <section className="rounded-xl border border-red-500/30 bg-red-500/[0.06] p-4">
+        <p className="font-syne text-sm font-bold text-red-300">PayPal refuses the live keys — no one can pay online</p>
+        <p className="mt-1 font-dm text-sm text-offwhite/85">
+          The site is set to live, but PayPal rejected the Client ID and Secret. Usually the Secret is still the old test one, or the two come from different apps. In developer.paypal.com → Apps &amp; Credentials → <strong>Live</strong>, copy both from the same app into Vercel (<code className="text-yellow">NEXT_PUBLIC_PAYPAL_CLIENT_ID</code>, <code className="text-yellow">PAYPAL_SECRET</code>), then redeploy.
+        </p>
+      </section>
+    );
+  }
   if (mode === "live") {
     return (
       <section className="rounded-xl border border-green-500/30 bg-green-500/[0.06] p-4">

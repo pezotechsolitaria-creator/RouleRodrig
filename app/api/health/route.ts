@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { hasServiceRole } from "@/lib/supabase/admin";
 import { hasSharedLimiter, sharedLimiterDiagnostics } from "@/lib/rate-limit";
 import { emailProviderName } from "@/lib/email";
-import { paypalMode } from "@/lib/paypal";
+import { paypalEnvPresence, paypalKeysWork, paypalMode } from "@/lib/paypal";
 
 export const dynamic = "force-dynamic";
 
@@ -23,7 +23,7 @@ export const dynamic = "force-dynamic";
 // red test at the moment it is introduced rather than a wrong number on a
 // dashboard nobody re-reads. The duplication stays — a static service worker
 // genuinely cannot import from the bundle — but it is no longer unguarded.
-const SW_CACHE_VERSION = "rr-cache-v391";
+const SW_CACHE_VERSION = "rr-cache-v392";
 
 // ── Health / readiness / liveness ────────────────────────────────────────────
 // GET /api/health           → readiness (checks the database dependency)
@@ -88,6 +88,12 @@ export async function GET(req: Request) {
   // Reads the admin-saved Brevo config as well as the env vars, so it reports
   // what send() would actually do rather than what the environment alone
   // suggests. Never throws — a failed lookup reports "unconfigured".
+  // Does PayPal accept the keys? Cached 10 min inside paypalKeysWork().
+  // Never throws. Plus WHICH PayPal setting is missing, only when one is —
+  // booleans, the same reasoning as emailProviderEnv below.
+  const paypalKeys = await paypalKeysWork().catch(() => "rejected" as const);
+  const paypalEnv = paypalMode() === "live" && paypalKeys === "ok" ? null : paypalEnvPresence();
+
   let emailProvider: "resend" | "brevo" | "unconfigured" = "unconfigured";
   try {
     emailProvider = await emailProviderName();
@@ -186,6 +192,8 @@ export async function GET(req: Request) {
         // email is discarded. "unconfigured" here means guest checkout is
         // effectively broken even though every other check is green.
         email: emailProvider,
+        paypalKeys,
+        ...(paypalEnv ? { paypalEnv } : {}),
         // Levels only (see above). Absent when it could not be computed.
         ...(emailQuota ? { emailQuota } : {}),
         // Only when a provider is unconfigured, and booleans only — which piece

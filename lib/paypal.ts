@@ -77,6 +77,44 @@ async function accessToken(): Promise<string> {
   return j.access_token;
 }
 
+// ── Do the keys work? ────────────────────────────────────────────────────────
+//
+// "live" says which PayPal the server will call, not that PayPal will answer:
+// a sandbox Secret beside a live Client ID — or a typo — fails only when a
+// customer presses Pay. So this asks PayPal for a token, the cheapest call it
+// has, and remembers the answer for ten minutes (health is polled).
+
+let keysCache: { at: number; ok: boolean } | null = null;
+
+export async function paypalKeysWork(): Promise<"ok" | "rejected" | "off"> {
+  if (!paypalConfigured()) return "off";
+  if (keysCache && Date.now() - keysCache.at < 600_000) return keysCache.ok ? "ok" : "rejected";
+  let ok = false;
+  try {
+    await accessToken();
+    ok = true;
+  } catch {
+    ok = false;
+  }
+  keysCache = { at: Date.now(), ok };
+  return ok ? "ok" : "rejected";
+}
+
+/**
+ * Which of the three settings this deployment can SEE — booleans, never a
+ * value. On 6 Oct 2026 the Client ID was saved as NEXT_PAYPAL_CLIENT_ID
+ * (no _PUBLIC_), which Next.js never sends to the browser; this names that.
+ */
+export function paypalEnvPresence(): Record<string, boolean> {
+  return {
+    NEXT_PUBLIC_PAYPAL_CLIENT_ID: Boolean(CLIENT_ID),
+    PAYPAL_SECRET: Boolean(SECRET),
+    PAYPAL_ENV_is_live: ENV === "live",
+    // The misspelling seen in production, reported so its fix is obvious.
+    NEXT_PAYPAL_CLIENT_ID_misnamed: Boolean(process.env.NEXT_PAYPAL_CLIENT_ID),
+  };
+}
+
 // ── Create a deposit order (amount computed server-side, in EUR) ─────────────
 export async function createDepositOrder(opts: {
   depositMur: number;

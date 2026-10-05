@@ -1,7 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { deskCounts, inFilter, legalActions, type DeskFilter } from "./admin-actions";
-import { paypalMode } from "@/lib/paypal";
+import { paypalKeysWork, paypalMode } from "@/lib/paypal";
 import { DEFAULT_POLICIES, PRODUCT_TYPES, resolvePolicy, type PaymentPolicy, type ProductType } from "./policy";
 import { todayMU } from "./server";
 import type { PaymentStatus, ReservationStatus } from "./status";
@@ -129,7 +129,7 @@ export async function readSettings(admin: SupabaseClient) {
   });
   const products = stored.filter((r) => r.scope_type === "product");
   // "live" | "sandbox" | "off": card and PayPal take real money only when live.
-  return { methods: (m.data ?? []) as MethodRow[], types, products, paypal: paypalMode() };
+  return { methods: (m.data ?? []) as MethodRow[], types, products, paypal: paypalMode(), paypalKeys: await paypalKeysWork() };
 }
 
 export async function saveMethod(
