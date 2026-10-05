@@ -985,11 +985,10 @@ export const DEFAULT_QUICK_ACCESS: QuickAccessItem[] = [
   // runs for you, and it is the only tile in this grid a resident uses as often
   // as a visitor.
   { id: "qa-deliver",   label: "Delivery",     labelFr: "Livraison",    labelCr: "Livrezon",    href: "/deliver",          icon: "delivery",  enabled: true },
-  // Was Fishing (owner, 30 Sep 2026). Fishing trips are still one tap away
-  // under Experiences; mobile data is the first thing EVERY visitor needs,
-  // before a ride or a room, and the one thing on the island a newcomer cannot
-  // sort out on the spot without a queue at a shop in Port Mathurin.
-  { id: "qa-esim",      label: "eSIM Data",    labelFr: "eSIM Internet", labelCr: "eSIM Internet", href: "/esim",           icon: "esim",      enabled: true },
+  // Fishing again (owner, 6 Oct 2026). eSIM held this slot from 30 Sep, but the
+  // store is closed until the owner is licensed (M229); its tile is kept,
+  // switched off, at the end of the list — on in admin when the store opens.
+  { id: "qa-fishing",   label: "Fishing",      labelFr: "Pêche",        labelCr: "Lapes",       href: "/experiences/fishing", icon: "fishing", enabled: true },
   { id: "qa-boat",      label: "Boat Trips",   labelFr: "Sorties mer",  labelCr: "Sorti lamer", href: "/experiences/boat",    icon: "boat",    enabled: true },
   { id: "qa-massage",   label: "Massage",      labelFr: "Massage",      labelCr: "Masaz",       href: "/experiences/massage", icon: "massage", enabled: true },
   // Taxi and Transfer are DIFFERENT INTENTS and no longer share a page: one is
@@ -997,6 +996,8 @@ export const DEFAULT_QUICK_ACCESS: QuickAccessItem[] = [
   // at the same URL, which is why the grid looked like it had a duplicate.
   { id: "qa-taxi",      label: "Taxi",         labelFr: "Taxi",         labelCr: "Taksi",       href: "/taxi",             icon: "taxi",      enabled: true },
   { id: "qa-airport",   label: "Transfers",    labelFr: "Transferts",   labelCr: "Transfer",    href: "/transfers",        icon: "plane",     enabled: true },
+  // Hidden while the eSIM store is closed (enabled: false — the grid skips it).
+  { id: "qa-esim",      label: "eSIM Data",    labelFr: "eSIM Internet", labelCr: "eSIM Internet", href: "/esim",           icon: "esim",      enabled: false },
 ];
 
 // Default home cards (used until the owner customises them in admin). Images are

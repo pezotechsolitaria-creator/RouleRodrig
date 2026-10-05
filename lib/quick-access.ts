@@ -43,22 +43,14 @@ const MOVED: { id: string; from: string; to: string }[] = [
  * it alone.
  */
 const REPLACED: { id: string; whenHref: string; with: QuickAccessItem }[] = [
-  // The eSIM store takes Fishing's slot (owner, 30 Sep 2026). Fishing trips
-  // keep their page and their place under Experiences; what the grid gains is
-  // the one errand every single visitor has before they have any other.
-  {
-    id: "qa-fishing",
-    whenHref: "/experiences/fishing",
-    with: {
-      id: "qa-esim",
-      label: "eSIM Data",
-      labelFr: "eSIM Internet",
-      labelCr: "eSIM Internet",
-      href: "/esim",
-      icon: "esim",
-      enabled: true,
-    },
-  },
+  // ── Fishing ⇄ eSIM: NOT a rule here any more (owner, 6 Oct 2026) ──────────
+  // On 30 Sep a rule swapped Fishing for the eSIM store, and its append-loop
+  // below re-added eSIM to any grid without it. The store is closed until the
+  // owner is licensed (M229), so he asked for Fishing back and eSIM hidden.
+  // That was done ONCE, in the saved site_content (Fishing in slot 4, eSIM
+  // kept but switched off at the end, ready to switch back on in admin) —
+  // not as a rule, because a rule that ran on every read would fight him the
+  // day he re-enables eSIM or moves a tile.
   {
     id: "qa-viewpoints",
     whenHref: "/guide/viewpoints",

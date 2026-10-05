@@ -73,9 +73,7 @@ describe("migrateQuickAccess", () => {
       tile({ id: "qa-taxi", label: "Taxi", href: "/taxi", icon: "taxi" }),
     ];
     const out = migrateQuickAccess(grid);
-    // qa-esim is appended because this grid never had Fishing to replace —
-    // see the eSIM block below.
-    expect(out.map((x) => x.id)).toEqual(["qa-beaches", "qa-deliver", "qa-taxi", "qa-esim"]);
+    expect(out.map((x) => x.id)).toEqual(["qa-beaches", "qa-deliver", "qa-taxi"]);
     expect(out[1]).toMatchObject({ href: "/deliver", icon: "delivery", label: "Delivery" });
   });
 
@@ -103,41 +101,39 @@ describe("migrateQuickAccess", () => {
     // The owner who tidied his grid must not be the one person who never gets
     // the feature.
     const out = migrateQuickAccess([tile({ id: "qa-taxi", label: "Taxi", href: "/taxi" })]);
-    expect(out.map((x) => x.id)).toEqual(["qa-taxi", "qa-esim", "qa-deliver"]);
+    expect(out.map((x) => x.id)).toEqual(["qa-taxi", "qa-deliver"]);
   });
 
-  // ── eSIM replaces Fishing (owner, 30 Sep 2026) ────────────────────────────
-  it("swaps Fishing for the eSIM store, in place", () => {
+  // ── Fishing back, eSIM hidden (owner, 6 Oct 2026) ─────────────────────────
+  // The 30 Sep rule turned Fishing into eSIM on every read and re-added eSIM
+  // to any grid without it. Both must be gone, or the owner's Fishing tile is
+  // rewritten under him on the next page load.
+  it("leaves a Fishing tile as Fishing", () => {
     const grid = [
       tile({ id: "qa-deliver", label: "Delivery", href: "/deliver", icon: "delivery" }),
       tile({ id: "qa-fishing", label: "Fishing", href: "/experiences/fishing", icon: "fishing" }),
       tile({ id: "qa-boat", label: "Boat Trips", href: "/experiences/boat", icon: "boat" }),
     ];
-    const out = migrateQuickAccess(grid);
-    expect(out.map((x) => x.id)).toEqual(["qa-deliver", "qa-esim", "qa-boat"]);
-    expect(out[1]).toMatchObject({ href: "/esim", icon: "esim", label: "eSIM Data", labelFr: "eSIM Internet" });
-    // The replacement inherits nothing from Fishing.
-    expect(JSON.stringify(out[1])).not.toMatch(/fish|Pêche|Lapes/i);
+    expect(migrateQuickAccess(grid)).toEqual(grid);
   });
 
-  it("leaves a Fishing tile the owner re-pointed alone — but eSIM still arrives", () => {
-    const own = tile({ id: "qa-fishing", label: "Fishing", href: "/map", icon: "fishing" });
-    const out = migrateQuickAccess([own]);
-    expect(out[0]).toMatchObject({ id: "qa-fishing", href: "/map" });
-    expect(out.filter((x) => x.id === "qa-esim")).toHaveLength(1);
+  it("never adds an eSIM tile to a grid that has none", () => {
+    const grid = [tile({ id: "qa-taxi", label: "Taxi", href: "/taxi" })];
+    expect(migrateQuickAccess(grid).some((x) => x.id === "qa-esim")).toBe(false);
   });
 
-  it("adds the eSIM tile exactly once, however many times it runs", () => {
-    const grid = [tile({ id: "qa-fishing", label: "Fishing", href: "/experiences/fishing" })];
-    const twice = migrateQuickAccess(migrateQuickAccess(grid));
-    expect(twice.filter((x) => x.id === "qa-esim")).toHaveLength(1);
-    expect(twice.some((x) => x.id === "qa-fishing")).toBe(false);
+  it("leaves a switched-off eSIM tile switched off — and a switched-on one on", () => {
+    const off = tile({ id: "qa-esim", label: "eSIM Data", href: "/esim", icon: "esim", enabled: false });
+    expect(migrateQuickAccess([off])[0].enabled).toBe(false);
+    const on = { ...off, enabled: true };
+    expect(migrateQuickAccess([on])[0]).toMatchObject({ id: "qa-esim", enabled: true });
   });
 
-  it("ships the eSIM tile in the defaults, in Fishing's old slot", () => {
+  it("ships Fishing in slot 4 and eSIM hidden at the end of the defaults", () => {
     const ids = DEFAULT_QUICK_ACCESS.map((x) => x.id);
-    expect(ids).not.toContain("qa-fishing");
-    expect(ids.indexOf("qa-esim")).toBe(3);
+    expect(ids.indexOf("qa-fishing")).toBe(3);
+    expect(ids[ids.length - 1]).toBe("qa-esim");
+    expect(DEFAULT_QUICK_ACCESS.find((x) => x.id === "qa-esim")?.enabled).toBe(false);
   });
 
   it("adds Delivery exactly once, however many times it runs", () => {
