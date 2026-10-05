@@ -757,6 +757,7 @@ export default function TiRouleGuide({
   whatsapp,
   scooterDailyMur,
   hideFab,
+  esimOpen = false,
 }: {
   image?: string;
   poses?: Record<string, string>;
@@ -764,6 +765,10 @@ export default function TiRouleGuide({
   whatsapp?: string;
   scooterDailyMur?: number;
   hideFab?: boolean; // hide the floating orb (e.g. when Ti Roulé is in a nav bar)
+  /** The eSIM store is selling (lib/esim/state storeState). Off by default:
+   *  while it is closed (owner, 6 Oct 2026) Ti Roulé still answers which
+   *  networks reach Rodrigues, but offers no button to a store that can't sell. */
+  esimOpen?: boolean;
 }) {
   const { language } = useLanguage();
   const c = COPY[language] ?? COPY.en;
@@ -1047,7 +1052,7 @@ export default function TiRouleGuide({
           label: c.openMap,
           href: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(k.place)}`,
         }
-      : k.cta
+      : k.cta && (k.cta !== "esim" || esimOpen)
         ? CTA[k.cta]
         : undefined;
     return { text: kt, pose: k.pose, cta };

@@ -38,6 +38,10 @@ vi.mock("@/lib/supabase/anon", () => ({ createAnonClient: () => fakeClient() }))
 vi.mock("@/lib/content", () => ({ getContent: async () => db.content }));
 vi.mock("@/components/Navbar", () => ({ default: () => null }));
 vi.mock("@/components/BackLink", () => ({ default: () => null }));
+// The eSIM door follows the store's own state (owner, 6 Oct 2026). Open
+// unless a test closes it: "everything stocked" means the store sells too.
+const esim = { selling: true };
+vi.mock("@/lib/esim/state", () => ({ storeState: () => ({ selling: esim.selling, missing: [] }) }));
 
 const base = DEFAULT_CONTENT.fleet[0];
 const veh = (over: Partial<FleetItem>): FleetItem => ({ ...base, units: 1, ...over }) as FleetItem;
@@ -223,6 +227,15 @@ describe("empty rooms close their doors", () => {
   it("drops the car-wash businesses line while that page lists nobody", async () => {
     db.tables = { trade_providers: { data: [], error: null } };
     expect(hrefs(await render())).not.toContain("/marketplace/wash");
+  });
+
+  it("drops the eSIM door while the store cannot sell", async () => {
+    esim.selling = false;
+    try {
+      expect(hrefs(await render())).not.toContain("/esim");
+    } finally {
+      esim.selling = true;
+    }
   });
 
   it("drops the food concierge while the owner has it switched off", async () => {

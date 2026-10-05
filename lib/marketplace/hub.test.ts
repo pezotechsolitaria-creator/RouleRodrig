@@ -118,6 +118,7 @@ const FULL: HubFacts = {
   shelves: new Set(["vehicle-care", "professional-services", "celebrations", "honey"]),
   experiences: { massage: 2, hiking: 1, boat: 3, fishing: 1 },
   foodConcierge: true,
+  esimSelling: true,
 };
 
 describe("the marketplace tree", () => {
@@ -183,8 +184,15 @@ describe("a door is shown only while its room has something in it", () => {
       shelves: null,
       experiences: { massage: null, hiking: null, boat: null, fishing: null },
       foodConcierge: true,
+      esimSelling: true,
     };
     for (const a of HUB_ACTIONS) expect(gateIsOpen(a.gate, unknown), a.key).toBe(true);
+  });
+
+  it("hides the eSIM door while the store cannot sell (owner, 6 Oct 2026)", () => {
+    const keys = (f: HubFacts) => doorsOf("essentials", f).map((a) => a.key);
+    expect(keys({ ...FULL, esimSelling: false })).not.toContain("esim");
+    expect(keys(FULL)).toContain("esim");
   });
 
   it("still shows a not-yet-open door as Soon, whatever its gate says", () => {

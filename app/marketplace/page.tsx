@@ -38,6 +38,7 @@ import { getMarketplaceHome } from "@/lib/marketplace/catalog";
 import { listVehicleProviders } from "@/lib/marketplace/vehicle-providers";
 import { experiencesOfType } from "@/lib/experiences";
 import { recommendedCount } from "@/lib/listing-gates";
+import { storeState } from "@/lib/esim/state";
 
 // ── BUY IT. BOOK IT. GET IT DONE. ───────────────────────────────────────────
 //
@@ -177,6 +178,7 @@ export default async function MarketplacePage() {
       EXPERIENCE_GATES.map((t) => [t, recommendedCount(content, experiencesOfType(items, t))]),
     ) as Record<HubExperience, number | null>,
     foodConcierge: content.foodConcierge?.enabled === true,
+    esimSelling: storeState().selling,
   };
   const rail = buildRentalsRail(content);
   const shelves = otherShelves(home?.categories ?? null);

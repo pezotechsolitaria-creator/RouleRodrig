@@ -29,6 +29,7 @@ import { SpeedInsights } from "@vercel/speed-insights/next";
 import { SITE_URL, CONTACT_EMAIL } from "@/lib/site";
 import { SupportContactProvider } from "@/components/payments/SupportContact";
 import WebVitals from "@/components/WebVitals";
+import { storeState } from "@/lib/esim/state";
 
 const syne = Syne({
   subsets: ["latin"],
@@ -548,6 +549,7 @@ export default async function RootLayout({
                       whatsapp={supportWhatsapp}
                       scooterDailyMur={scooterDailyMur}
                       data={tiData}
+                      esimOpen={storeState().selling}
                     />
                     <GlobalSearch />
                     <PWARegister />

@@ -9,6 +9,7 @@ import { breadcrumbLd, itemListLd } from "@/lib/schema";
 import { SITE_URL } from "@/lib/site";
 import { getContent } from "@/lib/content";
 import { FR_PAGES } from "@/lib/nav/hubs";
+import { storeState } from "@/lib/esim/state";
 import { hubTitle } from "@/lib/guide/hub";
 import { ogImages } from "@/lib/share-image";
 import { hubBlurb } from "@/lib/live-prices";
@@ -60,7 +61,11 @@ export default async function FrHubPage() {
   const content = await getContent();
   // "Les 19 plus belles plages" was typed the day it was true; the page counts
   // its own list, and so does this now (lib/guide/hub.ts, item 5).
-  const pages = FR_PAGES.map((p) => ({ ...p, title: hubTitle(content, p) }));
+  // The eSIM page is left out while the store is closed (owner, 6 Oct 2026).
+  const pages = FR_PAGES.filter((p) => p.href !== "/fr/esim-maurice-rodrigues" || storeState().selling).map((p) => ({
+    ...p,
+    title: hubTitle(content, p),
+  }));
 
   return (
     <>

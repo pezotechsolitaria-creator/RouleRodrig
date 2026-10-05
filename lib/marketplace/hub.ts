@@ -93,7 +93,9 @@ export type HubGate =
   /** /experiences/<type> has a provider (experiencesOfType). */
   | { kind: "experiences"; type: HubExperience }
   /** The owner's own switch, the one /explore gates its concierge card on. */
-  | { kind: "foodConcierge" };
+  | { kind: "foodConcierge" }
+  /** The eSIM store is selling (lib/esim/state storeState). */
+  | { kind: "esim" };
 
 /** The experience verticals the hub points at. Boats and fishing are named in
  *  the Rentals section instead — skippered trips, never rentals. */
@@ -210,7 +212,9 @@ export const HUB_ACTIONS: HubAction[] = [
     blurb: "Data for your phone on Rodrigues and Mauritius.",
     href: "/esim",
     branch: "essentials",
-    gate: { kind: "always" },
+    // Closed until the owner is licensed (M229): no door to a store that
+    // cannot sell (owner, 6 Oct 2026).
+    gate: { kind: "esim" },
   },
   {
     key: "transfers",
@@ -251,6 +255,8 @@ export type HubFacts = {
   experiences: Record<HubExperience, number | null>;
   /** content.foodConcierge.enabled — a setting, so never unknown. */
   foodConcierge: boolean;
+  /** storeState().selling — settings, so never unknown. */
+  esimSelling: boolean;
 };
 
 /** Is the room behind this gate known to be empty? Unknown answers "open". */
@@ -266,6 +272,8 @@ export function gateIsOpen(gate: HubGate, facts: HubFacts): boolean {
       return facts.experiences[gate.type] !== 0;
     case "foodConcierge":
       return facts.foodConcierge;
+    case "esim":
+      return facts.esimSelling;
   }
 }
 

@@ -9,6 +9,7 @@ import JsonLd from "@/components/JsonLd";
 import Navbar from "@/components/Navbar";
 import PageLanguage from "@/components/PageLanguage";
 import HubBacklink from "@/components/nav/HubBacklink";
+import { storeState } from "@/lib/esim/state";
 
 export const revalidate = 3600;
 
@@ -225,10 +226,10 @@ export default async function GuideFrPage() {
                   href: "/fr/location-voiture-rodrigues",
                   label: "Location de voiture à Rodrigues",
                 },
-                {
-                  href: "/fr/esim-maurice-rodrigues",
-                  label: "Une eSIM qui marche à Rodrigues (my.t 4G)",
-                },
+                // Hidden while the eSIM store is closed (owner, 6 Oct 2026).
+                ...(storeState().selling
+                  ? [{ href: "/fr/esim-maurice-rodrigues", label: "Une eSIM qui marche à Rodrigues (my.t 4G)" }]
+                  : []),
               ].map((l) => (
                 <li key={l.href}>
                   <Link

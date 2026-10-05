@@ -13,6 +13,7 @@ import { locationPageHrefs, placeAnchors } from "@/lib/guide/location-page-gate"
 import JsonLd from "@/components/JsonLd";
 import AppPageHeader from "@/components/AppPageHeader";
 import HubBacklink from "@/components/nav/HubBacklink";
+import { storeState } from "@/lib/esim/state";
 
 // Static-ish content page: refresh hourly (nav/footer come from the CMS).
 export const revalidate = 3600;
@@ -308,15 +309,18 @@ export default async function RodriguesGuidePage() {
               Go deeper
             </p>
             <ul className="mt-4 space-y-3">
-              <li>
-                <Link
-                  href="/esim"
-                  className="inline-flex items-center gap-2 font-dm text-sm text-yellow/80 hover:text-yellow transition-colors"
-                >
-                  An eSIM that works on Rodrigues (my.t 4G){" "}
-                  <ArrowRight size={14} />
-                </Link>
-              </li>
+              {/* Hidden while the eSIM store is closed (owner, 6 Oct 2026). */}
+              {storeState().selling && (
+                <li>
+                  <Link
+                    href="/esim"
+                    className="inline-flex items-center gap-2 font-dm text-sm text-yellow/80 hover:text-yellow transition-colors"
+                  >
+                    An eSIM that works on Rodrigues (my.t 4G){" "}
+                    <ArrowRight size={14} />
+                  </Link>
+                </li>
+              )}
               <li>
                 <Link
                   href="/guide/beaches"
