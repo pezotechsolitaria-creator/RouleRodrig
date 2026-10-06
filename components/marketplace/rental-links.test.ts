@@ -126,7 +126,7 @@ describe("/shop says where the rentals are", () => {
       expect.arrayContaining(["/browse/scooter", "/browse/car", "/marketplace#rentals"]),
     );
     expect(html).toContain("Renting a scooter or a car?");
-    expect(html).toContain("From Rs 699/day");
+    expect(html).toContain("From Rs 799/day");
     expect(html).toContain("From Rs 1,899/day");
   });
 
@@ -165,7 +165,7 @@ describe("/more links the rentals and /deliver", () => {
     expect(h).toEqual(expect.arrayContaining(["/browse/scooter", "/browse/car", "/deliver"]));
     expect(h.indexOf("/marketplace")).toBeLessThan(h.indexOf("/browse/scooter"));
     expect(html).toContain("Scooters for rent");
-    expect(html).toContain("From Rs 699 a day");
+    expect(html).toContain("From Rs 799 a day");
     expect(html).toContain("From Rs 1,899 a day");
   });
 
@@ -217,7 +217,7 @@ describe("/explore links the rentals and /deliver", () => {
       expect.arrayContaining(["/browse/scooter", "/browse/car", "/deliver"]),
     );
     expect(html).toContain("Rentals and deliveries");
-    expect(html).toContain("From Rs 699/day");
+    expect(html).toContain("From Rs 799/day");
     const ld = html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)![1];
     expect(ld).not.toMatch(/Scooters|browse\/scooter|deliver/);
   });

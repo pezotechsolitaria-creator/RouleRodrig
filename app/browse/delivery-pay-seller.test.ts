@@ -45,10 +45,17 @@ vi.mock("@/components/Navbar", () => ({ default: () => null }));
 vi.mock("@/components/PageLanguage", () => ({ default: () => null }));
 vi.mock("@/components/nav/HubBacklink", () => ({ default: () => null }));
 vi.mock("@/components/BookingSection", () => ({ default: () => null }));
-// The fleet grid: its heading, and the intro paragraph it is handed.
+// The fleet grid: its heading, its one-sentence subline, and the intro
+// paragraph it is handed (rendered below the cards).
 vi.mock("@/components/Fleet", () => ({
-  default: (p: { title: string; subtitle?: ReactNode }) =>
-    createElement("section", null, createElement("h1", null, p.title), createElement("p", { id: "intro" }, p.subtitle)),
+  default: (p: { title: string; subtitle?: ReactNode; intro?: ReactNode }) =>
+    createElement(
+      "section",
+      null,
+      createElement("h1", null, p.title),
+      createElement("p", { id: "subline" }, p.subtitle),
+      createElement("p", { id: "intro" }, p.intro),
+    ),
 }));
 // The listing grid: the <h1> it is handed (titleAs="h1"), its French twin as
 // an attribute, and the names.
@@ -169,7 +176,7 @@ describe("car delivery is called free only when the owner's notes agree (C20)", 
 
   it("once the Swift's note is unconditional, every surface says free together", async () => {
     setView({ swift: "Rs 1899(Free delivery fee)" });
-    expect(visible(await renderBrowse("car"))).toContain("Delivery is free either way.");
+    expect(visible(await renderBrowse("car"))).toContain("Delivery is included either way.");
     expect(await browseDescription("car")).toContain("delivered free to your guest house");
     expect(visible(await renderFr("location-voiture-rodrigues"))).toContain("sans supplément de livraison");
   });
@@ -185,13 +192,14 @@ describe("car delivery is called free only when the owner's notes agree (C20)", 
 // ── C4 / presentation: the who-where-pay sentence inside the intro ──────────
 
 describe("the who / where / pay sentence sits in the intro, before the call to action", () => {
-  it("/browse/scooter: says free delivery once, then who and how to pay, then what to do", async () => {
+  it("/browse/scooter: says delivery is included once, then who and how to pay, then what to do", async () => {
     const html = await renderBrowse("scooter");
     const p = intro(html);
     expect(p).toContain(
       "We hand over in person, with real advice on the roads and the places worth riding to. Roule Rodrigues rents scooters from Baie Aux Huîtres on Rodrigues: once we confirm your dates, you pay online by bank transfer, MCB Juice or PayPal, or in cash in person when we agree it. Pick a scooter below and book your dates online.",
     );
-    expect(visible(html).match(/delivered free/g)).toHaveLength(1);
+    expect(p.match(/delivery to your guest house included/g)).toHaveLength(1);
+    expect(visible(html)).not.toContain("delivered free");
     expect(visible(html)).not.toContain("to where you are staying");
   });
 

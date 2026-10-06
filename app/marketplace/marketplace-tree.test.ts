@@ -177,12 +177,13 @@ describe("the tree, everything stocked", () => {
 
   it("prints the fleet's own figures, and no other", async () => {
     const html = await render();
-    expect(html).toContain("From Rs 699/day");
+    // A scooter quotes the published scooter rate (SCOOTER_RATES.threePlus, 6 Oct 2026), whatever the price box says.
+    expect(html).toContain("From Rs 799/day");
     expect(html).toContain("From Rs 1,899/day");
-    expect(html).toContain("Rs 699/day");
-    // Every rupee figure on the page is one of the fleet's.
+    expect(html).toContain("Rs 799/day");
+    // Every rupee figure on the page is the fleet's, or that published rate.
     const figures = [...html.matchAll(/Rs ([\d,]+)/g)].map((m) => m[1]);
-    expect(new Set(figures)).toEqual(new Set(["699", "1,899"]));
+    expect(new Set(figures)).toEqual(new Set(["799", "1,899"]));
   });
 
   it("names boats for what they are: a skipper's trip, not a rental", async () => {

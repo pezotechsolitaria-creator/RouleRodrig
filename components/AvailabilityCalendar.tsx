@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useLanguage } from "@/context/LanguageContext";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { DATE_LOCALE, rentLang } from "@/lib/rentals/copy";
 
 interface BookedRange {
   start: string;
@@ -34,11 +35,11 @@ function iso(d: Date): string {
  * Parsed as local time (not `new Date(iso)`, which is UTC) so the weekday
  * cannot come out a day off west of Greenwich.
  */
-function longDate(day: string): string {
+function longDate(day: string, locale: string): string {
   const [y, m, d] = day.split("-").map(Number);
   const date = new Date(y, m - 1, d);
   if (Number.isNaN(date.getTime())) return day;
-  return date.toLocaleDateString(undefined, {
+  return date.toLocaleDateString(locale, {
     weekday: "long",
     day: "numeric",
     month: "long",
@@ -59,7 +60,10 @@ export default function AvailabilityCalendar({
   onChange,
   labels,
 }: Props) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
+  // The SITE's language, not the browser's: toLocaleDateString(undefined)
+  // printed "Octobre 2026" on an English page in a French-set browser.
+  const locale = DATE_LOCALE[rentLang(language)];
   const anchor = startDate ? new Date(startDate) : new Date(minDate);
   const [view, setView] = useState(new Date(anchor.getFullYear(), anchor.getMonth(), 1));
 
@@ -110,7 +114,7 @@ export default function AvailabilityCalendar({
   for (let i = 0; i < firstDow; i++) cells.push(null);
   for (let d = 1; d <= daysInMonth; d++) cells.push(iso(new Date(year, month, d)));
 
-  const monthTitle = view.toLocaleDateString(undefined, { month: "long", year: "numeric" });
+  const monthTitle = view.toLocaleDateString(locale, { month: "long", year: "numeric" });
   const canGoPrev = new Date(year, month, 1) > new Date(new Date(minDate).getFullYear(), new Date(minDate).getMonth(), 1);
 
   return (
@@ -192,7 +196,7 @@ export default function AvailabilityCalendar({
               // dropping to six columns, which a month grid cannot do; the
               // height can, and does.
               className={`min-h-11 w-full rounded-lg text-xs font-dm flex items-center justify-center transition-colors ${cls}`}
-              aria-label={state ? `${longDate(day)} — ${state}` : longDate(day)}
+              aria-label={state ? `${longDate(day, locale)} — ${state}` : longDate(day, locale)}
               aria-pressed={disabled ? undefined : selected}
             >
               {num}

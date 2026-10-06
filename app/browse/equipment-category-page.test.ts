@@ -36,8 +36,14 @@ vi.mock("@/components/WhatsAppButton", () => ({ default: () => null }));
 vi.mock("@/components/ScrollToTop", () => ({ default: () => null }));
 // The fleet grid prints the heading and intro it is handed.
 vi.mock("@/components/Fleet", () => ({
-  default: (p: { title: string; subtitle?: ReactNode }) =>
-    createElement("section", null, createElement("h1", null, p.title), createElement("p", null, p.subtitle)),
+  default: (p: { title: string; subtitle?: ReactNode; intro?: ReactNode }) =>
+    createElement(
+      "section",
+      null,
+      createElement("h1", null, p.title),
+      createElement("p", null, p.subtitle),
+      createElement("p", null, p.intro),
+    ),
 }));
 // The booking form: the panel it renders from `conditions`, exactly as
 // BookingSection does (<RentalConditions items={conditions} />), with the
@@ -159,9 +165,9 @@ describe("/browse/kayak with rentalKind 'equipment'", () => {
 
   it("promises only what holds for any rental in its trust bar", async () => {
     const t = visible(await render("kayak"));
-    expect(t).toContain("WhatsApp support");
-    expect(t).toContain("Easy booking");
-    expect(t).not.toMatch(/Helmet included|Free scooter delivery|Air conditioning/);
+    expect(t).toContain("Delivered to your stay");
+    expect(t).toContain("WhatsApp if you need us");
+    expect(t).not.toMatch(/Insured|No mileage cap|Helmet included|Air conditioning/);
   });
 
   it("is a Product, the same type its own page gives it", async () => {
@@ -174,7 +180,7 @@ describe("/browse/kayak with rentalKind 'equipment'", () => {
     setView({ kayak: "motor" });
     const t = visible(await render("kayak"));
     expect(t).toContain("Do I need a driving licence?");
-    expect(t).toContain("Helmet included");
+    expect(t).toContain("No mileage cap");
   });
 });
 
@@ -188,20 +194,23 @@ describe("a category with no rentalKind renders exactly as before", () => {
     });
   }
 
-  it("/browse/car keeps the car terms and the car trust bar", async () => {
+  // The trust row is the same four lines on a car and a scooter (owner brief,
+  // 6 Oct 2026): each is true of both, so neither page can promise the other's.
+  it("/browse/car keeps the car terms and the four-line trust row", async () => {
     setView({});
     const t = visible(await render("car"));
     expect(t).toContain("Do I need a driving licence?");
     expect(t).toContain("A security deposit of Rs 5,000 applies to car rentals.");
-    expect(t).toContain("Air conditioning");
+    expect(t).toContain("Insured");
+    expect(t).toContain("No mileage cap");
     expect(t).not.toContain("Helmet included");
   });
 
-  it("/browse/scooter keeps the helmet and the free scooter delivery", async () => {
+  it("/browse/scooter keeps the helmet answer and the same trust row", async () => {
     setView({});
     const t = visible(await render("scooter"));
     expect(t).toContain("Do scooters come with a helmet?");
-    expect(t).toContain("Helmet included");
-    expect(t).toContain("Free scooter delivery");
+    expect(t).toContain("Delivered to your stay");
+    expect(t).toContain("No mileage cap");
   });
 });

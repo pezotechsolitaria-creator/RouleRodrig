@@ -57,7 +57,8 @@ describe("the routes serve plain text", () => {
     const body = await res.text();
     expect(body).toMatch(/^# Roule Rodrigues\n/);
     expect(body).toContain("/transfers)");
-    expect(body).toContain("from Rs 747/day");
+    // A scooter quotes the published scooter rate (SCOOTER_RATES.threePlus, 6 Oct 2026), whatever the price box says.
+    expect(body).toContain("from Rs 799/day");
     expect(body).toContain("Rs 1,111 up to 6 km");
     expect(body).toContain("Chez Banane at Rivière Banane");
     expect(body).toContain("dishes Rs 1,313");

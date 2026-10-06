@@ -124,13 +124,14 @@ describe("rentalFromPrices / cheapestDailyRate", () => {
       { id: "b", category: "scooter", price: "From Rs 699" },
       { id: "c", category: "car", price: "From Rs 1,899" },
     ]);
-    expect(rentalFromPrices(c)).toEqual({ scooterFrom: 699, carFrom: 1899 });
-    expect(cheapestDailyRate(c)).toBe(699);
+    // Scooters quote the published scooter rate (SCOOTER_RATES.threePlus, 6 Oct 2026), whatever the price box says.
+    expect(rentalFromPrices(c)).toEqual({ scooterFrom: 799, carFrom: 1899 });
+    expect(cheapestDailyRate(c)).toBe(799);
   });
 
   it("a seed id carrying the owner's own price is the owner's fleet", () => {
     const c = owner([{ id: DEFAULT_CONTENT.fleet[0].id, category: "scooter", price: "From Rs 699" }]);
-    expect(cheapestDailyRate(c)).toBe(699);
+    expect(cheapestDailyRate(c)).toBe(799);
   });
 
   it("skips a category the hub does not show, and an unpriced row", () => {
@@ -142,8 +143,9 @@ describe("rentalFromPrices / cheapestDailyRate", () => {
       ],
       DEFAULT_CONTENT.vehicleCategories, // cars seeded off
     );
-    expect(rentalFromPrices(c)).toEqual({ scooterFrom: 999, carFrom: null });
-    expect(cheapestDailyRate(c)).toBe(999);
+    // The hidden Rs 650 car would undercut the scooter if it were read.
+    expect(rentalFromPrices(c)).toEqual({ scooterFrom: 799, carFrom: null });
+    expect(cheapestDailyRate(c)).toBe(799);
     expect(cheapestDailyRate(owner([]))).toBeNull();
   });
 });

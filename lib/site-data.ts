@@ -2,7 +2,7 @@ import { cache } from "react";
 import { getContent } from "@/lib/content";
 import { getPrivileged } from "@/lib/supabase/admin";
 import { isActiveHold, HOLDING_STATUSES } from "@/lib/holds";
-import { extractDailyPrice } from "@/lib/booking-pricing";
+import { extractDailyPrice, vehicleDayRate } from "@/lib/booking-pricing";
 import type { FleetItem, SiteContent } from "@/lib/defaults";
 import type { BrowseCategory } from "@/components/WhatLookingFor";
 
@@ -138,6 +138,17 @@ export function priceNumber(price: string): number | null {
   const n = extractDailyPrice(price);
   return n > 0 ? n : null;
 }
+
+/**
+ * A VEHICLE's advertised per-day figure, or null — what every card, "from"
+ * sentence, title, Offer and search result quotes. Scooters are the published
+ * 3-days-or-more rate (lib/booking-pricing SCOOTER_RATES), never the number
+ * typed in a scooter's price box, so no page can undercut the checkout.
+ */
+export function vehiclePriceNumber(item: { price: string; category?: string | null }): number | null {
+  const n = vehicleDayRate({ price: item.price, category: item.category ?? undefined });
+  return n > 0 ? n : null;
+}
 function firstImage(
   items: { image?: string; images?: string[] }[],
 ): string | undefined {
@@ -187,7 +198,7 @@ export function buildBrowseCategories(
     );
     if (!items.length) continue;
     const prices = items
-      .map((it) => priceNumber(it.price))
+      .map((it) => vehiclePriceNumber(it))
       .filter((n): n is number => n != null);
     const min = prices.length ? Math.min(...prices) : null;
     vehicleBookings[vc.id] = items.reduce(
@@ -326,7 +337,7 @@ export function fleetFromPrice(
       )
     : fleet;
   const prices = inScope
-    .map((f) => priceNumber(f.price))
+    .map((f) => vehiclePriceNumber(f))
     .filter((n): n is number => n != null && n > 0);
   return prices.length ? Math.min(...prices) : FLEET_PRICE_FALLBACK;
 }

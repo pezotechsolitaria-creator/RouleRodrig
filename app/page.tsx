@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { SITE_URL, OPENING_HOURS, CONTACT_EMAIL } from "@/lib/site";
-import { getFleetView, buildBrowseCategories, priceNumber } from "@/lib/site-data";
+import { getFleetView, buildBrowseCategories, vehiclePriceNumber } from "@/lib/site-data";
 import {
   organizationLd,
   touristDestinationLd,
@@ -304,7 +304,7 @@ export default async function Home() {
   // rendered the derived minimum for a long time. A comment quoting a hardcoded
   // number is the same drift as the code doing it.)
   const dayRates = fleet
-    .map((f) => priceNumber(f.price))
+    .map((f) => vehiclePriceNumber(f))
     .filter((n): n is number => n != null && n > 0);
 
   // The locality the PAGE shows, so the structured data cannot contradict it.

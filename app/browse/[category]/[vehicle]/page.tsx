@@ -6,11 +6,13 @@ import { ArrowLeft, Check, ChevronRight, MessageCircle } from "lucide-react";
 import { SITE_URL } from "@/lib/site";
 import {
   getFleetView,
-  priceNumber,
+  vehiclePriceNumber,
   isSellableFleetItem,
 } from "@/lib/site-data";
 import { realCopy } from "@/lib/placeholder-copy";
-import { costTiers } from "@/lib/vehicle-cost";
+import { costTiers, SCOOTER_COST_DAYS } from "@/lib/vehicle-cost";
+import { deliveryFee, depositPct, securityHoldFrom, usesScooterRates } from "@/lib/booking-pricing";
+import BookingSection from "@/components/BookingSection";
 import { vehicleMetaTitle } from "@/lib/browse-copy";
 import { breadcrumbLd, productLd, sellerLd } from "@/lib/schema";
 import { pickConditions, rentalKindOf } from "@/lib/rental-conditions";
@@ -90,7 +92,10 @@ async function resolve(category: string, vehicle: string) {
   // — so "Fully booked" needs EVERY twin out, and ?v= names a free one.
   const units = findVehicleUnits(fleet, category, vehicle).filter(isSellableFleetItem);
   const item = unitToBook(units);
-  return { content, fleet, businessWhatsApp, item };
+  // The booking sheet on this page offers this category's other vehicles too
+  // ("Change"), exactly like the listing's.
+  const inCategory = fleet.filter((f) => (f.category ?? "scooter") === category && isSellableFleetItem(f));
+  return { content, fleet, businessWhatsApp, item, inCategory };
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -104,7 +109,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     // SEO audit 2026-09-29 T5: "Toyota Hilux — Rs 2899/day in Rodrigues" had
     // no "rental" and an ungrouped price beside category titles that say
     // "Rs 1,899". vehicleMetaTitle keeps it inside 60 characters.
-    const from = priceNumber(item.price);
+    const from = vehiclePriceNumber(item);
     const title = vehicleMetaTitle(vehicleName(item), category, from);
     const description =
       // Specs, inclusions and the price, when there is a price — see
@@ -139,7 +144,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function VehiclePage({ params }: Props) {
   const { category, vehicle } = await params;
-  const { content, businessWhatsApp, item } = await resolve(category, vehicle);
+  const { content, businessWhatsApp, item, inCategory } = await resolve(category, vehicle);
   if (!item) notFound();
 
   const slug = vehicleSlug(item);
@@ -159,7 +164,11 @@ export default async function VehiclePage({ params }: Props) {
   const conditions = pickConditions(content.faq?.items, category, kind);
   const takeIt =
     TAKE_IT[category] ?? (kind === "equipment" ? TAKE_IT_EQUIPMENT : TAKE_IT_MOTOR);
-  const from = priceNumber(item.price);
+  const from = vehiclePriceNumber(item);
+  const scooterRates = usesScooterRates(item);
+  const deliveryIncluded = deliveryFee(item, content.vehicleCategories) === 0;
+  const duePct = depositPct(item, content.vehicleCategories);
+  const hold = securityHoldFrom(conditions.find((c) => c.id === "deposit")?.answer);
   // ── TWO DIFFERENT STATES, NOT ONE ─────────────────────────────────────────
   //
   // These were a single `out` flag, and they are opposite situations:
@@ -301,10 +310,17 @@ export default async function VehiclePage({ params }: Props) {
                 {vehicleName(item)}
               </h1>
             </div>
-            <p className="font-syne text-2xl font-extrabold text-yellow">
-              {item.price}
-              <span className="ml-1 font-dm text-sm text-muted">{item.unit}</span>
-            </p>
+            {/* One price — never the owner's free-text box, which carried
+                "(Book for more than 2 days to get free delivery!!)". */}
+            {from ? (
+              <div className="text-right">
+                <p className="font-syne text-2xl font-extrabold tabular-nums text-offwhite">
+                  Rs {from.toLocaleString("en-US")}
+                  <span className="ml-1 font-dm text-sm font-normal text-muted">{item.unit}</span>
+                </p>
+                {scooterRates && <p className="font-dm text-xs text-muted">3 days or more · delivery included</p>}
+              </div>
+            ) : null}
           </div>
 
           {out && (
@@ -315,20 +331,25 @@ export default async function VehiclePage({ params }: Props) {
             </p>
           )}
 
-          {item.description && (
-            <p className="mt-4 font-dm text-sm leading-relaxed text-muted/90">{item.description}</p>
+          {realCopy(item.description) && (
+            <p className="mt-4 max-w-2xl font-dm text-[15px] leading-relaxed text-offwhite/80">{realCopy(item.description)}</p>
           )}
 
-          {item.specs?.length ? (
+          {item.specs?.length || deliveryIncluded ? (
             <ul className="mt-5 flex flex-wrap gap-2">
-              {item.specs.map((s) => (
+              {(item.specs ?? []).map((s) => (
                 <li
                   key={s}
-                  className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 font-dm text-xs text-offwhite/80"
+                  className="rounded-full border border-white/10 px-3 py-1.5 font-dm text-xs text-offwhite/80"
                 >
                   {s}
                 </li>
               ))}
+              {deliveryIncluded && (
+                <li className="rounded-full border border-white/10 px-3 py-1.5 font-dm text-xs text-offwhite/80">
+                  Delivery included
+                </li>
+              )}
             </ul>
           ) : null}
 
@@ -348,7 +369,8 @@ export default async function VehiclePage({ params }: Props) {
               Via costTiers() since SEO audit 2026-09-29 C18: /browse/car now
               prints the same table for every model, from the same helper. */}
           {(() => {
-            const tiers = costTiers(item, content.vehicleCategories);
+            // Scooters list the 2-day rate too: it is a price of its own.
+            const tiers = costTiers(item, content.vehicleCategories, scooterRates ? SCOOTER_COST_DAYS : undefined);
             if (tiers.length < 2) return null;
             return (
               <div className="mt-6 rounded-2xl border border-dark-border bg-dark-card p-6">
@@ -357,33 +379,29 @@ export default async function VehiclePage({ params }: Props) {
                     crawl saw 264-305 words of prose with ZERO structure on the
                     seven pages where somebody actually decides to rent. The
                     look is unchanged; the outline is not. */}
-                <h2 className="mb-4 font-bebas text-[10px] tracking-[0.3em] text-yellow">
+                <h2 className="mb-4 font-syne text-base font-bold text-offwhite">
                   What it costs to hire
                 </h2>
                 <ul className="divide-y divide-white/5">
-                  {tiers.map(({ days, label, rental, perDay, off }) => (
+                  {tiers.map(({ days, label, rental, perDay }) => (
                     <li key={days} className="flex items-baseline justify-between gap-3 py-2.5 first:pt-0 last:pb-0">
-                      <span className="font-dm text-sm text-offwhite/85">
-                        {label}
-                        {off > 0 && (
-                          <span className="ml-2 rounded-full bg-yellow/15 px-2 py-0.5 font-bebas text-[10px] tracking-[0.12em] text-yellow">
-                            {off}% OFF
-                          </span>
-                        )}
-                      </span>
-                      <span className="text-right">
+                      <span className="font-dm text-sm text-offwhite/85">{label}</span>
+                      <span className="text-right tabular-nums">
                         <span className="font-syne text-base font-extrabold text-offwhite">
                           Rs {rental.toLocaleString("en-US")}
                         </span>
-                        <span className="block font-dm text-[11px] text-muted">
-                          Rs {perDay.toLocaleString("en-US")} / day
-                        </span>
+                        {days > 1 && (
+                          <span className="block font-dm text-[11px] text-muted">
+                            Rs {perDay.toLocaleString("en-US")} / day
+                          </span>
+                        )}
                       </span>
                     </li>
                   ))}
                 </ul>
-                <p className="mt-3 font-dm text-[11px] text-muted">
-                  Rental only — delivery and the deposit are shown before you confirm.
+                <p className="mt-3 font-dm text-xs text-muted">
+                  {deliveryIncluded ? "Delivery included. " : ""}
+                  {duePct === 50 ? "Half" : `${duePct}%`} is due when you reserve, the rest at pickup.
                 </p>
               </div>
             );
@@ -391,13 +409,13 @@ export default async function VehiclePage({ params }: Props) {
 
           {item.included?.length ? (
             <div className="mt-6 rounded-2xl border border-dark-border bg-dark-card p-6">
-              <h2 className="mb-4 font-bebas text-[10px] tracking-[0.3em] text-yellow">
+              <h2 className="mb-4 font-syne text-base font-bold text-offwhite">
                 What is included
               </h2>
               <ul className="space-y-2">
                 {item.included.map((inc) => (
-                  <li key={inc} className="flex items-center gap-2.5 font-dm text-xs text-offwhite/75">
-                    <Check size={13} className="shrink-0 text-yellow" />
+                  <li key={inc} className="flex items-center gap-2.5 font-dm text-sm text-offwhite/80">
+                    <Check size={14} className="shrink-0 text-muted" aria-hidden />
                     {inc}
                   </li>
                 ))}
@@ -474,9 +492,10 @@ export default async function VehiclePage({ params }: Props) {
           ) : (
             <Link
               href={`/browse/${category}?v=${item.id}#booking`}
-              className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-yellow px-5 py-4 font-syne text-base font-bold text-dark transition hover:brightness-110"
+              data-rr-reserve={item.id}
+              className="mt-6 flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-yellow px-5 font-syne text-base font-bold text-dark transition-colors hover:bg-yellow-dark"
             >
-              Book the {vehicleName(item)} <ChevronRight size={17} />
+              Reserve
             </Link>
           )}
         </div>
@@ -500,12 +519,24 @@ export default async function VehiclePage({ params }: Props) {
           top and offers WhatsApp above instead. */}
       {!withdrawn && (
         <VehicleActionBar
-          price={item.price}
+          rate={from}
           unit={item.unit}
+          sub={scooterRates ? "3 days or more · delivery included" : deliveryIncluded ? "Delivery included" : null}
           bookHref={`/browse/${category}?v=${item.id}#booking`}
-          whatsappHref={askOnWhatsApp}
+          reserveId={item.id}
           vehicleName={vehicleName(item)}
-          soldOut={out}
+        />
+      )}
+      {/* The booking sheet, opened in place by either Reserve above. */}
+      {!withdrawn && (
+        <BookingSection
+          fleet={inCategory}
+          category={category}
+          categories={content.vehicleCategories}
+          whatsapp={businessWhatsApp}
+          conditions={conditions}
+          showConditions={false}
+          holdAtPickup={hold}
         />
       )}
       <ScrollToTop />

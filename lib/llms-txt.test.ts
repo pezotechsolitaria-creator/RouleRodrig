@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 import { DEFAULT_CONTENT, type RecommendedPlace, type SiteContent } from "@/lib/defaults";
+import { SCOOTER_RATES } from "@/lib/booking-pricing";
 import { SHEET } from "@/test/transfer-sheet.fixture";
 import { foodFaq } from "@/lib/food-faq";
 import { FR_PAGES } from "@/lib/nav/hubs";
@@ -107,6 +108,12 @@ const ALLOWED = new Set<number>([
   ...SHEET.oneWay.map((c, i) => (c - SHEET.returnEach[i]) / 100),
   99900 / 100,
   ...DATA.food!.dishPrices.map((c) => c / 100),
+  // Not typed in the content: every scooter quotes the published rate, the
+  // one figure the checkout charges per day from three days (6 Oct 2026).
+  SCOOTER_RATES.threePlus,
+  // ...and the list it belongs to, printed beside it.
+  SCOOTER_RATES.oneDay,
+  SCOOTER_RATES.twoDays * 2,
 ]);
 
 /** Every route the app can serve, as segment lists. A "[slug]" segment is a
@@ -160,14 +167,14 @@ describe("every figure is one the data holds (C8, T20)", () => {
   });
 
   it("leads the rentals with the fleet's own from-prices", () => {
-    expect(lineFor("/browse/scooter")).toContain("from Rs 777/day");
+    expect(lineFor("/browse/scooter")).toContain("from Rs 799/day");
     expect(lineFor("/browse/car")).toContain("from Rs 1,888/day");
-    expect(TXT).toContain("Scooters from Rs 777 a day");
+    expect(TXT).toContain("Scooters from Rs 799 a day for three days or more (Rs 1,699 for one day, Rs 1,798 for two)");
     expect(lineFor("/browse/stays")).toContain("from Rs 1,357 a night");
   });
 
   it("gives the French hub lines the same figures, grouped the French way (C1)", () => {
-    expect(lineFor("/fr/location-scooter-rodrigues")).toContain("Dès Rs 777 par jour");
+    expect(lineFor("/fr/location-scooter-rodrigues")).toContain("Dès Rs 799 par jour");
     expect(lineFor("/fr/location-voiture-rodrigues")).toContain("Dès Rs 1 888 par jour");
     expect(lineFor("/fr/hebergement-rodrigues")).toContain("dès Rs 1 357 la nuit");
   });

@@ -1,5 +1,5 @@
 import type { FleetItem, SiteContent } from "@/lib/defaults";
-import { buildBrowseCategories, isSellableFleetItem, priceNumber } from "@/lib/site-data";
+import { buildBrowseCategories, isSellableFleetItem, vehiclePriceNumber } from "@/lib/site-data";
 import { categoryFrom } from "@/lib/browse-copy";
 import { unitToBook, vehicleHref, vehicleName } from "@/lib/vehicle-slug";
 import { experiencesOfType } from "@/lib/experiences";
@@ -128,7 +128,7 @@ export function buildRentalsRail(content: SiteContent): RentalsRail {
       // inviting a tap would contradict it. The category door still leads
       // there.
       if (!unit || unit.available === false) continue;
-      vehicles.push({ name: vehicleName(unit), href, category, perDay: priceNumber(unit.price) });
+      vehicles.push({ name: vehicleName(unit), href, category, perDay: vehiclePriceNumber(unit) });
     }
   }
 

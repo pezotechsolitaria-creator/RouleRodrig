@@ -74,9 +74,15 @@ describe("a fleet card speaks the reader's language", () => {
       "Well-maintained, clean vehicles", "24/7 customer support",
       "NEW", "POPULAR", "PREMIUM", "/ day",
       "Scooters", "Motorbikes", "Cars", "E-Bikes", "Bicycles", "Kayaks",
+      // The owner brief of 6 Oct 2026's wording.
+      "Delivery included", "Baby seat available",
     ];
+    // Letter boundaries that know an accent is a letter: a plain \b split
+    // "téléphone" into "phone". Until 6 Oct 2026 the two \b here were literal
+    // backspace characters (a shell ate the escape), so this test could not
+    // fail. "scooters" is French too and "email" is Kreol: not leftovers.
     const ENGLISH =
-      /(the|and|with|your|free|delivery|insurance|support|seats?|doors?|riders?|helmets?|engine|day|night|tank|fuel|lock|chain|clean|vehicles|booking|email|phone|new|popular|cars|bicycles|scooters|motorbikes)/i;
+      /(?<!\p{L})(the|and|with|your|free|delivery|insurance|support|seats?|doors?|riders?|helmets?|engine|day|night|tank|fuel|lock|chain|clean|vehicles|booking|phone|new|popular|cars|bicycles|motorbikes)(?!\p{L})/iu;
     for (const l of ["fr", "cr"] as const) {
       const leftovers = LIVE.map((s) => fleetTerm(l, s)).filter((s) =>
         ENGLISH.test(s),
@@ -169,7 +175,11 @@ describe("the price wrapper changes words, never figures", () => {
 // button still read "Fast pickup & drop-off / Insurance & roadside assistance
 // / Well-maintained, clean vehicles / 24/7 customer support" in French, and a
 // sweep of the page that only checked the cards would have called it clean.
-describe("the booking form's INCLUDED panel uses it too", () => {
+// Since the owner brief of 6 Oct 2026 the sheet has no INCLUDED panel — what is
+// included is a line item ("Delivery · Included") — so what is left to
+// translate there is the spec line under the chosen vehicle, and its price is
+// a figure (vehicleDayRate), never the owner's raw string.
+describe("the booking sheet uses it too", () => {
   const src = readFileSync(
     join(process.cwd(), "components", "BookingSection.tsx"),
     "utf8",
@@ -177,13 +187,15 @@ describe("the booking form's INCLUDED panel uses it too", () => {
     .replace(/\/\*[\s\S]*?\*\//g, "")
     .replace(/^\s*\/\/.*$/gm, "");
 
-  it("translates the inclusions", () => {
-    expect(src).toMatch(/const includedItems = fleetTerms\(\s*language,/);
+  it("translates the chosen vehicle's specs", () => {
+    expect(src).toContain("fleetTerm(language, s)");
   });
 
-  it("translates the price in the vehicle dropdown", () => {
-    // The owner's raw string carries "(Free delivery)" inside it.
-    expect(src).toContain("convert(fleetPrice(language, s.price))");
+  it("prices the vehicle list from the figure, not the owner's string", () => {
+    // The owner's raw string carried "(Book for more than 2 days to get free
+    // delivery!!)" inside it.
+    expect(src).toContain("convert(rs(vehicleDayRate(s)))");
+    expect(src).not.toMatch(/\bs\.price\b/);
   });
 
   it("accepts the readonly i18n fallback without a cast", () => {
@@ -200,12 +212,13 @@ describe("the card actually uses it", () => {
     .replace(/^\s*\/\/.*$/gm, "");
 
   it("routes every previously-raw field through the vocabulary", () => {
-    expect(src).toContain("fleetTerm(language, scooter.badge)");
+    // The badge and the included list left the card on 6 Oct 2026 (owner
+    // brief: photo, name, three chips, one price, Details); the price is a
+    // figure, so the only words beside it are the unit's.
     expect(src).toContain("fleetTerm(language, scooter.unit)");
-    expect(src).toContain("fleetTerms(language, ownInc)");
-    expect(src).toContain("fleetPrice(language, scooter.price)");
     expect(src).toContain("fleetTerm(language, c.label)");
     expect(src).toContain("fleetTerm(language, chip.label)");
+    expect(src).not.toMatch(/\bscooter\.price\b/);
   });
 
   it("picks the spec ICON from the English, not the translation", () => {

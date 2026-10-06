@@ -1,6 +1,6 @@
 import { DEFAULT_CONTENT, type RecommendedPlace, type SiteContent } from "@/lib/defaults";
 import type { TransferFares } from "@/lib/rides/fares";
-import { deliveryFee } from "@/lib/booking-pricing";
+import { deliveryFee, SCOOTER_RATES } from "@/lib/booking-pricing";
 import { EXPERIENCES, experiencesOfType, fromPriceOf } from "@/lib/experiences";
 import { experiencesFaq, priceRangeOf, type PriceRange } from "@/lib/experiences-faq";
 import { foodFaq } from "@/lib/food-faq";
@@ -221,8 +221,15 @@ export function buildLlmsTxt(d: LlmsData): string {
   const airport = d.fares.airport;
   const pm = portMathurin(airport);
 
+  // The scooter "from" figure is the 3-days-or-more rate of a published list
+  // (SCOOTER_RATES, 6 Oct 2026). Said alone, an assistant quotes it for a
+  // one-day hire that costs Rs 1,699 — so the list goes with it.
+  const scooterList =
+    scooterFrom === SCOOTER_RATES.threePlus
+      ? ` for three days or more (${rs(SCOOTER_RATES.oneDay)} for one day, ${rs(SCOOTER_RATES.twoDays * 2)} for two)`
+      : "";
   const priceSummary = [
-    scooterFrom ? `Scooters from ${rs(scooterFrom)} a day, ${deliveryPhrase(content, "scooter")}.` : "",
+    scooterFrom ? `Scooters from ${rs(scooterFrom)} a day${scooterList}, ${deliveryPhrase(content, "scooter")}.` : "",
     carFrom ? `Cars from ${rs(carFrom)} a day, ${deliveryPhrase(content, "car")}.` : "",
   ]
     .filter(Boolean)

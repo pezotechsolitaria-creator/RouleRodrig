@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { rentalCategoryLd } from "./schema";
+import { RENT_COPY } from "./rentals/copy";
 
 const read = (...p: string[]) => readFileSync(join(process.cwd(), ...p), "utf8");
 const BROWSE = read("app", "browse", "[category]", "page.tsx");
@@ -68,8 +69,13 @@ describe("the page does not promise things that are not true", () => {
   it("does not tell a car customer a helmet is included", () => {
     // TrustBar renders on /browse/[category], which is the car page too. It
     // hardcoded "Helmet included" and "Free scooter delivery" with no category
-    // awareness — both false beside a Rs 600 car delivery fee.
-    expect(TRUST).toContain("category === \"car\" ? CAR : SCOOTER");
+    // awareness — both false beside a Rs 600 car delivery fee. Since the owner
+    // brief of 6 Oct 2026 the four lines are ones true of a car and a scooter
+    // alike (RENT_COPY.trust), so no vehicle's promise can reach the other.
+    expect(TRUST).not.toMatch(/Helmet|Casque|Kask/);
+    for (const lang of ["en", "fr", "cr"] as const) {
+      expect(RENT_COPY[lang].trust.join(" ")).not.toMatch(/helmet|casque|kask|free|gratuit/i);
+    }
     // Plus the category's rentalKind since the architecture review of
     // 2026-09-30; app/browse/equipment-category-page.test.ts renders it.
     expect(BROWSE).toContain("<TrustBar category={vcat.id} kind={kind} />");

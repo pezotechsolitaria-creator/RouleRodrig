@@ -1,49 +1,69 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import posthog from "posthog-js";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import posthog from "posthog-js";
+import Link from "next/link";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { AlertCircle, BadgeCheck, Check, ChevronDown, ChevronLeft, Download, Loader2, MessageCircle, X } from "lucide-react";
 import RentalConditions from "./RentalConditions";
 import type { ConditionItem } from "@/lib/rental-conditions";
-import Link from "next/link";
-import { motion, AnimatePresence } from "framer-motion";
-import {
-  CalendarDays,
-  Clock,
-  User,
-  Mail,
-  MessageSquare,
-  Send,
-  CheckCircle,
-  AlertCircle,
-  Loader2,
-  BadgeCheck,
-  Ban,
-  Sparkles,
-  X,
-  Download,
-  ShieldCheck, CalendarClock } from "lucide-react";
 import type { FleetItem, VehicleCategory } from "@/lib/defaults";
 import { useLanguage } from "@/context/LanguageContext";
-import { fleetTerms, fleetPrice } from "@/lib/fleet-terms";
 import { useCurrency } from "@/context/CurrencyContext";
-import AvailabilityCalendar from "@/components/AvailabilityCalendar";
 import PayPalDeposit from "@/components/PayPalDeposit";
 import PaymentHelp from "@/components/payments/PaymentHelp";
 import PhoneInput from "@/components/PhoneInput";
 import SuccessBurst from "@/components/SuccessBurst";
 import BookingTimeline from "@/components/BookingTimeline";
+import RangeCalendar from "@/components/rentals/RangeCalendar";
 import { isValidPhone, isValidEmail } from "@/lib/phone";
-// Pricing is SHARED with /api/bookings — the summary the customer sees here
+import { DATE_LOCALE, RENT_COPY, rentLang, rs as rsIn } from "@/lib/rentals/copy";
+import { displayUnits } from "@/lib/rentals/units";
+import { whatsappHref } from "@/lib/whatsapp-link";
+import { fleetTerm } from "@/lib/fleet-terms";
+import { OPEN_BOOKING_EVENT } from "@/lib/rentals/events";
+// Pricing is SHARED with /api/bookings — the line items the customer sees here
 // and the figures the server stores are the same arithmetic by construction.
-// rentalDays comes from the same module the SERVER prices with. This file
-// used to carry its own daysBetween(), and the two disagreed: the local one
-// returned 0 for a same-day booking where the server returned 1, so the
-// quote on screen could differ from the amount charged (RR012).
-import { priceBreakdown, rentalDays, todayInRodrigues } from "@/lib/booking-pricing";
+// rentalDays comes from the same module the SERVER prices with (RR012).
+import {
+  CAR_SECURITY_HOLD,
+  priceBreakdown,
+  rentalDays,
+  SCOOTER_RATES,
+  scooterTotal,
+  todayInRodrigues,
+  usesScooterRates,
+  vehicleDayRate,
+} from "@/lib/booking-pricing";
 import type { PaymentPreference } from "@/lib/bookings/payment-preference";
 
+// ── The ONE booking surface for cars and scooters: a sheet ──────────────────
+//
+// Until 6 Oct 2026 this was an in-page form under the fleet ("RESERVE
+// ONLINE"), and a card's Book Now scrolled to it while a floating bar repeated
+// "ESTIMATED TOTAL · DEPOSIT TO CONFIRM · Request Booking" over it. Now every
+// way in — a card, a vehicle page's Reserve, a ?v= link, the trip planner —
+// opens this sheet with the vehicle chosen:
+//
+//   1. Dates   vehicle row, calendar, and once a range exists the line items:
+//              rental × days, Delivery, Total, Due now, Due at pickup, and for
+//              a car the security Hold at pickup. One exact total — no
+//              estimate, no "request".
+//   2. Details name, contact, times, terms. Reserve sends it.
+//   then       Dates held, with the same pay-now and receipt paths as before.
+//
+// The sheet has a FIXED height and scrolls inside itself, so picking dates,
+// paging months or the price appearing never moves anything else; the page
+// behind it keeps its scroll position. A dialog: focus is trapped, Esc and the
+// phone's Back button close it, and focus returns to what opened it.
+//
+// The FAQ accordion (rental terms) is rendered INLINE where this component
+// sits on the page — the terms belong on the page, the form in the sheet.
+
 type FormState = "idle" | "loading" | "success" | "error";
+type Step = "dates" | "details";
+
 
 // Half-hour pickup/return times across typical operating hours (06:00–20:00).
 const TIME_SLOTS: { value: string; label: string }[] = (() => {
@@ -58,8 +78,10 @@ const TIME_SLOTS: { value: string; label: string }[] = (() => {
   return out;
 })();
 
-function timeLabel(value?: string | null): string {
-  return TIME_SLOTS.find((s) => s.value === value)?.label ?? (value ?? "");
+function isoAddDays(base: string, n: number): string {
+  const d = new Date(`${base}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
 }
 
 export default function BookingSection({
@@ -68,46 +90,44 @@ export default function BookingSection({
   categories,
   whatsapp,
   conditions,
+  showConditions = true,
+  holdAtPickup,
 }: {
   fleet?: FleetItem[];
   /** The FAQ entries answering "am I allowed to rent this, and what am I
-   *  agreeing to". Passed from the server so the panel shows the owner's own
-   *  words instead of a second copy that drifts out of date. */
+   *  agreeing to". Rendered inline as the page's FAQ accordion. */
   conditions?: ConditionItem[];
-  /** The owner's vehicle categories — where the delivery fee lives. The booking
-   *  API prices the same rental from the same list, so a summary rendered
-   *  without this would quote one figure and charge another. */
+  /** False on a vehicle page, which renders the same panel itself. */
+  showConditions?: boolean;
+  /** The owner's vehicle categories — where the delivery fee and the due-now
+   *  percentage live. The booking API prices from the same list. */
   categories?: VehicleCategory[];
   whatsapp?: string;
-  /** Which category's form this is. Only used to choose wording — the fleet
-   *  itself is already filtered by the caller. Defaulted, so nothing that
-   *  omits it changes. */
+  /** Which category's sheet this is. Chooses wording only. */
   category?: string;
+  /** The car security hold, read from the owner's FAQ answer by the page. */
+  holdAtPickup?: number;
 }) {
   const { t, language } = useLanguage();
+  const lang = rentLang(language);
+  const r = RENT_COPY[lang];
+  // Every figure in the sheet, grouped the reader's way ("Rs 1 899" in French).
+  const rs = (n: number | null | undefined) => rsIn(n, lang);
   const { convert } = useCurrency();
-  // ── OUT ON A TRIP TODAY IS NOT "NOT FOR HIRE" (M158, the half that was missed)
-  //
-  // This filter had `&& !s.soldOutToday`, and it feeds the vehicle <select>.
-  // So on any day the whole fleet is out, the dropdown held nothing but its
-  // own placeholder — and the field is `required`, so the form could not be
-  // submitted AT ALL. The site's best-selling page silently stopped taking
-  // bookings, invisibly, because no request was ever sent.
-  //
-  // M158 fixed exactly this confusion on the CARDS (Fleet.tsx) and on the
-  // availability strip below, and lib/fleet-availability.test.ts has pinned
-  // the distinction since. This line was missed:
-  //
+  const calm = useReducedMotion();
+  // ── OUT ON A TRIP TODAY IS NOT "NOT FOR HIRE" (M158) ────────────────────
   //   available === false   the owner withdrew it in admin — never bookable
-  //   soldOutToday          every unit is out TODAY — says nothing about
-  //                         next Tuesday, which is what most people book
-  //
-  // Nothing here is the safety net. /api/availability is capacity-aware per
-  // date, the calendar greys out full days, and app/api/bookings re-checks
-  // server-side before accepting. Dropping the row was a crude gate standing
-  // in front of a correct one.
+  //   soldOutToday          every unit is out TODAY — says nothing about next
+  //                         Tuesday, which is what most people book
+  // /api/availability is capacity-aware per date, the calendar mutes full
+  // days, and app/api/bookings re-checks server-side before accepting.
   const scooters = (fleet ?? []).filter((s) => s.available !== false);
+  const units = useMemo(() => displayUnits(scooters), [scooters]);
 
+  const [open, setOpen] = useState(false);
+  const [step, setStep] = useState<Step>("dates");
+  const [pickingVehicle, setPickingVehicle] = useState(false);
+  const [unitKey, setUnitKey] = useState<string>("");
   const [formState, setFormState] = useState<FormState>("idle");
   // createPortal needs document.body, which does not exist during SSR.
   const [mounted, setMounted] = useState(false);
@@ -119,32 +139,19 @@ export default function BookingSection({
   const [agreed, setAgreed] = useState(false);
   const [agreeError, setAgreeError] = useState(false);
   const [depositPaid, setDepositPaid] = useState(false);
-  // Reported by PayPalDeposit while its own "could not be completed" line is
-  // showing, so the payment-help card beside it lights up at that moment.
   const [payPalFailed, setPayPalFailed] = useState(false);
-  // Inline validation: which fields are wrong + the message to show. Set on a
-  // submit attempt so the customer instantly sees WHAT to fix instead of a
-  // silently-disabled button (the reported "took 5 minutes to figure out" pain).
-  // Marks the boxes red. Was vehicle+date only, so a missing name or a bad
-// phone number produced a message at the top of the form and a field that
-// looked perfectly fine (M163).
+  // Marks the boxes red AND says what to fix — never a silent dead button.
   const [fieldErr, setFieldErr] = useState<{
     vehicle?: boolean; date?: boolean; name?: boolean; email?: boolean; phone?: boolean;
   }>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
-  // Every requirement still outstanding, so the customer can see the whole job
-  // rather than discovering it one refusal at a time.
   const [missingSteps, setMissingSteps] = useState<string[]>([]);
   const formTopRef = useRef<HTMLFormElement | null>(null);
-  const successRef = useRef<HTMLDivElement | null>(null);
-  // When the booking succeeds the form unmounts and the confirmation card takes
-  // its place — bring it into view so the customer sees "Booking request sent"
-  // (and the Pay-deposit button) immediately, without hunting for it.
-  useEffect(() => {
-    if (formState === "success") {
-      requestAnimationFrame(() => successRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
-    }
-  }, [formState]);
+  const bodyRef = useRef<HTMLDivElement | null>(null);
+  const dialogRef = useRef<HTMLDivElement | null>(null);
+  const openerRef = useRef<HTMLElement | null>(null);
+  const pushedRef = useRef(false);
+
   const [form, setForm] = useState({
     name: "",
     email: "",
@@ -163,101 +170,138 @@ export default function BookingSection({
   const payInPersonChosen = form.payment_preference === "in_person";
 
   const selectedScooter = scooters.find((s) => s.id === form.scooter);
+  const selectedUnit = units.find((u) => u.key === unitKey) ?? units.find((u) => u.item.id === form.scooter);
 
-  // ── "INCLUDED" MUST DESCRIBE THE VEHICLE IN FRONT OF YOU ────────────────
-  //
-  // This panel rendered t.booking.included — a hardcoded scooter list — on
-  // every category. So /browse/car promised "Helmet & lock" and "Full tank of
-  // fuel" with a Suzuki Swift, which is not a joke to the customer who turns up
-  // expecting a helmet for a car, and is the sort of small false promise that
-  // costs more trust than the feature was ever worth.
-  //
-  // Every fleet item already carries its own `included`, and the detail modal
-  // has always rendered it correctly. Use the selected vehicle's list; before
-  // one is chosen, borrow the first vehicle in THIS category, so a car page
-  // never shows scooter kit. The i18n list survives only as a last resort for
-  // a category whose vehicles carry no inclusions at all.
-  //
-  // fleetTerms(): these come from the owner's admin in English and have no
-  // translated sibling, so on the French and Kreol views this panel read
-  // "Fast pickup & drop-off / Insurance & roadside assistance / Well-
-  // maintained, clean vehicles / 24/7 customer support" directly above the
-  // booking button. Fleet.tsx was fixed first and this panel was missed,
-  // because it builds its OWN list rather than taking the card's.
-  const includedItems = fleetTerms(
-    language,
-    selectedScooter?.included?.length
-      ? selectedScooter.included
-      : scooters.find((s) => s.included?.length)?.included ?? t.booking.included,
-  );
-  // A single tap = a 1-day rental. Now that rentalDays() counts BOTH ends, one
-  // day is start === end. It used to be start+1, which was the same 1 day under
-  // the old exclusive arithmetic — leaving it would silently have made every
-  // single-tap booking two days and charged for it.
+  // A single tap = a 1-day rental: one day is start === end, both ends
+  // counted (rentalDays). The return is optional; the pickup alone is a day.
   const effectiveEnd = form.end_date || form.start_date;
   const days = rentalDays(form.start_date, effectiveEnd);
   const breakdown = priceBreakdown(selectedScooter, days, categories);
-  const estimatedTotal = breakdown ? `Rs ${breakdown.total.toLocaleString()}` : "";
+  const totalLabel = breakdown ? `Rs ${breakdown.total.toLocaleString()}` : "";
   const activeUnits = (selectedScooter?.assets ?? []).filter((a) => a.active !== false).length;
   const capacity = activeUnits > 0 ? activeUnits : Math.max(1, selectedScooter?.units ?? 1);
+  const isCar = (selectedScooter?.category ?? category) === "car";
+  const hold = isCar ? holdAtPickup ?? CAR_SECURITY_HOLD : 0;
 
   // ── Trip Planner → Booking: pre-fill the trip length ──
   const [desiredDays, setDesiredDays] = useState<number | null>(null);
 
-  function isoAddDays(base: string, n: number): string {
-    const d = new Date(base);
-    d.setDate(d.getDate() + n);
-    return d.toISOString().split("T")[0];
-  }
+  const openSheet = useCallback(
+    (opts: { scooter?: string; unit?: string; days?: number } = {}) => {
+      openerRef.current = (document.activeElement as HTMLElement | null) ?? null;
+      if (opts.scooter && scooters.some((s) => s.id === opts.scooter)) {
+        const id = opts.scooter;
+        setForm((f) => ({ ...f, scooter: id }));
+        setUnitKey(opts.unit && units.some((u) => u.key === opts.unit) ? opts.unit : units.find((u) => u.item.id === id)?.key ?? "");
+      }
+      const n = Number(opts.days);
+      if (Number.isFinite(n) && n > 0) {
+        const start = isoAddDays(todayInRodrigues(), 1);
+        // n DAYS inclusive, so the last day is start + (n - 1). Adding n would
+        // ask for n+1 days now that both ends are counted — the planner would
+        // quietly sell a day more than the customer chose.
+        setForm((f) => ({ ...f, start_date: start, end_date: isoAddDays(start, Math.max(0, n - 1)) }));
+        setDesiredDays(n);
+      }
+      setStep("dates");
+      setPickingVehicle(false);
+      if (formState === "success") setFormState("idle");
+      setOpen(true);
+      // A history entry, so the phone's Back button closes the sheet instead
+      // of leaving the page behind it.
+      try {
+        if (!pushedRef.current) {
+          window.history.pushState({ ...(window.history.state ?? {}), rrSheet: true }, "");
+          pushedRef.current = true;
+        }
+      } catch {
+        /* ignore */
+      }
+    },
+    [scooters, units, formState],
+  );
+
+  const closeSheet = useCallback(() => {
+    if (formState === "loading") return;
+    setOpen(false);
+    setPickingVehicle(false);
+    if (pushedRef.current) {
+      pushedRef.current = false;
+      try {
+        window.history.back();
+      } catch {
+        /* ignore */
+      }
+    }
+    requestAnimationFrame(() => openerRef.current?.focus?.({ preventScroll: true }));
+  }, [formState]);
 
   useEffect(() => {
-    function onPrefill(e: Event) {
-      const detail = (e as CustomEvent).detail as { days?: number; scooter?: string };
-      // Pre-select the scooter chosen from a Fleet "Book Now" button
-      if (detail?.scooter) {
-        const id = String(detail.scooter);
-        setForm((f) => ({ ...f, scooter: id }));
+    const onPop = () => {
+      if (pushedRef.current) {
+        pushedRef.current = false;
+        setOpen(false);
+        setPickingVehicle(false);
       }
-      const n = Number(detail?.days);
-      if (!Number.isFinite(n) || n <= 0) return;
-      const tomorrow = new Date();
-      tomorrow.setDate(tomorrow.getDate() + 1);
-      const start = tomorrow.toISOString().split("T")[0];
-      // n DAYS inclusive, so the last day is start + (n - 1). Adding n would
-      // ask for n+1 days now that both ends are counted — the planner would
-      // quietly sell a day more than the customer chose.
-      setForm((f) => ({ ...f, start_date: start, end_date: isoAddDays(start, Math.max(0, n - 1)) }));
-      setDesiredDays(n);
-    }
-    window.addEventListener("rr:prefill-booking", onPrefill);
-    return () => window.removeEventListener("rr:prefill-booking", onPrefill);
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
   }, []);
 
-  // ── ARRIVING FROM A VEHICLE'S OWN PAGE ──────────────────────────────────
-  //
-  // rr:prefill-booking above is a CustomEvent on `window`, so it only works
-  // for a card on THIS page. Every "Book the Toyota Hilux" button on a vehicle
-  // detail page linked to /browse/car#booking — a different document — so the
-  // event could never fire and the customer landed on "Choose a vehicle…"
-  // with an empty price summary, having already told us exactly which car
-  // they wanted. The comment on that link claimed it pre-filled from the hash;
-  // nothing here has ever read the hash.
-  //
-  // Read with URLSearchParams rather than useSearchParams: this route is
-  // statically prerendered (X-Nextjs-Prerender: 1) and useSearchParams would
-  // opt it into per-request rendering for a query parameter that is absent on
-  // almost every visit.
+  // Every way in: the cards and vehicle pages dispatch OPEN_BOOKING_EVENT; the
+  // trip planner and older code dispatch rr:prefill-booking.
+  useEffect(() => {
+    function onOpen(e: Event) {
+      const detail = ((e as CustomEvent).detail ?? {}) as { scooter?: string; unit?: string; days?: number };
+      openSheet({ scooter: detail.scooter ? String(detail.scooter) : undefined, unit: detail.unit, days: detail.days });
+    }
+    window.addEventListener(OPEN_BOOKING_EVENT, onOpen);
+    window.addEventListener("rr:prefill-booking", onOpen);
+    return () => {
+      window.removeEventListener(OPEN_BOOKING_EVENT, onOpen);
+      window.removeEventListener("rr:prefill-booking", onOpen);
+    };
+  }, [openSheet]);
+
+  // A vehicle page's Reserve is a real link to /browse/<cat>?v=<id>#booking —
+  // it works without JavaScript — and, with it, opens this sheet in place.
+  useEffect(() => {
+    function onClick(e: MouseEvent) {
+      if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+      const a = (e.target as HTMLElement | null)?.closest?.("a[data-rr-reserve]") as HTMLAnchorElement | null;
+      if (!a) return;
+      const id = a.getAttribute("data-rr-reserve") ?? "";
+      if (!scooters.some((s) => s.id === id)) return;
+      e.preventDefault();
+      openSheet({ scooter: id });
+    }
+    // CAPTURE phase: next/link handles the click in React's bubble phase and
+    // navigates unless the event is already prevented. Listening on bubble,
+    // this ran second, found it prevented by the Link, and the vehicle page's
+    // Reserve left the page for /browse/<cat>?v= instead of opening in place.
+    document.addEventListener("click", onClick, true);
+    return () => document.removeEventListener("click", onClick, true);
+  }, [openSheet, scooters]);
+
+  // ── ARRIVING FROM A VEHICLE'S OWN PAGE, OR A SHARED LINK ────────────────
+  // /browse/car?v=<id>#booking opens the sheet with that vehicle. Read with
+  // URLSearchParams rather than useSearchParams: this route is statically
+  // prerendered and useSearchParams would opt it into per-request rendering
+  // for a parameter that is absent on almost every visit.
   useEffect(() => {
     const v = new URLSearchParams(window.location.search).get("v");
-    // Only a vehicle the dropdown can actually show — otherwise a stale link
-    // would select a value with no matching <option>, which renders blank.
+    // Only a vehicle the sheet can actually show.
     if (v && scooters.some((s) => s.id === v)) {
-      setForm((f) => (f.scooter ? f : { ...f, scooter: v }));
+      openSheet({ scooter: v });
+    } else if (window.location.hash === "#booking") {
+      openSheet();
     }
-  }, [scooters]);
+    // Once, on arrival.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Trip Planner → Booking across pages: it stores the planned length in
-  // localStorage, so pre-fill the dates when the booking form loads here.
+  // localStorage and lands on #booking.
   useEffect(() => {
     try {
       const raw = localStorage.getItem("rr_trip_days");
@@ -265,12 +309,7 @@ export default function BookingSection({
       localStorage.removeItem("rr_trip_days");
       const n = parseInt(raw, 10);
       if (!Number.isFinite(n) || n <= 0) return;
-      const tomorrow = new Date();
-      tomorrow.setDate(tomorrow.getDate() + 1);
-      const start = tomorrow.toISOString().split("T")[0];
-      // n DAYS inclusive, so the last day is start + (n - 1). Adding n would
-      // ask for n+1 days now that both ends are counted — the planner would
-      // quietly sell a day more than the customer chose.
+      const start = isoAddDays(todayInRodrigues(), 1);
       setForm((f) => ({ ...f, start_date: start, end_date: isoAddDays(start, Math.max(0, n - 1)) }));
       setDesiredDays(n);
     } catch {
@@ -278,8 +317,7 @@ export default function BookingSection({
     }
   }, []);
 
-  // ── Referral auto-attribution: pull the hotel/partner code captured from
-  //    the ?ref= link and pre-fill it so the guest never has to type a code. ──
+  // ── Referral auto-attribution from the ?ref= link ──
   const [referredBy, setReferredBy] = useState<string | null>(null);
   useEffect(() => {
     try {
@@ -293,73 +331,121 @@ export default function BookingSection({
     }
   }, []);
 
-  // ── Availability: booked date ranges for the selected scooter ──
+  // ── Availability: booked date ranges for the selected vehicle ──
   const [bookedRanges, setBookedRanges] = useState<{ start: string; end: string; confirmed: boolean }[]>([]);
-
   useEffect(() => {
-    if (!form.scooter) {
-      setBookedRanges([]);
+    if (!form.scooter || !open) {
+      if (!form.scooter) setBookedRanges([]);
       return;
     }
     let active = true;
     fetch(`/api/availability?scooter=${encodeURIComponent(form.scooter)}`)
-      .then((r) => (r.ok ? r.json() : []))
+      .then((res) => (res.ok ? res.json() : []))
       .then((d) => { if (active && Array.isArray(d)) setBookedRanges(d); })
       .catch(() => { if (active) setBookedRanges([]); });
     return () => { active = false; };
-  }, [form.scooter]);
+  }, [form.scooter, open]);
 
-  // Capacity-aware availability: a date is "full" when the number of active
-  // bookings (pending holds + confirmed) covering it reaches the model's unit
-  // count. A new request holds its dates immediately so others can't grab them.
-  function heldCountOn(day: string): number {
-    return bookedRanges.reduce(
-      (n, r) => (day >= r.start && day <= r.end ? n + 1 : n),
-      0,
-    );
-  }
+  // Capacity-aware: a day is full when active bookings covering it reach the
+  // row's unit count. A new reservation holds its dates immediately.
+  const heldCountOn = useCallback(
+    (day: string) => bookedRanges.reduce((n, b) => (day >= b.start && day <= b.end ? n + 1 : n), 0),
+    [bookedRanges],
+  );
+  const isFull = useCallback((day: string) => heldCountOn(day) >= capacity, [heldCountOn, capacity]);
   const hasOverlap =
     !!form.start_date && !!effectiveEnd &&
     (() => {
-      const d = new Date(form.start_date);
-      const end = new Date(effectiveEnd);
-      while (d <= end) {
-        const day = d.toISOString().split("T")[0];
-        if (heldCountOn(day) >= capacity) return true;
-        d.setDate(d.getDate() + 1);
+      for (let d = form.start_date; d <= effectiveEnd; d = isoAddDays(d, 1)) {
+        if (isFull(d)) return true;
       }
       return false;
     })();
 
+  // ── One more day, said plainly (owner brief, 6 Oct 2026 — improved) ─────
+  //
+  // The scooter list makes the second day cost Rs 99 and the third Rs 599. A
+  // renter who picks one or two days is told that, once, as a fact with its
+  // total — never as a banner — and can add the day in one tap. Only when that
+  // day is free for this vehicle; cars price linearly, so they never see it.
+  const scooterPriced = !!selectedScooter && usesScooterRates(selectedScooter);
+  const addDayOffer = (() => {
+    if (!breakdown || !scooterPriced || days < 1 || days > 2 || !effectiveEnd) return null;
+    const next = scooterTotal(days + 1);
+    if (next == null) return null;
+    const end = isoAddDays(effectiveEnd, 1);
+    if (isFull(end)) return null;
+    return { days: days + 1, total: next, extra: next - breakdown.rental, end };
+  })();
+
+  // ── Dialog plumbing: scroll lock while open, Esc, focus trap ──────────────
+  useEffect(() => {
+    if (!open) return;
+    const html = document.documentElement;
+    const prev = html.style.overflow;
+    html.style.overflow = "hidden";
+    const id = requestAnimationFrame(() => {
+      dialogRef.current?.querySelector<HTMLElement>("[data-autofocus]")?.focus({ preventScroll: true });
+    });
+    return () => {
+      cancelAnimationFrame(id);
+      html.style.overflow = prev;
+    };
+  }, [open]);
+
+  function onDialogKey(e: React.KeyboardEvent<HTMLDivElement>) {
+    if (e.key === "Escape") {
+      e.stopPropagation();
+      if (pickingVehicle) setPickingVehicle(false);
+      else closeSheet();
+      return;
+    }
+    if (e.key !== "Tab" || !dialogRef.current) return;
+    const nodes = Array.from(
+      dialogRef.current.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      ),
+    ).filter((el) => el.offsetParent !== null || el === document.activeElement);
+    if (!nodes.length) return;
+    const first = nodes[0];
+    const last = nodes[nodes.length - 1];
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault();
+      first.focus();
+    }
+  }
+
+  const dateFmt = useMemo(() => new Intl.DateTimeFormat(DATE_LOCALE[lang], { day: "numeric", month: "short", timeZone: "UTC" }), [lang]);
   function fmtRange(start: string, end: string): string {
-    const opts: Intl.DateTimeFormatOptions = { day: "numeric", month: "short" };
+    if (!start) return "";
+    const a = new Date(`${start}T00:00:00Z`);
+    const b = new Date(`${(end || start)}T00:00:00Z`);
     try {
-      return `${new Date(start).toLocaleDateString("en-GB", opts)} – ${new Date(end).toLocaleDateString("en-GB", opts)}`;
+      return start === (end || start) ? dateFmt.format(a) : dateFmt.formatRange(a, b);
     } catch {
-      return `${start} – ${end}`;
+      return `${dateFmt.format(a)} – ${dateFmt.format(b)}`;
     }
   }
 
   const inputCls =
-    "w-full bg-dark-card border border-dark-border rounded-xl px-4 py-3.5 text-offwhite text-sm font-dm placeholder:text-muted/50 focus:border-yellow focus:outline-none transition-colors";
+    "w-full rounded-xl border border-dark-border bg-dark px-4 py-3.5 font-dm text-[15px] text-offwhite placeholder:text-muted/60 focus:border-yellow focus:outline-none transition-colors";
 
   const phoneOk = isValidPhone(form.phone);
-  const emailOk = isValidEmail(form.email); // email is now required for confirmations/receipts
-  const emailInvalid = !!form.email && !isValidEmail(form.email); // only flag inline once they've typed something wrong
+  const emailOk = isValidEmail(form.email);
+  const emailInvalid = !!form.email && !isValidEmail(form.email);
 
   async function downloadReceipt() {
     if (!lastBooking) return;
     const short = (lastBooking.bookingId || "").replace(/-/g, "").slice(0, 6).toUpperCase() || Date.now().toString(36).toUpperCase().slice(-6);
-    // M220: a customer who asked to pay in cash is not "due" a deposit — the
-    // owner decides how it is paid — so their receipt names what they asked
-    // for instead of a deposit and a balance they may never owe.
+    // M220: a customer who asked to pay in cash is not "due" a part-payment —
+    // the owner decides how it is paid — so their receipt says what they asked.
     const cashAsked = !!lastBooking.inPerson && !depositPaid;
     // ── FETCHED ON THE TAP (architecture review 2026-09-30, perf item 2) ──
-    // The PDF writer and its embedded logo were a static import, so every
-    // /browse page downloaded them for a button that only exists once a
-    // booking has been made. The receipt below is built from the same state as
-    // before, so what it says cannot change. If the fetch fails (offline) the
-    // button stays where it is and the next tap tries again.
+    // The PDF writer and its logo were a static import, so every /browse page
+    // downloaded them for a button that exists only after a reservation.
     let saveReceiptPdf: typeof import("@/lib/receipt").downloadReceipt;
     try {
       ({ downloadReceipt: saveReceiptPdf } = await import("@/lib/receipt"));
@@ -374,10 +460,9 @@ export default function BookingSection({
       itemLabel: "Vehicle",
       item: lastBooking.scooter,
       // ── THE ARITHMETIC, NOT JUST THE ANSWER (M167) ──────────────────────
-      // The receipt used to say "Estimated total Rs 2,097" and stop, so a
-      // customer could not check the sum or see that delivery was free — the
-      // two things they are most likely to query at pickup. Every line comes
-      // from the same server-priced breakdown the booking was created from.
+      // Every line comes from the same server-priced breakdown the booking
+      // was created from; `rate` is rental ÷ days, so a 2-day scooter reads
+      // "2 days x Rs 899".
       rows: [
         { label: "Dates", value: `${lastBooking.range} (${lastBooking.days} day${lastBooking.days !== 1 ? "s" : ""})` },
         ...(lastBooking.rate && lastBooking.rental != null
@@ -389,8 +474,6 @@ export default function BookingSection({
         ...(lastBooking.delivery != null
           ? [{
               label: "Delivery",
-              // Free is worth saying in words. A "Rs 0" line reads like an
-              // omission; "Free" reads like the offer it is.
               value: lastBooking.delivery > 0 ? `Rs ${lastBooking.delivery.toLocaleString()}` : "Free",
             }]
           : []),
@@ -411,52 +494,52 @@ export default function BookingSection({
       note: depositPaid
         ? "Your deposit is received and your booking is confirmed. The balance is settled at pickup. Keep this receipt for your records."
         : cashAsked
-          ? // A request, like the i18n lines it mirrors: the owner may still
-            // ask for the deposit online (M220), so this cannot promise cash.
-            "This confirms your booking request. You asked to pay in person — we will tell you whether you can, or whether you need to pay online. Nothing is charged until then."
+          ? "This confirms your booking request. You asked to pay in person — we will tell you whether you can, or whether you need to pay online. Nothing is charged until then."
           : "This confirms your booking request. Pay the deposit to lock it in — the balance is settled at pickup.",
     });
   }
 
-  // Trilingual, specific error messages — one clear problem at a time.
-  const ERR = {
-    en: { vehicle: "Please choose a vehicle.", date: "Please choose your pickup date.", dates: "Return must be after pickup.", name: "Please enter your name.", phone: "Please enter a valid phone number.", email: "Please enter a valid email address.", overlap: "Those dates are already taken — please pick another range.", agree: "Please accept the terms to continue." },
-    fr: { vehicle: "Veuillez choisir un véhicule.", date: "Veuillez choisir votre date de retrait.", dates: "Le retour doit être après le retrait.", name: "Veuillez indiquer votre nom.", phone: "Veuillez saisir un numéro de téléphone valide.", email: "Veuillez saisir une adresse e-mail valide.", overlap: "Ces dates sont déjà prises — choisissez une autre période.", agree: "Veuillez accepter les conditions pour continuer." },
-    cr: { vehicle: "Swazir enn veikil.", date: "Swazir ou dat retre.", dates: "Retour bizin apre retre.", name: "Met ou nom.", phone: "Met enn nimero telefonn valab.", email: "Met enn adres email valab.", overlap: "Sa bann dat la fini pran — swazir enn lot peryod.", agree: "Aksepte bann kondision pou kontinie." },
-  }[language] ?? { vehicle: "Please choose a vehicle.", date: "Please choose your pickup date.", dates: "Return must be after pickup.", name: "Please enter your name.", phone: "Please enter a valid phone number.", email: "Please enter a valid email address.", overlap: "Those dates are already taken.", agree: "Please accept the terms." };
+  const ERR = r.err;
 
-  const STILL_NEEDED =
-    language === "fr" ? "Il reste à remplir :"
-    : language === "cr" ? "Ankor bizin :"
-    : "Still to do:";
+  /** Step 1 → 2: the vehicle and the dates must be right first. */
+  function toDetails() {
+    const fe: { vehicle?: boolean; date?: boolean } = {};
+    let firstId: string | null = null;
+    const msgs: string[] = [];
+    if (!form.scooter) { fe.vehicle = true; msgs.push(ERR.vehicle); firstId ??= "bk-vehicle"; }
+    if (!form.start_date || days <= 0) { fe.date = true; msgs.push(ERR.date); firstId ??= "bk-dates-label"; }
+    else if (hasOverlap) { fe.date = true; msgs.push(ERR.overlap); firstId ??= "bk-dates-label"; }
+    if (msgs.length) {
+      setFieldErr(fe);
+      setMissingSteps(msgs);
+      setSubmitError(msgs[0]);
+      if (firstId) document.getElementById(firstId)?.scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
+    setFieldErr({});
+    setMissingSteps([]);
+    setSubmitError(null);
+    setStep("details");
+    requestAnimationFrame(() => {
+      bodyRef.current?.scrollTo({ top: 0 });
+      document.getElementById("bk-name")?.focus({ preventScroll: true });
+    });
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    // Validate top-to-bottom; show the FIRST problem clearly + highlight its
-    // field, then scroll the form into view. No silent no-ops.
-    // ── EVERYTHING THAT IS STILL MISSING, AT ONCE ────────────────────────
-    // This used to keep only the FIRST problem. Somebody who had not filled
-    // three things was told about one, fixed it, pressed the button, and was
-    // told about the next — the form dripping out its requirements one at a
-    // time, which reads as the button being broken rather than as a list of
-    // things to do.
-    //
-    // The checks and their order are unchanged, and so is the field
-    // highlighting and the scroll: only the reporting is now complete.
+    if (step === "dates") {
+      toDetails();
+      return;
+    }
+    // ── EVERYTHING THAT IS STILL MISSING, AT ONCE, AND GO TO THE BOX ─────
+    // The checks are ordered the way the sheet reads, so "first error" is the
+    // one highest up; the first failing field is scrolled to and focused
+    // (M163) — focus opens the keyboard on a phone and is what a screen
+    // reader announces.
     const fe: { vehicle?: boolean; date?: boolean; name?: boolean; email?: boolean; phone?: boolean } = {};
     const missing: string[] = [];
     let firstError: string | null = null;
-    // ── TAKE THEM TO THE BOX, NOT TO THE TOP (M163) ─────────────────────
-    //
-    // The form always said what was missing, and then scrolled to its own
-    // first line. On a phone the offending field is often a screenful below
-    // that, so the customer read "Enter your phone number", found themselves
-    // looking at the vehicle picker, and had to hunt for the box.
-    //
-    // Every field already had a stable id for its label to point at, so the
-    // first failing check can name one and the form can go there and focus it.
-    // Focus rather than scroll alone: it opens the keyboard on a phone and it
-    // is what a screen reader announces.
     let firstFieldId: string | null = null;
     const flag = (
       cond: boolean,
@@ -470,11 +553,8 @@ export default function BookingSection({
       if (!firstFieldId && id) firstFieldId = id;
       if (field) fe[field] = true;
     };
-    // Ordered the way the form reads, so "first error" is the one highest up
-    // the page and the customer is never sent backwards.
     flag(!form.scooter, ERR.vehicle, "vehicle", "bk-vehicle");
-    flag(!form.start_date, ERR.date, "date", "bk-dates-label");
-    flag(!!form.start_date && days <= 0, ERR.dates, "date", "bk-dates-label");
+    flag(!form.start_date || days <= 0, ERR.date, "date", "bk-dates-label");
     flag(hasOverlap, ERR.overlap, "date", "bk-dates-label");
     flag(!form.name.trim(), ERR.name, "name", "bk-name");
     flag(!emailOk, ERR.email, "email", "bk-email");
@@ -486,21 +566,21 @@ export default function BookingSection({
       setMissingSteps(missing);
       setSubmitError(firstError);
       setAgreeError(!agreed);
-      const target = firstFieldId
-        ? document.getElementById(firstFieldId)
-        : null;
-      if (target) {
-        // `center`, not `start`: a sticky header would otherwise sit on top of
-        // the very field we just sent them to.
-        target.scrollIntoView({ behavior: "smooth", block: "center" });
-        // preventScroll — scrollIntoView above already owns the movement, and
-        // letting focus scroll as well makes the page jump twice.
-        if (typeof (target as HTMLElement).focus === "function") {
-          (target as HTMLElement).focus({ preventScroll: true });
+      // The vehicle and the dates live on step 1.
+      if (fe.vehicle || fe.date) setStep("dates");
+      requestAnimationFrame(() => {
+        const target = firstFieldId ? document.getElementById(firstFieldId) : null;
+        if (target) {
+          // `center`, not `start`: the sheet's header would otherwise sit on
+          // top of the very field we just sent them to.
+          target.scrollIntoView({ behavior: "smooth", block: "center" });
+          if (typeof (target as HTMLElement).focus === "function") {
+            (target as HTMLElement).focus({ preventScroll: true });
+          }
+        } else {
+          formTopRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
         }
-      } else {
-        formTopRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-      }
+      });
       return;
     }
     setFieldErr({});
@@ -512,6 +592,8 @@ export default function BookingSection({
       const res = await fetch("/api/bookings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        // The payload the API has always taken. The SERVER prices it again
+        // from the fleet — these figures are for the owner's alert only.
         body: JSON.stringify({
           name: form.name,
           email: form.email || null,
@@ -522,7 +604,7 @@ export default function BookingSection({
           pickup_time: form.pickup_time || null,
           return_time: form.return_time || null,
           days,
-          total_price: estimatedTotal || null,
+          total_price: totalLabel || null,
           total_amount: breakdown ? breakdown.total : null,
           delivery_fee: breakdown ? breakdown.delivery : null,
           message: form.message || null,
@@ -530,21 +612,12 @@ export default function BookingSection({
           payment_preference: form.payment_preference,
         }),
       });
-      // The server sends genuinely actionable refusals — "Those dates were just
-      // taken. Please pick another range.", "The pickup date has already
-      // passed.", "For rentals longer than 60 days, contact us on WhatsApp" —
-      // and every one of them used to be thrown away and replaced with
-      // "Something went wrong. Please try again", which then erased itself
-      // after 5 seconds. The one failure a customer can trivially recover from
-      // (pick different dates) was presented as an unexplained system fault at
-      // the final click.
+      // The server's refusals are actionable ("Those dates were just taken"),
+      // so they are shown, not replaced with "something went wrong".
       const resData = (await res.json().catch(() => ({}))) as {
         bookingId?: string; depositAmount?: number; error?: string;
       };
       if (!res.ok) throw new Error(resData.error || "");
-      // Capture a summary (the form is cleared next) for the WhatsApp confirm link
-      // and the deposit payment. Keep the deposit MUR from the breakdown before
-      // the form clears it.
       posthog.capture("scooter_booking_requested", {
         scooter_id: form.scooter,
         rental_days: days,
@@ -553,19 +626,15 @@ export default function BookingSection({
         payment_preference: form.payment_preference,
       });
       setLastBooking({
-        scooter: selectedScooter?.name ?? form.scooter,
+        scooter: selectedUnit?.label ?? selectedScooter?.name ?? form.scooter,
         range: fmtRange(form.start_date, effectiveEnd),
         days,
         name: form.name,
-        // Captured here, not read at render: setForm() below clears the form on
-        // success, so by the time the receipt uploader mounts, form.email is "".
         email: form.email,
-        total: estimatedTotal,
+        total: totalLabel,
         bookingId: resData.bookingId,
         deposit: breakdown?.deposit ?? resData.depositAmount ?? 0,
         totalMur: breakdown?.total,
-        // Carried so the receipt can show the arithmetic rather than a single
-        // figure the customer has to take on trust (M167).
         rate: breakdown ? Math.round(breakdown.rental / Math.max(1, days)) : undefined,
         rental: breakdown?.rental,
         delivery: breakdown?.delivery,
@@ -577,853 +646,617 @@ export default function BookingSection({
       setForm({ name: "", email: "", phone: "", scooter: "", start_date: "", end_date: "", pickup_time: "10:00", return_time: "10:00", message: "", partner_code: "", payment_preference: "online" });
       setShowPartnerCode(false);
       setAgreed(false);
-      // Note: no auto-reset here — the success card holds the deposit-payment
-      // button, which the customer needs time to use.
+      requestAnimationFrame(() => bodyRef.current?.scrollTo({ top: 0 }));
     } catch (err) {
-      // A specific, fixable reason goes in the inline slot right above the
-      // button (where the field errors already appear) and STAYS there — the
-      // customer has to be able to read it while editing. Only a genuinely
-      // unknown failure falls back to the generic banner.
       const message = err instanceof Error ? err.message : "";
-      if (message) {
-        setSubmitError(message);
-        setFormState("idle");
-        formTopRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-      } else {
-        setFormState("error");
-        setTimeout(() => setFormState("idle"), 5000);
-      }
+      setSubmitError(message || ERR.failed);
+      setFormState("idle");
+      requestAnimationFrame(() => document.getElementById("bk-error")?.scrollIntoView({ behavior: "smooth", block: "center" }));
     }
   }
 
-  // Rodrigues' calendar day, not the device's — a traveler booking from the
-  // Americas (or anyone after midnight) must not be offered the wrong "today".
+  // Rodrigues' calendar day, not the device's.
   const today = todayInRodrigues();
+  const wa = whatsapp
+    ? whatsappHref(whatsapp, `Hi Roule Rodrigues, I'd like to rent ${selectedUnit?.label ?? "a vehicle"}${form.start_date ? ` on ${fmtRange(form.start_date, effectiveEnd)}` : ""}.`)
+    : null;
+  const title = (selectedScooter?.category ?? category) === "car" ? r.cars : r.scooters;
+  const noun = isCar ? r.carNoun : r.scooterNoun;
+  const line = (label: React.ReactNode, value: React.ReactNode, strong = false, muted = false) => (
+    <div className={`flex items-baseline justify-between gap-4 py-2 ${strong ? "font-semibold text-offwhite" : muted ? "text-muted" : "text-offwhite/85"}`}>
+      <dt className="min-w-0">{label}</dt>
+      <dd className={`shrink-0 text-right tabular-nums ${strong ? "font-syne text-base font-bold" : ""}`}>{value}</dd>
+    </div>
+  );
 
-  return (
-    <section id="booking" className="bg-[#0a0a0a] py-24 md:py-36 overflow-x-hidden" aria-label={t.common.bookScooter}>
-      <div className="max-w-7xl mx-auto px-6">
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: "-80px" }}
-          transition={{ duration: 0.7 }}
-          className="rr-reveal mb-16"
-        >
-          <p className="font-bebas text-yellow text-xs tracking-[0.35em] mb-2">{t.booking.eyebrow}</p>
-          <h2
-            className="font-syne font-extrabold text-offwhite uppercase leading-[0.95]"
-            style={{ fontSize: "clamp(38px, 8vw, 80px)" }}
-          >
-            {t.booking.title}
-          </h2>
-          <p className="text-muted font-dm text-sm md:text-base mt-4 max-w-lg">
-            {t.booking.subtitle}
-          </p>
-        </motion.div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-12 lg:gap-16">
-          {/* Form */}
+  const sheet = (
+    <AnimatePresence>
+      {open && (
+        <div className="fixed inset-0 z-[100]" onKeyDown={onDialogKey}>
           <motion.div
-            className="rr-reveal lg:col-span-3"
-            initial={{ opacity: 0, x: -40 }}
-            whileInView={{ opacity: 1, x: 0 }}
-            viewport={{ once: true, margin: "-60px" }}
-            transition={{ duration: 0.8 }}
+            className="absolute inset-0 bg-black/70"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: calm ? 0 : 0.2 }}
+            onClick={closeSheet}
+            aria-hidden
+          />
+          <motion.div
+            ref={dialogRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="rr-sheet-title"
+            initial={calm ? { opacity: 0 } : { opacity: 0, y: 40 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={calm ? { opacity: 0 } : { opacity: 0, y: 40 }}
+            transition={{ duration: calm ? 0.12 : 0.28, ease: [0.22, 1, 0.36, 1] }}
+            className="absolute inset-x-0 bottom-0 flex h-[min(92dvh,860px)] flex-col overflow-hidden rounded-t-3xl border-t border-white/[0.12] bg-dark-card shadow-[0_-16px_44px_-12px_rgba(0,0,0,0.75)] md:inset-x-auto md:bottom-auto md:left-1/2 md:top-1/2 md:h-[min(88vh,820px)] md:w-[460px] md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-3xl md:border"
           >
-            {formState === "success" && (
-              <motion.div
-                ref={successRef}
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="mb-6 scroll-mt-24 rounded-xl border border-green-500/30 bg-green-500/[0.07] px-5 py-6"
-              >
-                {/* Premium confirmation first — payment lives behind a button so it
-                    never overwhelms the moment the request is acknowledged. */}
+            {/* ── Header ─────────────────────────────────────────────── */}
+            <div className="shrink-0 border-b border-white/[0.08] px-2 pb-1 pt-2">
+              <div aria-hidden className="mx-auto mb-1 h-1 w-10 rounded-full bg-white/20 md:hidden" />
+              <div className="flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={() => (formState !== "success" && step === "details" ? setStep("dates") : closeSheet())}
+                  aria-label={r.back}
+                  className="flex h-11 w-11 items-center justify-center rounded-full text-offwhite/80 transition-colors hover:bg-white/[0.06]"
+                >
+                  <ChevronLeft size={20} aria-hidden />
+                </button>
+                <p id="rr-sheet-title" className="font-syne text-base font-bold text-offwhite">
+                  {formState === "success" ? r.datesHeld : step === "details" ? r.yourDetails : title}
+                </p>
+                <button
+                  type="button"
+                  onClick={closeSheet}
+                  aria-label={r.close}
+                  data-autofocus
+                  className="flex h-11 w-11 items-center justify-center rounded-full text-offwhite/80 transition-colors hover:bg-white/[0.06]"
+                >
+                  <X size={20} aria-hidden />
+                </button>
+              </div>
+            </div>
+
+            {formState === "success" ? (
+              <div ref={bodyRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-5">
                 <div className="text-center">
                   <SuccessBurst />
-                  <p className="mt-4 font-syne font-extrabold text-offwhite text-lg">
-                    {depositPaid
-                      ? language === "fr" ? "Acompte payé — confirmé !" : language === "cr" ? "Depo peye — konfirmen!" : "Deposit paid — booking confirmed!"
-                      : t.booking.successTitle}
-                  </p>
-                  <p className="mt-1 font-dm text-muted text-sm">
-                    {depositPaid
-                      ? language === "fr" ? "À très bientôt — nous vous contactons avec les détails." : language === "cr" ? "Nou trouv ou byento — nou pou kontakte ou." : "See you soon — we'll be in touch with the details."
-                      : lastBooking?.inPerson
-                        ? t.booking.successDescInPerson
-                        : t.booking.successDesc}
+                  <p className="mt-4 font-syne text-lg font-extrabold text-offwhite">{depositPaid ? r.paidTitle : r.datesHeld}</p>
+                  <p className="mt-1 font-dm text-sm text-muted">
+                    {depositPaid ? r.paidBody : lastBooking?.inPerson ? r.datesHeldCash : r.datesHeldBody}
                   </p>
                 </div>
-
                 <div className="mt-5">
-                  {/* M220: a cash request has no Deposit step to show. Its
-                      steps are the ones /manage-booking will tick if the owner
-                      confirms it as paid in person. */}
                   <BookingTimeline
                     completed={depositPaid ? 3 : 1}
                     labels={lastBooking?.inPerson && !depositPaid ? t.manageBooking.timelineInPersonVehicle : undefined}
                   />
                 </div>
-
-                {/* ── M91: what happens next, instead of a payment button ──
-                    The owner rents vehicles he does not all own, so a booking
-                    confirmed on the spot can turn into a refund when the
-                    partner turns out to be busy. A refund costs the PayPal fee,
-                    the exchange spread and the customer's trust, so the check
-                    now comes first and NOTHING is charged until it passes.
-                    Saying that plainly here is the whole point: "we'll be right
-                    back" with no explanation reads as a site that failed. */}
                 {!depositPaid && (
-                  <div className="mt-5 rounded-xl border border-white/10 bg-white/[0.03] p-4 text-left">
-                    <p className="font-bebas text-[10px] tracking-[0.25em] text-yellow">
-                      {t.booking.checkingTitle}
-                    </p>
+                  <div className="mt-5 rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-left">
+                    <p className="font-bebas text-[10px] tracking-[0.25em] text-yellow">{t.booking.checkingTitle}</p>
                     <ol className="mt-2.5 space-y-2">
                       {[
                         t.booking.checkingStep1,
                         t.booking.checkingStep2,
                         lastBooking?.inPerson ? t.booking.checkingStep3InPerson : t.booking.checkingStep3,
-                      ].map((step, i) => (
+                      ].map((s, i) => (
                         <li key={i} className="flex gap-2.5 font-dm text-xs leading-relaxed text-offwhite/80">
                           <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-yellow/15 font-syne text-[10px] font-bold text-yellow">
                             {i + 1}
                           </span>
-                          {step}
+                          {s}
                         </li>
                       ))}
                     </ol>
-                    <p className="mt-3 font-dm text-[11px] leading-relaxed text-muted/70">
-                      {t.booking.checkingNote}
-                    </p>
+                    <p className="mt-3 font-dm text-[11px] leading-relaxed text-muted">{t.booking.checkingNote}</p>
                   </div>
                 )}
-
-                {/* ── PAY NOW, OR WAIT — BOTH ARE REAL (M161) ─────────────────
-                    M91 removed the payment sheet from this screen because the
-                    owner rents vehicles he does not all own: a booking taken on
-                    the spot can become a refund that costs the PayPal fee, the
-                    exchange spread and the customer's trust. That reasoning
-                    still holds, and the check above is still offered first and
-                    costs nothing.
-
-                    What it did not account for is the rule the platform has
-                    always run on — first deposit paid keeps the vehicle. A
-                    customer who wants certainty had no way to get it, and
-                    could lose their dates while waiting for a check they never
-                    asked for.
-
-                    So both paths exist and the copy is honest about each: wait
-                    and pay nothing, or pay now and hold it. The refund promise
-                    is stated in the same breath as the button, because it is
-                    the thing that makes the second path fair — and it is the
-                    owner's exposure, not the customer's.
-
-                    Not for a customer who asked to pay in cash (M220): a pay
-                    button straight after "how would you like to pay? — in
-                    person" contradicts the answer they just gave. */}
+                {/* ── PAY NOW, OR WAIT — BOTH ARE REAL (M161) ───────────────
+                    The check above costs nothing and comes first; a customer
+                    who wants certainty can pay the amount due now and hold the
+                    vehicle (first paid keeps it), with the refund promise in
+                    the same breath. Not for a customer who asked to pay in
+                    cash (M220). */}
                 {!depositPaid && lastBooking?.bookingId && (lastBooking.deposit ?? 0) > 0 && !lastBooking.inPerson && (
                   <>
-                  <div className="mt-4 rounded-xl border border-yellow/25 bg-yellow/[0.04] p-4 text-left">
-                    <p className="font-bebas text-[10px] tracking-[0.25em] text-yellow">
-                      {t.booking.secureNowTitle}
-                    </p>
-                    <p className="mt-2 font-dm text-xs leading-relaxed text-offwhite/80">
-                      {t.booking.secureNowBody}
-                    </p>
-                    <p className="mt-2 font-dm text-[11px] leading-relaxed text-muted/70">
-                      {t.booking.secureNowRefund}
-                    </p>
-                    <div className="mt-3.5">
-                      <PayPalDeposit
-                        bookingId={lastBooking.bookingId}
-                        depositMur={lastBooking.deposit ?? 0}
-                        fullMur={lastBooking.totalMur}
-                        kind="vehicle"
-                        onPaid={() => setDepositPaid(true)}
-                        onFailedChange={setPayPalFailed}
-                      />
+                    <div className="mt-4 rounded-2xl border border-yellow/25 bg-yellow/[0.04] p-4 text-left">
+                      <p className="font-bebas text-[10px] tracking-[0.25em] text-yellow">{t.booking.secureNowTitle}</p>
+                      <p className="mt-2 font-dm text-xs leading-relaxed text-offwhite/80">{t.booking.secureNowBody}</p>
+                      <p className="mt-2 font-dm text-[11px] leading-relaxed text-muted">{t.booking.secureNowRefund}</p>
+                      <div className="mt-3.5">
+                        <PayPalDeposit
+                          bookingId={lastBooking.bookingId}
+                          depositMur={lastBooking.deposit ?? 0}
+                          fullMur={lastBooking.totalMur}
+                          kind="vehicle"
+                          onPaid={() => setDepositPaid(true)}
+                          onFailedChange={setPayPalFailed}
+                        />
+                      </div>
                     </div>
-                  </div>
-                  {/* Straight under the only pay button on this screen, and only
-                      while it is offered. PayPal is the one method here, so a
-                      customer without it asks "how else can I pay?" — hence
-                      that topic first. The id becomes the RR-XXXXXX printed on
-                      the receipt; the deposit is in RUPEES (bookings) and is
-                      formatted exactly as that receipt formats it. */}
-                  <PaymentHelp
-                    section="rental"
-                    reference={lastBooking.bookingId}
-                    amount={`Rs ${(lastBooking.deposit ?? 0).toLocaleString()}`}
-                    method={payPalFailed ? "paypal" : null}
-                    defaultTopic="how_to_pay"
-                    emphasis={payPalFailed}
-                    className="mt-4"
-                  />
+                    {/* Under the only pay button, and only while it is
+                        offered. The deposit is in RUPEES (bookings). */}
+                    <PaymentHelp
+                      section="rental"
+                      reference={lastBooking.bookingId}
+                      amount={`Rs ${(lastBooking.deposit ?? 0).toLocaleString()}`}
+                      method={payPalFailed ? "paypal" : null}
+                      defaultTopic="how_to_pay"
+                      emphasis={payPalFailed}
+                      className="mt-4"
+                    />
                   </>
                 )}
-
                 <div className="mt-6 flex flex-col gap-2.5">
                   <button
                     type="button"
                     onClick={downloadReceipt}
-                    className="w-full flex items-center justify-center gap-2 border border-white/15 text-offwhite/80 font-syne font-bold text-sm py-3 rounded-xl hover:border-yellow/40 hover:text-yellow transition-colors"
+                    className="flex min-h-12 w-full items-center justify-center gap-2 rounded-full border border-white/15 font-syne text-sm font-bold text-offwhite/85 transition-colors hover:border-yellow/40 hover:text-yellow"
                   >
-                    <Download size={15} /> {t.common.downloadReceipt}
+                    <Download size={15} aria-hidden /> {r.receipt}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={closeSheet}
+                    className="min-h-12 w-full rounded-full font-dm text-sm text-muted transition-colors hover:text-offwhite"
+                  >
+                    {r.done}
                   </button>
                 </div>
-              </motion.div>
-            )}
-
-            {/* M91: the secure-payment sheet that used to live here is gone.
-                Payment no longer happens at request time — the owner checks
-                the vehicle with its partner first, and the pay step moves to
-                /manage-booking once he has approved it. Leaving a dormant
-                PayPal sheet behind would be a second, unreachable payment
-                path that nobody maintains. */}
-
-            {formState === "error" && (
-              <motion.div
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="mb-6 flex items-start gap-3 bg-red-500/10 border border-red-500/30 rounded-xl px-5 py-4"
+              </div>
+            ) : (
+              <form
+                id="rr-booking-form"
+                ref={formTopRef}
+                onSubmit={handleSubmit}
+                noValidate
+                className="flex min-h-0 flex-1 flex-col"
               >
-                <AlertCircle size={18} className="text-red-400 shrink-0 mt-0.5" />
-                <div>
-                  <p className="font-syne font-bold text-red-400 text-sm">{t.booking.errorTitle}</p>
-                  <p className="font-dm text-red-400/70 text-xs mt-0.5">{t.booking.errorDesc}</p>
-                </div>
-              </motion.div>
-            )}
+                <div ref={bodyRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-6 pt-4">
+                  {step === "dates" ? (
+                    <>
+                      {desiredDays && (
+                        <p className="mb-3 rounded-xl border border-yellow/25 bg-yellow/[0.06] px-3.5 py-2.5 font-dm text-xs text-offwhite/85">
+                          {r.tripPrefill(desiredDays)}
+                        </p>
+                      )}
+                      {referredBy && (
+                        <p className="mb-3 flex items-center gap-2 font-dm text-xs text-offwhite/70">
+                          <BadgeCheck size={14} className="shrink-0 text-yellow" aria-hidden /> {r.referredBy(referredBy)}
+                        </p>
+                      )}
 
-            {/* The form disappears once the request is sent — the confirmation
-                (with the Pay-deposit button) replaces it, so payment never sits
-                below a now-irrelevant calendar. */}
-            {/* The id lets the portal'd mobile bar submit this form from
-                outside its DOM subtree: a button carrying form="rr-booking-form"
-                is the native way to do it, with no extra handler or ref. */}
-            {formState !== "success" && (
-            <form id="rr-booking-form" ref={formTopRef} onSubmit={handleSubmit} className="space-y-5" noValidate>
-              {/* Trip Planner pre-fill banner */}
-              {desiredDays && (
-                <motion.div
-                  initial={{ opacity: 0, y: -8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="flex items-center gap-2.5 bg-yellow/10 border border-yellow/30 rounded-xl px-4 py-3"
-                >
-                  <Sparkles size={15} className="text-yellow shrink-0" />
-                  <p className="font-dm text-yellow text-xs leading-snug">
-                    {t.booking.tripPrefill(desiredDays)}
-                  </p>
-                </motion.div>
-              )}
-
-              {/* Referral attribution banner */}
-              {referredBy && (
-                <motion.div
-                  initial={{ opacity: 0, y: -8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="flex items-center gap-2.5 bg-green-500/10 border border-green-500/30 rounded-xl px-4 py-3"
-                >
-                  <BadgeCheck size={15} className="text-green-400 shrink-0" />
-                  <p className="font-dm text-green-400 text-xs leading-snug">
-                    {t.booking.referredBy(referredBy)}
-                  </p>
-                </motion.div>
-              )}
-
-              {/* Scooter */}
-              <div>
-                <label htmlFor="bk-vehicle" className="font-bebas text-muted text-[10px] tracking-[0.25em] block mb-2">
-                  {t.booking.scooterLabel} <span className="text-yellow">*</span>
-                </label>
-                <select
-                  id="bk-vehicle"
-                  value={form.scooter}
-                  onChange={(e) => { setForm({ ...form, scooter: e.target.value }); setFieldErr((p) => ({ ...p, vehicle: false })); setSubmitError(null); }}
-                  className={`${inputCls} appearance-none${fieldErr.vehicle ? " !border-red-500/70" : ""}`}
-                  disabled={formState === "loading"}
-                  required
-                >
-                  <option value="">{t.booking.scooterPlaceholder}</option>
-                  {scooters.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name} — {convert(fleetPrice(language, s.price))}
-                      {/* Says it, rather than hiding the row. The wording is
-                          the one the card and the strip already use, in all
-                          three languages — a new string here would be a
-                          fourth way of saying the same thing. */}
-                      {s.soldOutToday ? ` · ${t.fleet.bookedToday}` : ""}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Dates — visual availability calendar */}
-              <div>
-                {/* A <label> can only name a form control, and the calendar is
-                    a group of buttons — so this named nothing. Exposed as a
-                    labelled group instead, which is what it actually is. */}
-                <span
-                  id="bk-dates-label"
-                  className="font-bebas text-muted text-[10px] tracking-[0.25em] flex items-center gap-1.5 mb-2"
-                >
-                  <CalendarDays size={12} className="text-yellow" />
-                  {t.booking.datesLabel} <span className="text-yellow">*</span>
-                </span>
-                <div
-                  role="group"
-                  aria-labelledby="bk-dates-label"
-                  className={fieldErr.date ? "rounded-2xl ring-1 ring-red-500/60" : ""}
-                >
-                <AvailabilityCalendar
-                  startDate={form.start_date}
-                  endDate={form.end_date}
-                  minDate={today}
-                  bookedRanges={bookedRanges}
-                  capacity={capacity}
-                  onChange={(start, end) => {
-                    setForm((f) => ({ ...f, start_date: start, end_date: end }));
-                    setDesiredDays(null); // visual pick = manual control
-                    setFieldErr((p) => ({ ...p, date: false }));
-                    setSubmitError(null);
-                  }}
-                  labels={{
-                    booked: t.booking.calBooked,
-                    available: t.booking.calAvailable,
-                    selected: t.booking.calSelected,
-                    hint: t.booking.calHint,
-                  }}
-                />
-                </div>
-                {/* Selected range readout */}
-                {form.start_date && (
-                  <div className="flex items-center gap-2 mt-3 text-sm font-dm">
-                    <span className="text-offwhite font-medium">{fmtRange(form.start_date, effectiveEnd)}</span>
-                    {days > 0 && <span className="text-yellow">· {t.booking.days(days)}</span>}
-                  </div>
-                )}
-                <p className="text-muted/40 font-dm text-[11px] mt-1.5">
-                  {t.common.tapOneDay}
-                </p>
-              </div>
-
-              {/* Pickup & return times */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label htmlFor="bk-pickup-time" className="font-bebas text-muted text-[10px] tracking-[0.25em] flex items-center gap-1.5 mb-2">
-                    <Clock size={12} className="text-yellow" /> {t.booking.pickupLabel} time
-                  </label>
-                  <select
-                    id="bk-pickup-time"
-                    value={form.pickup_time}
-                    onChange={(e) => setForm({ ...form, pickup_time: e.target.value })}
-                    className={`${inputCls} appearance-none`}
-                    disabled={formState === "loading"}
-                  >
-                    {TIME_SLOTS.map((s) => (
-                      <option key={s.value} value={s.value}>{s.label}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label htmlFor="bk-return-time" className="font-bebas text-muted text-[10px] tracking-[0.25em] flex items-center gap-1.5 mb-2">
-                    <Clock size={12} className="text-yellow" /> {t.booking.returnLabel} time
-                  </label>
-                  <select
-                    id="bk-return-time"
-                    value={form.return_time}
-                    onChange={(e) => setForm({ ...form, return_time: e.target.value })}
-                    className={`${inputCls} appearance-none`}
-                    disabled={formState === "loading"}
-                  >
-                    {TIME_SLOTS.map((s) => (
-                      <option key={s.value} value={s.value}>{s.label}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              {/* Name + Email */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label htmlFor="bk-name" className="font-bebas text-muted text-[10px] tracking-[0.25em] block mb-2">
-                    {t.booking.nameLabel} <span className="text-yellow">*</span>
-                  </label>
-                  <div className="relative">
-                    <User size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted/50" />
-                    <input
-                      id="bk-name"
-                      type="text"
-                      // WCAG 1.3.5: no field on this form declared its purpose,
-                      // so nothing could autofill a booking.
-                      autoComplete="name"
-                      placeholder={t.booking.namePlaceholder}
-                      value={form.name}
-                      onChange={(e) => { setForm({ ...form, name: e.target.value }); setFieldErr((p) => ({ ...p, name: false })); }}
-                      aria-invalid={fieldErr.name || undefined}
-                      className={`${inputCls} pl-10${fieldErr.name ? " !border-red-500/70" : ""}`}
-                      disabled={formState === "loading"}
-                      required
-                    />
-                  </div>
-                </div>
-                <div>
-                  <label htmlFor="bk-email" className="font-bebas text-muted text-[10px] tracking-[0.25em] block mb-2">
-                    {t.booking.emailLabel} <span className="text-yellow">*</span>
-                  </label>
-                  <div className="relative">
-                    <Mail size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted/50" />
-                    <input
-                      id="bk-email"
-                      type="email"
-                      autoComplete="email"
-                      // The label carries a visual "*" that a screen reader
-                      // does not read as "required".
-                      aria-required
-                      // emailInvalid is "you typed something that is not an
-                      // email". fieldErr.email is "you tried to submit without
-                      // one" — an EMPTY required field looked perfectly fine
-                      // until now, which is the commonest way to fail this form.
-                      aria-invalid={emailInvalid || fieldErr.email || undefined}
-                      placeholder="your@email.com"
-                      value={form.email}
-                      onChange={(e) => { setForm({ ...form, email: e.target.value }); setFieldErr((p) => ({ ...p, email: false })); }}
-                      className={`${inputCls} pl-10${emailInvalid || fieldErr.email ? " !border-red-500/60" : ""}`}
-                      disabled={formState === "loading"}
-                    />
-                  </div>
-                  {emailInvalid && <p className="text-red-400 font-dm text-[11px] mt-1.5">{t.common.validEmail}</p>}
-                </div>
-              </div>
-
-              {/* Phone — with international country-code picker */}
-              <div>
-                <label htmlFor="bk-phone" className="font-bebas text-muted text-[10px] tracking-[0.25em] block mb-2">
-                  {t.booking.phoneLabel} <span className="text-yellow">*</span>
-                </label>
-                <PhoneInput
-                  // This label used to point at nothing, so the field had no
-                  // accessible name whatsoever — an unlabelled edit box in the
-                  // middle of a booking form.
-                  id="bk-phone"
-                  value={form.phone}
-                  onChange={(full) => { setForm((f) => ({ ...f, phone: full })); setFieldErr((p) => ({ ...p, phone: false })); }}
-                  disabled={formState === "loading"}
-                  placeholder={t.booking.phonePlaceholder}
-                  inputClassName={`${inputCls} pl-10${fieldErr.phone ? " !border-red-500/70" : ""}`}
-                />
-              </div>
-
-              {/* Message */}
-              <div>
-                <label htmlFor="bk-message" className="font-bebas text-muted text-[10px] tracking-[0.25em] block mb-2">
-                  {t.booking.messageLabel}
-                </label>
-                <div className="relative">
-                  <MessageSquare size={14} className="absolute left-4 top-4 text-muted/50" />
-                  <textarea
-                    id="bk-message"
-                    rows={3}
-                    placeholder={
-                      // "extra helmet" above a CAR booking button reads as a
-                      // form built for something else — the same mistake the
-                      // helmet FAQ row was making on this page.
-                      category && category !== "scooter"
-                        ? t.booking.messagePlaceholderCar
-                        : t.booking.messagePlaceholder
-                    }
-                    value={form.message}
-                    onChange={(e) => setForm({ ...form, message: e.target.value })}
-                    className={`${inputCls} pl-10 resize-none`}
-                    disabled={formState === "loading"}
-                  />
-                </div>
-              </div>
-
-              {/* Partner / Hotel code */}
-              <div>
-                <button
-                  type="button"
-                  onClick={() => setShowPartnerCode((v) => !v)}
-                  className="text-xs font-dm text-muted/50 hover:text-yellow transition-colors flex items-center gap-1.5"
-                >
-                  {showPartnerCode ? "▾" : "▸"} {t.booking.partnerPrompt}
-                </button>
-                {showPartnerCode && (
-                  <div className="mt-3">
-                    <label htmlFor="bk-partner" className="font-bebas text-muted text-[10px] tracking-[0.25em] block mb-2">
-                      {t.booking.partnerLabel}
-                    </label>
-                    <input
-                      id="bk-partner"
-                      type="text"
-                      placeholder={t.booking.partnerPlaceholder}
-                      value={form.partner_code}
-                      onChange={(e) => setForm({ ...form, partner_code: e.target.value.toUpperCase() })}
-                      className={inputCls}
-                      disabled={formState === "loading"}
-                      maxLength={30}
-                    />
-                    <p className="text-muted/40 font-dm text-xs mt-1.5">{t.booking.partnerHint}</p>
-                  </div>
-                )}
-              </div>
-
-              {/* ── HOW WOULD YOU LIKE TO PAY? (M220) ─────────────────────
-                  The owner: "people tend to pay on cash by hand". The form only
-                  ever described paying a deposit online, so a cash customer
-                  either went to WhatsApp or sent a request that promised a
-                  payment they never meant to make. This records what they say;
-                  the owner still decides (confirm as paid in person, or ask
-                  for the deposit). Online stays the default and its flow is
-                  unchanged. Radios, not buttons, so it is one named group. */}
-              <fieldset disabled={formState === "loading"}>
-                <legend className="font-bebas text-muted text-[10px] tracking-[0.25em] block mb-2">
-                  {t.booking.payChoiceLabel}
-                </legend>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                  {([
-                    ["online", t.booking.payChoiceOnline],
-                    ["in_person", t.booking.payChoiceInPerson],
-                  ] as const).map(([value, label]) => {
-                    const active = form.payment_preference === value;
-                    return (
-                      <label
-                        key={value}
-                        className={`flex min-h-[44px] cursor-pointer items-center gap-2.5 rounded-xl border px-4 py-3 font-dm text-sm transition-colors ${
-                          active
-                            ? "border-yellow bg-yellow/10 text-offwhite"
-                            : "border-dark-border bg-dark-card text-muted hover:border-yellow/40"
+                      {/* ── Vehicle: full name, one meta line, one price ── */}
+                      <button
+                        type="button"
+                        id="bk-vehicle"
+                        onClick={() => setPickingVehicle((v) => !v)}
+                        aria-expanded={pickingVehicle}
+                        aria-controls="bk-vehicle-list"
+                        className={`flex w-full items-center gap-3 rounded-2xl border px-4 py-3 text-left transition-colors ${
+                          fieldErr.vehicle ? "border-red-500/70" : "border-white/[0.12] hover:border-white/25"
                         }`}
                       >
-                        <input
-                          type="radio"
-                          name="bk-payment-preference"
-                          value={value}
-                          checked={active}
-                          onChange={() => setForm((f) => ({ ...f, payment_preference: value }))}
-                          className="h-4 w-4 shrink-0 accent-yellow"
-                        />
-                        {label}
-                      </label>
-                    );
-                  })}
-                </div>
-                {payInPersonChosen && (
-                  <p className="text-muted/60 font-dm text-[11px] mt-1.5">{t.booking.payChoiceInPersonHint}</p>
-                )}
-              </fieldset>
-
-              {/* Terms acceptance — required before booking */}
-              <label className="flex items-start gap-2.5 cursor-pointer select-none">
-                <input
-                  id="bk-agree"
-                  type="checkbox"
-                  checked={agreed}
-                  onChange={(e) => { setAgreed(e.target.checked); if (e.target.checked) setAgreeError(false); }}
-                  className="mt-0.5 w-4 h-4 accent-yellow shrink-0"
-                  disabled={formState === "loading"}
-                />
-                <span className={`font-dm text-xs leading-snug ${agreeError ? "text-red-400" : "text-muted"}`}>
-                  {t.booking.agreeBefore}{" "}
-                  <Link href="/legal/terms" target="_blank" className="text-yellow hover:underline">
-                    {t.booking.agreeLink}
-                  </Link>
-                  .
-                </span>
-              </label>
-              {agreeError && <p className="text-red-400 font-dm text-xs -mt-2">{t.booking.agreeError}</p>}
-
-              {/* First unmet requirement, shown in plain language. The button
-                  stays clickable (only loading/success disable it) so a tap
-                  always tells the customer what to fix — never a dead button. */}
-              {/* One problem reads as a sentence, as it always did. TWO OR MORE
-                  read as a list, because "please enter your name" on its own,
-                  when the date and the terms are also outstanding, is not the
-                  truth about what is left to do. Same red, same icon, same
-                  place — only the shape changes with the number of things. */}
-              {submitError && missingSteps.length > 1 ? (
-                <div className="flex items-start gap-2 text-red-400 font-dm text-sm -mb-1" role="alert">
-                  <AlertCircle size={15} className="shrink-0 mt-0.5" />
-                  <div>
-                    <p className="font-semibold">{STILL_NEEDED}</p>
-                    <ul className="mt-1 list-disc space-y-0.5 pl-4">
-                      {missingSteps.map((m) => (
-                        <li key={m}>{m}</li>
-                      ))}
-                    </ul>
-                  </div>
-                </div>
-              ) : submitError ? (
-                <p className="flex items-start gap-2 text-red-400 font-dm text-sm -mb-1" role="alert">
-                  <AlertCircle size={15} className="shrink-0 mt-0.5" /> {submitError}
-                </p>
-              ) : null}
-              <button
-                type="submit"
-                disabled={formState === "loading"}
-                className="w-full flex items-center justify-center gap-2.5 bg-yellow text-dark font-syne font-bold text-base py-4 rounded-xl hover:bg-yellow-dark transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-              >
-                {formState === "loading" ? (
-                  <><Loader2 size={16} className="animate-spin" /> {t.booking.sending}</>
-                ) : (
-                  <>{t.booking.submit} <Send size={16} /></>
-                )}
-              </button>
-
-            </form>
-            )}
-          </motion.div>
-
-          {/* Summary panel */}
-          <motion.div
-            className="rr-reveal lg:col-span-2"
-            initial={{ opacity: 0, x: 40 }}
-            whileInView={{ opacity: 1, x: 0 }}
-            viewport={{ once: true, margin: "-60px" }}
-            transition={{ duration: 0.8, delay: 0.1 }}
-          >
-            <div className="sticky top-24 space-y-5">
-              {/* Booking summary */}
-              <div className="bg-dark-card border border-dark-border rounded-2xl p-6">
-                <p className="font-bebas text-yellow text-[10px] tracking-[0.3em] mb-4">{t.booking.summaryTitle}</p>
-                <dl className="space-y-3">
-                  <div className="flex justify-between items-start">
-                    <dt className="text-muted font-dm text-xs">{t.booking.summaryScooter}</dt>
-                    <dd className="text-offwhite font-dm text-xs text-right font-medium">
-                      {selectedScooter ? selectedScooter.name : "—"}
-                    </dd>
-                  </div>
-                  <div className="flex justify-between items-start">
-                    <dt className="text-muted font-dm text-xs">{t.booking.summaryPickup}</dt>
-                    <dd className="text-offwhite font-dm text-xs text-right">
-                      {form.start_date
-                        ? <>{new Date(form.start_date).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}<span className="text-yellow ml-1">· {timeLabel(form.pickup_time)}</span></>
-                        : "—"}
-                    </dd>
-                  </div>
-                  <div className="flex justify-between items-start">
-                    <dt className="text-muted font-dm text-xs">{t.booking.summaryReturn}</dt>
-                    <dd className="text-offwhite font-dm text-xs text-right">
-                      {effectiveEnd
-                        ? <>{new Date(effectiveEnd).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}<span className="text-yellow ml-1">· {timeLabel(form.return_time)}</span></>
-                        : "—"}
-                    </dd>
-                  </div>
-                  <div className="flex justify-between items-start">
-                    <dt className="text-muted font-dm text-xs">{t.booking.summaryDuration}</dt>
-                    <dd className="text-offwhite font-dm text-xs">
-                      {days > 0 ? t.booking.days(days) : "—"}
-                    </dd>
-                  </div>
-                  {breakdown && (
-                    <>
-                      <div className="border-t border-dark-border pt-3 flex justify-between items-start">
-                        <dt className="text-muted font-dm text-xs">{t.booking.summaryRental}</dt>
-                        <dd className="text-offwhite font-dm text-xs">{convert(`Rs ${breakdown.rental.toLocaleString()}`)}</dd>
-                      </div>
-                      <div className="flex justify-between items-start">
-                        <dt className="text-muted font-dm text-xs">
-                          {t.booking.summaryDelivery}
-                          <span className="block text-muted/60 text-[10px]">{t.booking.deliveryNote}</span>
-                        </dt>
-                        <dd className="font-dm text-xs">
-                          {breakdown.delivery > 0 ? (
-                            <span className="text-offwhite">{convert(`Rs ${breakdown.delivery.toLocaleString()}`)}</span>
-                          ) : (
-                            <span className="text-green-400">{t.booking.deliveryFree}</span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block font-dm text-[11px] text-muted">{r.vehicle}</span>
+                          <span className="block font-syne text-[15px] font-bold leading-snug text-offwhite">
+                            {selectedUnit?.label ?? t.booking.scooterPlaceholder}
+                          </span>
+                          {selectedScooter && (
+                            <span className="block font-dm text-xs text-muted">
+                              {(selectedScooter.specs ?? []).slice(0, 3).map((s) => fleetTerm(language, s)).join(" · ")}
+                            </span>
                           )}
-                        </dd>
-                      </div>
-                      <div className="border-t border-dark-border pt-3 flex justify-between items-center">
-                        <dt className="text-muted font-dm text-xs">{t.booking.summaryTotal}</dt>
-                        <dd className="text-yellow font-syne font-bold text-base">{convert(estimatedTotal)}</dd>
-                      </div>
-                      {/* Deposit model: pay a % to confirm, balance at pickup.
-                          M220: not once the customer has said they will pay in
-                          cash — "Deposit to confirm" would then be a promise
-                          nobody made. The choice is shown instead, beside the
-                          whole figure, because that is what they are offering. */}
-                      {payInPersonChosen ? (
-                        <div className="flex justify-between items-start gap-3">
-                          <dt className="text-muted font-dm text-xs">{t.booking.payChoiceInPerson}</dt>
-                          <dd className="text-offwhite font-syne font-bold text-xs">{convert(estimatedTotal)}</dd>
-                        </div>
-                      ) : (
-                      <>
-                      <div className="flex justify-between items-start">
-                        <dt className="text-muted font-dm text-xs">
-                          {t.booking.depositToConfirm(breakdown.pct)}
-                        </dt>
-                        <dd className="text-offwhite font-syne font-bold text-xs">
-                          {convert(`Rs ${breakdown.deposit.toLocaleString()}`)}
-                        </dd>
-                      </div>
-                      <div className="flex justify-between items-start">
-                        <dt className="text-muted/70 font-dm text-[11px]">{t.booking.balanceAtPickup}</dt>
-                        <dd className="text-muted font-dm text-[11px]">
-                          {convert(`Rs ${breakdown.balance.toLocaleString()}`)}
-                        </dd>
-                      </div>
-                      </>
-                      )}
-                      {/* The cancellation terms, at the moment money is asked
-                          for — they used to appear NOWHERE in the booking flow.
+                        </span>
+                        {selectedScooter && (
+                          <span className="shrink-0 text-right font-dm text-sm tabular-nums text-offwhite">
+                            {convert(rs(vehicleDayRate(selectedScooter)))}
+                            <span className="block text-[11px] text-muted">{r.perDay}</span>
+                          </span>
+                        )}
+                        <ChevronDown size={16} aria-hidden className={`shrink-0 text-muted transition-transform ${pickingVehicle ? "rotate-180" : ""}`} />
+                      </button>
 
-                          This line said "Free cancellation up to 48h before
-                          pickup", which the refund policy did not support even
-                          then and certainly does not now: outside 48 hours the
-                          refund is 80% OF THE DEPOSIT — the only part paid in
-                          advance — with 20% retained for administration.
-                          A cancellation promise shown at the point of payment
-                          is the one a customer relies on, so it states the fee
-                          rather than implying there is none. The 100%-if-we-
-                          cancel promise is separate and still holds. */}
-                      <div className="flex items-start gap-2 border-t border-dark-border pt-3">
-                        <ShieldCheck size={13} className="mt-0.5 shrink-0 text-green-400" />
-                        <p className="font-dm text-[11px] leading-snug text-muted">
+                      {pickingVehicle && (
+                        <ul id="bk-vehicle-list" role="listbox" aria-label={r.vehicle} className="mt-2 divide-y divide-white/[0.06] rounded-2xl border border-white/[0.12]">
+                          {units.map((u) => {
+                            const s = u.item;
+                            const on = u.key === (selectedUnit?.key ?? "");
+                            return (
+                              <li key={u.key} role="option" aria-selected={on}>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setForm((f) => ({ ...f, scooter: s.id }));
+                                    setUnitKey(u.key);
+                                    setPickingVehicle(false);
+                                    setFieldErr((p) => ({ ...p, vehicle: false }));
+                                    setSubmitError(null);
+                                  }}
+                                  className="flex min-h-14 w-full items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-white/[0.04]"
+                                >
+                                  <span className="min-w-0 flex-1">
+                                    <span className="block font-dm text-[15px] text-offwhite">{u.label}</span>
+                                    {/* Says it, rather than hiding the row: out
+                                        today is still bookable for other dates. */}
+                                    {s.soldOutToday ? <span className="block font-dm text-xs text-amber-300">{r.outToday}</span> : null}
+                                  </span>
+                                  <span className="shrink-0 font-dm text-sm tabular-nums text-offwhite/85">
+                                    {convert(rs(vehicleDayRate(s)))} <span className="text-muted">{r.perDay}</span>
+                                  </span>
+                                  {on && <Check size={16} className="shrink-0 text-yellow" aria-hidden />}
+                                </button>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      )}
+
+                      {/* ── Dates ── */}
+                      {/* min-h-11: the row is as tall before the first tap as
+                          after it, when the 44px Clear target appears. */}
+                      <div className="mt-6 flex min-h-11 items-center justify-between">
+                        <span id="bk-dates-label" tabIndex={-1} className="font-syne text-[15px] font-bold text-offwhite outline-none">
+                          {form.start_date ? fmtRange(form.start_date, effectiveEnd) : r.selectDates}
+                          {days > 0 && <span className="ml-2 font-dm text-sm font-normal text-muted">{r.days(days)}</span>}
+                        </span>
+                        {form.start_date && (
+                          <button
+                            type="button"
+                            onClick={() => setForm((f) => ({ ...f, start_date: "", end_date: "" }))}
+                            className="min-h-11 px-2 font-dm text-sm text-offwhite/80 underline underline-offset-4 hover:text-offwhite"
+                          >
+                            {r.clear}
+                          </button>
+                        )}
+                      </div>
+                      <div
+                        role="group"
+                        aria-labelledby="bk-dates-label"
+                        className={`mt-2 rounded-2xl ${fieldErr.date ? "ring-1 ring-red-500/60" : ""}`}
+                      >
+                        <RangeCalendar
+                          start={form.start_date}
+                          end={form.end_date}
+                          minDate={today}
+                          isUnavailable={isFull}
+                          lang={lang}
+                          onChange={(start, end) => {
+                            setForm((f) => ({ ...f, start_date: start, end_date: end }));
+                            setDesiredDays(null);
+                            setFieldErr((p) => ({ ...p, date: false }));
+                            setSubmitError(null);
+                          }}
+                        />
+                      </div>
+
+                      {/* ── Before a range: the scooter list, in the space the
+                          line items take once one exists (below the calendar,
+                          so nothing above it moves). ── */}
+                      {!breakdown && scooterPriced && (
+                        <div className="mt-4 border-t border-white/[0.08] font-dm text-sm">
+                          <dl className="divide-y divide-white/[0.06]" aria-label={r.rateTable}>
+                            {line(r.days(1), convert(rs(SCOOTER_RATES.oneDay)))}
+                            {line(r.days(2), convert(rs(SCOOTER_RATES.twoDays * 2)))}
+                            {line(
+                              r.threePlus,
+                              <>
+                                {convert(rs(SCOOTER_RATES.threePlus))} <span className="text-muted">{r.perDay}</span>
+                              </>,
+                            )}
+                          </dl>
+                          <p className="pt-1 text-xs text-muted">{r.deliveryIncluded}.</p>
+                        </div>
+                      )}
+
+                      {/* ── Line items: only once a range exists ── */}
+                      {breakdown && (
+                        <motion.dl
+                          key={`${form.scooter}-${days}`}
+                          initial={calm ? false : { opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          transition={{ duration: 0.2 }}
+                          className="mt-4 divide-y divide-white/[0.06] border-t border-white/[0.08] font-dm text-sm"
+                        >
+                          {line(r.rentalLine(noun, days, convert(rs(breakdown.rate))), convert(rs(breakdown.rental)))}
+                          {line(r.delivery, breakdown.delivery > 0 ? convert(rs(breakdown.delivery)) : r.included)}
+                          {line(r.total, convert(rs(breakdown.total)), true)}
+                          {payInPersonChosen ? (
+                            line(r.dueAtPickup, convert(rs(breakdown.total)))
+                          ) : (
+                            <>
+                              {line(r.dueNow(breakdown.pct), convert(rs(breakdown.deposit)))}
+                              {line(r.dueAtPickup, convert(rs(breakdown.balance)), false, true)}
+                            </>
+                          )}
+                          {hold > 0 && (
+                            <div className="py-2">
+                              <div className="flex items-baseline justify-between gap-4 text-offwhite/85">
+                                <dt>{r.holdAtPickup}</dt>
+                                <dd className="tabular-nums">{convert(rs(hold))}</dd>
+                              </div>
+                              <p className="mt-0.5 text-xs text-muted">{r.holdNote}</p>
+                            </div>
+                          )}
+                        </motion.dl>
+                      )}
+
+                      {addDayOffer && (
+                        <div className="mt-3 flex items-center justify-between gap-3 rounded-xl border border-white/[0.08] py-1 pl-3 pr-1">
+                          <p className="font-dm text-xs leading-snug text-offwhite/80">
+                            {r.addDayLine(convert(rs(addDayOffer.extra)), addDayOffer.days, convert(rs(addDayOffer.total)))}
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setForm((f) => ({ ...f, end_date: addDayOffer.end }));
+                              setDesiredDays(null);
+                              setFieldErr((p) => ({ ...p, date: false }));
+                            }}
+                            className="min-h-11 shrink-0 rounded-lg px-3 font-dm text-sm text-offwhite underline underline-offset-4 transition-colors hover:bg-white/[0.04]"
+                          >
+                            {r.addDay}
+                          </button>
+                        </div>
+                      )}
+
+                      {/* The cancellation terms, at the moment money is asked
+                          for. Outside 48 hours the refund is 80% of what was
+                          paid in advance, 20% retained — so this states the
+                          fee rather than implying there is none. */}
+                      {breakdown && (
+                        <p className="mt-3 font-dm text-xs leading-relaxed text-muted">
                           {language === "fr"
                             ? "Annulez plus de 48 h avant : 80 % de l'acompte remboursé. Dans les 48 h, non remboursable."
                             : language === "cr"
                               ? "Anile plis ki 48 er avan : 80 % lakont ranbourse. Dan 48 er, pena ranbourseman."
                               : "Cancel more than 48h before and 80% of your deposit is refunded. Inside 48h it is non-refundable."}{" "}
-                          <Link href="/legal/refunds" target="_blank" className="text-yellow hover:underline">
+                          <Link href="/legal/refunds" target="_blank" className="text-offwhite/80 underline underline-offset-2 hover:text-offwhite">
                             {language === "fr" ? "Détails" : language === "cr" ? "Detay" : "Details"}
                           </Link>
                         </p>
-                      </div>
+                      )}
                     </>
-                  )}
-                </dl>
-              </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label htmlFor="bk-pickup-time" className="mb-1.5 block font-dm text-xs text-muted">{r.pickupTime}</label>
+                          <select
+                            id="bk-pickup-time"
+                            value={form.pickup_time}
+                            onChange={(e) => setForm({ ...form, pickup_time: e.target.value })}
+                            className={`${inputCls} appearance-none`}
+                          >
+                            {TIME_SLOTS.map((s) => (
+                              <option key={s.value} value={s.value}>{s.label}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <label htmlFor="bk-return-time" className="mb-1.5 block font-dm text-xs text-muted">{r.returnTime}</label>
+                          <select
+                            id="bk-return-time"
+                            value={form.return_time}
+                            onChange={(e) => setForm({ ...form, return_time: e.target.value })}
+                            className={`${inputCls} appearance-none`}
+                          >
+                            {TIME_SLOTS.map((s) => (
+                              <option key={s.value} value={s.value}>{s.label}</option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
 
-              {/* Available fleet — desktop only. On mobile the customer has
-                  already seen availability while browsing, so it's hidden to
-                  keep the mobile booking view focused on the summary (owner req). */}
-              <div className="hidden lg:block bg-dark-card border border-dark-border rounded-2xl p-6">
-                <p className="font-bebas text-yellow text-[10px] tracking-[0.3em] mb-4">{t.booking.availabilityTitle}</p>
-                <div className="space-y-2.5">
-                  {(fleet ?? []).map((s) => (
-                    <div key={s.id} className="flex items-center justify-between">
-                      <span className="text-offwhite/80 font-dm text-xs">{s.name}</span>
-                      {/* Three states, not two (M158). "Booked today" is not
-                          "unavailable": this very form can book that vehicle
-                          for any other date, and the calendar above already
-                          shows which days are full. Painting it red here
-                          contradicted the calendar sitting directly above it. */}
-                      {s.available === false ? (
-                        <span className="flex items-center gap-1.5 text-red-400/70 text-[10px] font-bebas tracking-[0.15em]">
-                          <Ban size={12} /> {t.fleet.unavailable}
+                      <div>
+                        <label htmlFor="bk-name" className="mb-1.5 block font-dm text-xs text-muted">{r.name}</label>
+                        <input
+                          id="bk-name"
+                          type="text"
+                          autoComplete="name"
+                          placeholder={r.namePh}
+                          value={form.name}
+                          onChange={(e) => { setForm({ ...form, name: e.target.value }); setFieldErr((p) => ({ ...p, name: false })); }}
+                          aria-invalid={fieldErr.name || undefined}
+                          className={`${inputCls}${fieldErr.name ? " !border-red-500/70" : ""}`}
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label htmlFor="bk-email" className="mb-1.5 block font-dm text-xs text-muted">{r.email}</label>
+                        <input
+                          id="bk-email"
+                          type="email"
+                          autoComplete="email"
+                          inputMode="email"
+                          aria-required
+                          aria-invalid={emailInvalid || fieldErr.email || undefined}
+                          placeholder="you@example.com"
+                          value={form.email}
+                          onChange={(e) => { setForm({ ...form, email: e.target.value }); setFieldErr((p) => ({ ...p, email: false })); }}
+                          className={`${inputCls}${emailInvalid || fieldErr.email ? " !border-red-500/60" : ""}`}
+                        />
+                        {emailInvalid && <p className="mt-1.5 font-dm text-xs text-red-400">{t.common.validEmail}</p>}
+                      </div>
+                      <div>
+                        <label htmlFor="bk-phone" className="mb-1.5 block font-dm text-xs text-muted">{r.phone}</label>
+                        <PhoneInput
+                          id="bk-phone"
+                          value={form.phone}
+                          onChange={(full) => { setForm((f) => ({ ...f, phone: full })); setFieldErr((p) => ({ ...p, phone: false })); }}
+                          placeholder={r.phonePh}
+                          inputClassName={`${inputCls} pl-10${fieldErr.phone ? " !border-red-500/70" : ""}`}
+                        />
+                      </div>
+                      <div>
+                        <label htmlFor="bk-message" className="mb-1.5 block font-dm text-xs text-muted">{r.message}</label>
+                        <textarea
+                          id="bk-message"
+                          rows={2}
+                          placeholder={
+                            // A car is not offered "an extra helmet".
+                            category && category !== "scooter"
+                              ? t.booking.messagePlaceholderCar
+                              : t.booking.messagePlaceholder
+                          }
+                          value={form.message}
+                          onChange={(e) => setForm({ ...form, message: e.target.value })}
+                          className={`${inputCls} resize-none`}
+                        />
+                      </div>
+
+                      {/* Referral code, collapsed: most people have none. */}
+                      <div>
+                        <button
+                          type="button"
+                          onClick={() => setShowPartnerCode((v) => !v)}
+                          aria-expanded={showPartnerCode}
+                          className="flex min-h-11 items-center gap-1.5 font-dm text-sm text-offwhite/80 hover:text-offwhite"
+                        >
+                          <ChevronDown size={15} aria-hidden className={`transition-transform ${showPartnerCode ? "rotate-180" : ""}`} />
+                          {r.referral}
+                        </button>
+                        {showPartnerCode && (
+                          <div className="mt-1">
+                            <input
+                              id="bk-partner"
+                              type="text"
+                              aria-label={r.referral}
+                              placeholder={r.referralPh}
+                              value={form.partner_code}
+                              onChange={(e) => setForm({ ...form, partner_code: e.target.value.toUpperCase() })}
+                              className={inputCls}
+                              maxLength={30}
+                            />
+                            <p className="mt-1.5 font-dm text-xs text-muted">{r.referralHint}</p>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* M220 — the owner: "people tend to pay on cash by
+                          hand". Recorded as said; the owner still decides. */}
+                      <label className="flex min-h-11 cursor-pointer items-start gap-3">
+                        <input
+                          type="checkbox"
+                          checked={payInPersonChosen}
+                          onChange={(e) => setForm((f) => ({ ...f, payment_preference: e.target.checked ? "in_person" : "online" }))}
+                          className="mt-0.5 h-5 w-5 shrink-0 accent-yellow"
+                        />
+                        <span className="font-dm text-sm text-offwhite/85">
+                          {r.payInPerson}
+                          <span className="mt-0.5 block text-xs text-muted">{r.payInPersonNote}</span>
                         </span>
-                      ) : s.soldOutToday ? (
-                        <span className="flex items-center gap-1.5 text-amber-400/80 text-[10px] font-bebas tracking-[0.15em]">
-                          <CalendarClock size={12} /> {t.fleet.bookedToday}
+                      </label>
+
+                      <label className="flex min-h-11 cursor-pointer items-start gap-3">
+                        <input
+                          id="bk-agree"
+                          type="checkbox"
+                          checked={agreed}
+                          onChange={(e) => { setAgreed(e.target.checked); if (e.target.checked) setAgreeError(false); }}
+                          className="mt-0.5 h-5 w-5 shrink-0 accent-yellow"
+                        />
+                        <span className={`font-dm text-sm ${agreeError ? "text-red-400" : "text-offwhite/85"}`}>
+                          {r.agree}{" "}
+                          <Link href="/legal/terms" target="_blank" className="underline underline-offset-2 hover:text-offwhite">
+                            {r.agreeLink}
+                          </Link>
                         </span>
+                      </label>
+                    </div>
+                  )}
+
+                  {submitError && (
+                    <div id="bk-error" role="alert" className="mt-4 flex items-start gap-2 font-dm text-sm text-red-400">
+                      <AlertCircle size={15} className="mt-0.5 shrink-0" aria-hidden />
+                      {missingSteps.length > 1 ? (
+                        <div>
+                          <p className="font-semibold">{r.stillToDo}</p>
+                          <ul className="mt-1 list-disc space-y-0.5 pl-4">
+                            {missingSteps.map((m) => (
+                              <li key={m}>{m}</li>
+                            ))}
+                          </ul>
+                        </div>
                       ) : (
-                        <span className="flex items-center gap-1.5 text-green-400 text-[10px] font-bebas tracking-[0.15em]">
-                          <BadgeCheck size={12} /> {t.fleet.available}
-                        </span>
+                        <span>{submitError}</span>
                       )}
                     </div>
-                  ))}
+                  )}
                 </div>
-              </div>
 
-              {/* The terms, beside the form rather than on another page. See
-                  components/RentalConditions.tsx for why they are read from the
-                  FAQ instead of restated here. */}
-              {conditions?.length ? <RentalConditions items={conditions} /> : null}
-
-              {/* What's included */}
-              <div className="bg-dark-card border border-dark-border rounded-2xl p-6">
-                <p className="font-bebas text-yellow text-[10px] tracking-[0.3em] mb-4">{t.booking.includedTitle}</p>
-                <ul className="space-y-2">
-                  {includedItems.map((item) => (
-                    <li key={item} className="flex items-center gap-2.5 text-xs font-dm text-offwhite/70">
-                      <CheckCircle size={12} className="text-yellow shrink-0" />
-                      {item}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-
-              <div className="flex items-start gap-3 bg-yellow/5 border border-yellow/20 rounded-2xl p-4">
-                <CalendarDays size={16} className="text-yellow shrink-0 mt-0.5" />
-                <p className="text-muted font-dm text-xs leading-relaxed">
-                  {t.booking.requestNote}
-                </p>
-              </div>
-            </div>
+                {/* ── The summary, pinned above the home indicator ───────── */}
+                <div className="shrink-0 border-t border-white/[0.08] bg-dark-card px-5 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3">
+                  <div className="flex items-center gap-3">
+                    {/* min-h-14 holds the three-line summary and the one-line
+                        prompt at one height, so the calendar never moves. */}
+                    <div className="flex min-h-14 min-w-0 flex-1 flex-col justify-center">
+                      {breakdown ? (
+                        <>
+                          <p className="truncate font-dm text-xs text-muted">
+                            {fmtRange(form.start_date, effectiveEnd)} · {r.days(days)}
+                          </p>
+                          <p className="font-syne text-lg font-extrabold leading-tight tabular-nums text-offwhite">
+                            {convert(rs(breakdown.total))}
+                          </p>
+                          <p className="font-dm text-xs tabular-nums text-muted">
+                            {payInPersonChosen
+                              ? `${r.dueAtPickup} ${convert(rs(breakdown.total))}`
+                              : `${r.dueNowShort} ${convert(rs(breakdown.deposit))}`}
+                          </p>
+                        </>
+                      ) : (
+                        <p className="font-dm text-sm text-muted">{r.selectDates}</p>
+                      )}
+                    </div>
+                    <button
+                      type="submit"
+                      disabled={formState === "loading"}
+                      className="flex min-h-12 shrink-0 items-center justify-center gap-2 rounded-full bg-yellow px-7 font-syne text-[15px] font-bold text-dark transition-colors hover:bg-yellow-dark disabled:opacity-60"
+                    >
+                      {formState === "loading" ? (
+                        <>
+                          <Loader2 size={16} className="animate-spin" aria-hidden /> {r.sending}
+                        </>
+                      ) : (
+                        r.reserve
+                      )}
+                    </button>
+                  </div>
+                  <p className="mt-2 font-dm text-[11px] leading-snug text-muted">
+                    {r.payments}
+                    {wa && (
+                      <>
+                        {" "}
+                        <a href={wa} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-offwhite/80 underline underline-offset-2 hover:text-offwhite">
+                          <MessageCircle size={11} aria-hidden /> {r.messageUs}
+                        </a>
+                      </>
+                    )}
+                  </p>
+                </div>
+              </form>
+            )}
           </motion.div>
         </div>
-      </div>
-
-      {/* ── Mobile price bar ──────────────────────────────────────────────────
-          The summary panel is `lg:col-span-2`, so on a phone the total, the
-          deposit and the balance all render BELOW the submit button — the
-          customer decides while the deciding number is off screen. This pins
-          the two figures that matter above the tab bar as soon as a vehicle and
-          dates exist, and disappears on desktop where the sticky panel already
-          does the job.
-
-          Rendered through a PORTAL to document.body. Both grid columns are
-          framer-motion elements, and any transformed ancestor makes
-          `position: fixed` resolve against that ancestor instead of the
-          viewport — which parked this bar ~3000px down the page (measured).
-          Moving it out of the form was not enough, because `whileInView`
-          leaves a transform on the column until it animates; the portal takes
-          it out of the transformed subtree entirely, which is the only
-          placement that cannot regress when someone adds another motion
-          wrapper later.
-          Only formState !== "success" so it vanishes with the form it prices.
-          aria-hidden: the same figures are in the summary <dl>, which screen
-          readers already reach; announcing them twice would be noise. */}
-      {breakdown && formState !== "success" && mounted && createPortal(
-        <div
-          /* 7rem clears the floating nav pill (~74px tall, ~12px above the safe
-             area); measured overlapping it by 45px at 5.5rem.
-             The STRIP stays pointer-events-none so it never swallows taps
-             either side of the bar; the card re-enables them for the button. */
-          className="pointer-events-none fixed inset-x-0 bottom-[calc(7rem+env(safe-area-inset-bottom))] z-30 flex justify-center px-4 lg:hidden"
-        >
-          <div className="pointer-events-auto flex w-full max-w-md items-center gap-3 rounded-2xl border border-white/10 bg-dark/90 px-4 py-2.5 shadow-[0_16px_44px_-12px_rgba(0,0,0,0.75)] backdrop-blur-xl">
-            {/* The FIGURES stay aria-hidden — the same numbers are in the
-                summary <dl> a screen reader already reaches, and announcing
-                them twice is noise. The BUTTON must not be: this bar used to be
-                aria-hidden and pointer-events-none in its entirety, which made
-                the only thumb-reachable thing on the booking screen a picture
-                of a price. On the one flow with proven revenue, on the device
-                travellers actually book from, there was nothing to press. */}
-            <div aria-hidden="true" className="flex min-w-0 flex-1 items-center justify-between gap-3">
-              <div>
-                <p className="font-bebas text-[9px] tracking-[0.25em] text-muted">{t.booking.summaryTotal}</p>
-                <p className="font-syne text-base font-extrabold text-offwhite">{convert(estimatedTotal)}</p>
-              </div>
-              {/* M220: no deposit figure once the customer chose cash. */}
-              {!payInPersonChosen && (
-              <div className="text-right">
-                <p className="font-bebas text-[9px] tracking-[0.25em] text-muted">
-                  {t.booking.depositToConfirm(breakdown.pct)}
-                </p>
-                <p className="font-syne text-base font-extrabold text-yellow">
-                  {convert(`Rs ${breakdown.deposit.toLocaleString()}`)}
-                </p>
-              </div>
-              )}
-            </div>
-            <button
-              type="submit"
-              form="rr-booking-form"
-              disabled={formState === "loading"}
-              className="shrink-0 rounded-xl bg-yellow px-4 py-2.5 font-syne text-sm font-bold text-dark transition-colors hover:bg-yellow-dark disabled:opacity-60"
-            >
-              {formState === "loading" ? t.booking.sending : t.booking.submit}
-            </button>
-          </div>
-        </div>,
-        document.body,
       )}
-    </section>
+    </AnimatePresence>
+  );
+
+  return (
+    <>
+      {/* The page's FAQ accordion: the rental terms, read from the FAQ the
+          owner maintains, server-rendered in place. */}
+      {showConditions && conditions?.length ? (
+        <section className="mx-auto max-w-5xl px-4 pb-10 pt-2 md:px-6">
+          <RentalConditions items={conditions} />
+        </section>
+      ) : null}
+      {mounted && createPortal(sheet, document.body)}
+    </>
   );
 }

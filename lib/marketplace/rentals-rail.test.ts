@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { DEFAULT_CONTENT, type FleetItem, type RecommendedPlace, type SiteContent } from "@/lib/defaults";
-import { isSellableFleetItem, priceNumber } from "@/lib/site-data";
+import { isSellableFleetItem, vehiclePriceNumber } from "@/lib/site-data";
 import { findVehicleUnits, unitToBook } from "@/lib/vehicle-slug";
 import { buildRentalsRail, rentalCategories, rupees } from "./rentals-rail";
 
@@ -80,7 +80,8 @@ describe("which categories the Rentals branch opens", () => {
 
   it("prints the cheapest sellable daily rate — the figure /browse/<category> prints", () => {
     const byId = Object.fromEntries(rentalCategories(live()).map((c) => [c.id, c.fromPerDay]));
-    expect(byId).toEqual({ scooter: 699, car: 1899 });
+    // A scooter quotes the published scooter rate (SCOOTER_RATES.threePlus, 6 Oct 2026), whatever the price box says.
+    expect(byId).toEqual({ scooter: 799, car: 1899 });
   });
 
   it("says what kind of rental it is, motor unless the owner set otherwise", () => {
@@ -98,7 +99,7 @@ describe("the vehicle cards", () => {
   it("one per vehicle page, linking the page vehicleHref builds", () => {
     const { vehicles } = buildRentalsRail(live());
     expect(vehicles).toEqual([
-      { name: "Suzuki Avenis", href: "/browse/scooter/suzuki-avenis", category: "scooter", perDay: 699 },
+      { name: "Suzuki Avenis", href: "/browse/scooter/suzuki-avenis", category: "scooter", perDay: 799 },
       { name: "Suzuki Swift (Latest Gen)", href: "/browse/car/suzuki-swift-latest-gen", category: "car", perDay: 1899 },
     ]);
   });
@@ -124,7 +125,9 @@ describe("the vehicle cards", () => {
 
   it("keeps the model while one twin is for hire, at the price of the twin its page books", () => {
     expect(avenisCards(withAvenis(false, true))).toEqual([
-      { name: "Suzuki Avenis", href: "/browse/scooter/suzuki-avenis", category: "scooter", perDay: 749 },
+      // Every scooter twin quotes the published rate now; the card still
+      // follows the twin the page books (the per-card test below).
+      { name: "Suzuki Avenis", href: "/browse/scooter/suzuki-avenis", category: "scooter", perDay: 799 },
     ]);
   });
 
@@ -138,7 +141,7 @@ describe("the vehicle cards", () => {
       for (const card of buildRentalsRail(c).vehicles) {
         const slug = card.href.split("/").pop()!;
         const units = findVehicleUnits(c.fleet, card.category, slug).filter(isSellableFleetItem);
-        expect(card.perDay, card.href).toBe(priceNumber(unitToBook(units)!.price));
+        expect(card.perDay, card.href).toBe(vehiclePriceNumber(unitToBook(units)!));
       }
     }
   });

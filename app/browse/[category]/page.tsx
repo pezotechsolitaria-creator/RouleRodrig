@@ -20,7 +20,7 @@ import { ILE_AUX_COCOS_GUIDE } from "@/lib/ile-aux-cocos-listing";
 import {
   getFleetView,
   buildBrowseCategories,
-  priceNumber,
+  vehiclePriceNumber,
   isSellableFleetItem,
 } from "@/lib/site-data";
 import AppPageHeader from "@/components/AppPageHeader";
@@ -41,6 +41,7 @@ import WhatsAppButton from "@/components/WhatsAppButton";
 import ScrollToTop from "@/components/ScrollToTop";
 import { readTransferFares } from "@/lib/rides/fares";
 import { modelCostTable } from "@/lib/vehicle-cost";
+import { securityHoldFrom } from "@/lib/booking-pricing";
 import {
   AIRPORT_TRANSFER_PHRASE,
   carAirportPassage,
@@ -357,6 +358,18 @@ const RIDE_GUIDES: Record<"scooter" | "car", GuideLink[]> = {
 // and every claim is made elsewhere on the site already: free helmet in
 // t.booking.included, the 3+/7+ day discounts in lib/booking-pricing,
 // guest-house delivery in the approved reviews rendered on the homepage.
+/**
+ * The ONE sentence under a vehicle page's heading (owner brief, 6 Oct 2026):
+ * what the product is, in the words a renter scans for. The longer paragraph
+ * below the cards (VEHICLE_COPY intro) keeps the who / where / pay detail.
+ */
+function vehicleSubline(category: string, from: number | null): string | null {
+  if (category === "car") return "Automatic, insured, delivered to your stay.";
+  if (category === "scooter")
+    return from ? `From Rs ${from.toLocaleString("en-US")} a day, helmets and delivery included.` : "Helmets and delivery included.";
+  return null;
+}
+
 const VEHICLE_COPY: Record<
   string,
   {
@@ -385,12 +398,16 @@ const VEHICLE_COPY: Record<
     // deliveryIsFree() allows it: the fee checkout charges is 0 and no
     // scooter's own note puts a condition on delivery (SEO audit 2026-09-29,
     // rule: nothing is "free" unless its charge is zero; C20).
+    // The rate is the published 3-days-or-more rate (lib/booking-pricing
+    // SCOOTER_RATES), and says so: one and two days cost more, on the card
+    // and in the sheet. Delivery is "included", never a "free" slogan (owner
+    // brief, 6 Oct 2026) — and only when deliveryIsFree() agrees.
     intro: ({ from, freeDelivery, pay }) =>
       `Rent a scooter in Rodrigues direct from local owners${
-        from ? ` — from Rs ${from.toLocaleString("en-US")} a day` : ""
-      }, helmet included and delivered${
-        freeDelivery ? " free" : ""
-      } to your guest house. We hand over in person, with real advice on the roads and the places worth riding to.${
+        from ? ` — from Rs ${from.toLocaleString("en-US")} a day for three days or more` : ""
+      }, ${
+        freeDelivery ? "with helmets and delivery to your guest house included" : "helmets included and delivered to your guest house"
+      }. We hand over in person, with real advice on the roads and the places worth riding to.${
         pay ? ` ${pay}` : ""
       } Pick a scooter below and book your dates online.`,
     frLabel: "Location de scooter à Rodrigues — cette page en français",
@@ -605,7 +622,7 @@ export async function generateMetadata({
     const rates = fleet
       .filter((f) => (f.category ?? "scooter") === category)
       .filter(isSellableFleetItem)
-      .map((f) => priceNumber(f.price))
+      .map((f) => vehiclePriceNumber(f))
       .filter((n): n is number => n != null);
     vehicleFrom = rates.length ? Math.min(...rates) : null;
     const first = fleet.find(
@@ -886,7 +903,7 @@ export default async function BrowsePage({
     // from the same fleet the cards render, so the copy can never advertise a
     // price the grid below does not show.
     const vRates = items
-      .map((i) => priceNumber(i.price))
+      .map((i) => vehiclePriceNumber(i))
       .filter((n): n is number => n != null && n > 0);
     const vFrom = vRates.length ? Math.min(...vRates) : null;
     // The French twin, as a VISIBLE link and not only an hreflang annotation:
@@ -962,7 +979,7 @@ export default async function BrowsePage({
                 }, {}),
               ).map((units) => {
                 const prices = units
-                  .map((u) => priceNumber(u.price))
+                  .map((u) => vehiclePriceNumber(u))
                   .filter((n): n is number => n != null && n > 0);
                 const first = units[0];
                 return productLd({
@@ -1014,10 +1031,15 @@ export default async function BrowsePage({
             ratings={ratings}
             recentBookings={recentBookings}
             whatsapp={businessWhatsApp}
-            eyebrow="OUR FLEET"
             title={vcopy?.heading ?? vcat.label}
             titleAs="h1"
             subtitle={
+              vehicleSubline(vcat.id, vFrom) ??
+              `Browse our ${vcat.label.toLowerCase()}, then tap one to choose your dates.`
+            }
+            // The paragraph about renting here, below the cards: who rents,
+            // from where, how to pay, delivery and the French twin.
+            intro={
               vcopy ? (
                 <>
                   {linkPhrase(
@@ -1056,9 +1078,7 @@ export default async function BrowsePage({
                     />
                   ) : null}
                 </>
-              ) : (
-                `Browse our ${vcat.label.toLowerCase()}, then tap Book to choose your dates.`
-              )
+              ) : null
             }
           />
           {/* Trust signals immediately before the form that asks for money.
@@ -1072,11 +1092,14 @@ export default async function BrowsePage({
               rental, never "Helmet included" or "Free scooter delivery"
               (architecture review 2026-09-30, rentalKind fix-up). */}
           <TrustBar category={vcat.id} kind={kind} />
+          {/* The booking SHEET (opened by any card, ?v=, #booking) and, in
+              place, the FAQ accordion of rental terms. */}
           <BookingSection
             fleet={items}
             category={category}
             categories={content.vehicleCategories}
             whatsapp={businessWhatsApp}
+            holdAtPickup={securityHoldFrom(securityDeposit)}
             /* The rental terms the customer needs BEFORE committing — age,
                licence, insurance, fuel — read from the FAQ the owner already
                maintains. Verified absent from this page: "licence" and

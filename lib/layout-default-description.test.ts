@@ -47,7 +47,8 @@ beforeEach(() => {
 
 describe("the root layout's default description", () => {
   it("prints the owner's cheapest daily rate when the row was read", async () => {
-    expect(await description()).toContain("from Rs 699/day");
+    // A scooter quotes the published scooter rate (SCOOTER_RATES.threePlus, 6 Oct 2026), whatever the price box says.
+    expect(await description()).toContain("from Rs 799/day");
   });
 
   it("prints no figure when getContent() fell back to the seed", async () => {
@@ -67,7 +68,7 @@ describe("the root layout's default description", () => {
       vehicleCategories: DEFAULT_CONTENT.vehicleCategories, // cars off
     };
     const d = await description();
-    expect(d).toContain("from Rs 999/day");
+    expect(d).toContain("from Rs 799/day");
     expect(d).not.toContain("Rs 650");
   });
 });

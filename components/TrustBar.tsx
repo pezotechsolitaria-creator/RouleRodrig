@@ -1,146 +1,62 @@
 "use client";
 
-import { ShieldCheck, BadgePercent, MessageCircle, CalendarCheck } from "lucide-react";
+import { MessageCircle, Route, ShieldCheck, Truck } from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
 import type { RentalKind } from "@/lib/rental-conditions";
+import { RENT_COPY, rentLang } from "@/lib/rentals/copy";
 
+// ── The trust row under the fleet: four plain lines ─────────────────────────
+//
+// Owner brief, 6 Oct 2026: "Insured · Delivered to your stay · No mileage cap ·
+// WhatsApp if you need us", one line each — not a second booking form, not a
+// slogan. It replaced "Free scooter delivery" (delivery is in the price, which
+// the card says) and "Easy booking · Request in a minute" (there is no request
+// any more: the sheet reserves).
+//
 // ── AND THEY HAVE TO BE IN THE READER'S LANGUAGE ───────────────────────────
+// Client-rendered words, server-rendered markup, like the header and footer.
 //
-// This was a server component with twelve hardcoded English strings, sitting
-// directly under a French h1 for anyone reading the site in French. "use
-// client" costs nothing here — it renders no data and fetches nothing — and
-// the bar still server-renders, exactly like the header and footer do.
-
 // ── THESE ARE PROMISES, SO THEY HAVE TO BE TRUE OF THE PAGE THEY ARE ON ────
+// Each line is the owner's own FAQ answer in four words, and true of a car and
+// a scooter alike: basic third-party insurance with every rental ("insurance"),
+// delivery to the hotel or guest house ("delivery"), no mileage limit
+// ("mileage"), WhatsApp any time ("breakdown").
 //
-// This bar renders on /browse/[category] — which is the CAR page as well as the
-// scooter one — and both of the first two items were false there. A helmet is
-// not included with a car, and car delivery is not free: car delivery was
-// priced separately at the time. (Both figures in this note are now stale —
-// the owner set car delivery to Rs 0 and the cheapest car to Rs 1,899.)
-// The page was telling a car customer, in a bar headed "Why book with us", two
-// things the checkout would then contradict.
-//
-// The last two are true of any rental and do not vary.
-type Item = {
-  icon: typeof ShieldCheck;
-  title: { en: string; fr: string; cr: string };
-  desc: { en: string; fr: string; cr: string };
-};
-
-const SHARED: Item[] = [
-  {
-    icon: MessageCircle,
-    title: { en: "WhatsApp support", fr: "Assistance WhatsApp", cr: "Sipor WhatsApp" },
-    desc: {
-      en: "Real people, fast replies",
-      fr: "De vraies personnes, des réponses rapides",
-      cr: "Vre dimoun, repons rapid",
-    },
-  },
-  {
-    icon: CalendarCheck,
-    title: { en: "Easy booking", fr: "Réservation facile", cr: "Rezervasion fasil" },
-    desc: {
-      en: "Request in a minute",
-      fr: "Une demande en une minute",
-      cr: "Enn demann dan enn minit",
-    },
-  },
-];
-
-const SCOOTER: Item[] = [
-  {
-    icon: ShieldCheck,
-    title: { en: "Helmet included", fr: "Casque inclus", cr: "Kask inklir" },
-    desc: {
-      en: "Every rental, no extra charge",
-      fr: "Sur chaque location, sans supplément",
-      cr: "Lor sak lokasion, san peye plis",
-    },
-  },
-  // WAS "Multi-day discounts", which stopped being true when the automatic
-  // 10%/15% tiers came out of lib/booking-pricing.ts (M159). Free scooter
-  // delivery is the offer that IS real, and is now priced that way.
-  {
-    icon: BadgePercent,
-    title: {
-      en: "Free scooter delivery",
-      fr: "Livraison de scooter gratuite",
-      cr: "Livrezon skooter gratis",
-    },
-    desc: {
-      en: "Brought to where you are staying",
-      fr: "Apporté là où vous logez",
-      cr: "Amene kot ou reste",
-    },
-  },
-];
-
-// What a car actually offers, in the same shape. Delivered rather than free,
-// and the thing a family choosing a car over a scooter is really buying.
-const CAR: Item[] = [
-  {
-    icon: ShieldCheck,
-    title: { en: "Air conditioning", fr: "Climatisation", cr: "Erkondisyone" },
-    desc: {
-      en: "Automatic, insured, ready to drive",
-      fr: "Automatique, assurée, prête à conduire",
-      cr: "Otomatik, asire, pare pou roule",
-    },
-  },
-  {
-    icon: BadgePercent,
-    title: { en: "Delivered to you", fr: "Livrée chez vous", cr: "Livre kot ou" },
-    desc: {
-      en: "To your guest house or the airport",
-      fr: "À votre pension ou à l'aéroport",
-      cr: "Kot ou pansion ou bien laeroport",
-    },
-  },
-];
-
 // ── EQUIPMENT GETS ONLY THE PROMISES THAT HOLD FOR ANY RENTAL ──────────────
-// Architecture review 2026-09-30, rentalKind. Every category that is not "car"
-// fell through to the scooter pair, so a kayak or snorkel category would have
-// opened with "Helmet included" and "Free scooter delivery". Neither pair is
-// true of equipment, and nothing else is known about it that a bar headed "Why
-// book with us" could promise — so it carries the two shared items and no
-// invented third. `kind` undefined (every live category) is "motor": the same
-// items, in the same order, as before this existed.
-function trustItems(category?: string, kind?: RentalKind): Item[] {
-  if (kind === "equipment") return SHARED;
-  return [...(category === "car" ? CAR : SCOOTER), ...SHARED];
+// A kayak is not insured third-party and has no mileage. It keeps delivery and
+// WhatsApp, the two lines its own FAQ supports, and no invented third.
+
+const ICONS = [ShieldCheck, Truck, Route, MessageCircle] as const;
+
+export function trustLines(kind?: RentalKind): number[] {
+  return kind === "equipment" ? [1, 3] : [0, 1, 2, 3];
 }
 
 export default function TrustBar({
-  category,
   kind,
 }: { category?: string; kind?: RentalKind } = {}) {
   const { language } = useLanguage();
-  const ITEMS = trustItems(category, kind);
-  // Two items on a four-column desktop grid would sit in the left half with
-  // an empty right half; two columns at every width keeps the bar full.
-  const cols = ITEMS.length > 2 ? "grid-cols-2 lg:grid-cols-4" : "grid-cols-2";
+  const lines = RENT_COPY[rentLang(language)].trust;
+  const shown = trustLines(kind);
   return (
-    <section className="bg-dark border-y border-dark-border" aria-label="Why book with us">
-      <div className={`max-w-7xl mx-auto px-6 py-6 grid ${cols} gap-x-6 gap-y-5`}>
-        {ITEMS.map(({ icon: Icon, title, desc }) => (
-          <div key={title.en} className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-yellow/10 flex items-center justify-center shrink-0">
-              <Icon size={18} className="text-yellow" />
-            </div>
-            <div className="min-w-0">
-              <p className="font-syne font-bold text-offwhite text-sm leading-tight">
-                {title[language] ?? title.en}
-              </p>
-              <p className="font-dm text-muted text-xs leading-tight mt-0.5">
-                {desc[language] ?? desc.en}
-              </p>
-            </div>
-          </div>
-        ))}
-      </div>
+    <section aria-label="Why book with us" className="mx-auto max-w-5xl px-4 md:px-6">
+      {/* Four columns only when there are four lines: equipment's two would
+          sit stranded in the left half of a four-column row. */}
+      <ul
+        className={`grid grid-cols-1 gap-x-6 gap-y-3 border-y border-white/[0.08] py-5 sm:grid-cols-2 ${
+          shown.length === 4 ? "lg:grid-cols-4" : ""
+        }`}
+      >
+        {shown.map((i) => {
+          const Icon = ICONS[i];
+          return (
+            <li key={i} className="flex items-center gap-2.5 font-dm text-sm text-offwhite/85">
+              <Icon size={16} className="shrink-0 text-muted" aria-hidden />
+              {lines[i]}
+            </li>
+          );
+        })}
+      </ul>
     </section>
   );
 }

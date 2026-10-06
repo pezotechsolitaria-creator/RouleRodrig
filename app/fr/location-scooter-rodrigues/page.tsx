@@ -5,6 +5,7 @@ import { ArrowRight, Check, MessageCircle } from "lucide-react";
 import { getFleetView, fleetFromPrice } from "@/lib/site-data";
 import { SITE_URL } from "@/lib/site";
 import { breadcrumbLd } from "@/lib/schema";
+import { SCOOTER_RATES } from "@/lib/booking-pricing";
 import JsonLd from "@/components/JsonLd";
 import Navbar from "@/components/Navbar";
 import PageLanguage from "@/components/PageLanguage";
@@ -95,14 +96,17 @@ const metadataFor = (from: number): Metadata => ({
 //
 // It is also the shape an assistant quotes when asked "is a scooter enough for
 // a family in Rodrigues?" — a real question, answered with a real price.
+// The price answers state the published scooter list (SCOOTER_RATES, owner
+// brief of 6 Oct 2026) in full — one day, two days, three or more — so the
+// "dès" figure in the title is never read as the price of a one-day hire.
 const FAQ = (from: number, carFrom: number) => [
   {
     q: "Combien coûte la location d'un scooter à Rodrigues ?",
-    a: `Nos scooters sont proposés à partir de Rs ${rs(from)} par jour, avec un casque pour chaque passager et l'assurance au tiers inclus. Le prix affiché est le prix final : aucun frais de réservation, aucune commission.`,
+    a: `Une journée coûte Rs ${rs(SCOOTER_RATES.oneDay)}, deux jours Rs ${rs(SCOOTER_RATES.twoDays * 2)}, et dès trois jours Rs ${rs(from)} par jour pour toute la location. La livraison, un casque pour chaque passager et l'assurance au tiers sont inclus. Le prix affiché est le prix final : aucun frais de réservation, aucune commission.`,
   },
   {
     q: "Y a-t-il une durée minimale de location ?",
-    a: "Non. Vous pouvez louer pour une seule journée si cela vous suffit. Il n'y a pas de minimum de trois jours ni de durée imposée : réservez exactement les dates qui vous arrangent.",
+    a: `Non. Vous pouvez louer pour une seule journée, à Rs ${rs(SCOOTER_RATES.oneDay)}. Le tarif de Rs ${rs(from)} par jour s'applique dès trois jours : réservez exactement les dates qui vous arrangent.`,
   },
   {
     q: "Faut-il un permis de conduire ?",
@@ -199,7 +203,7 @@ export default async function LocationScooterPage() {
 
             <ul className="mt-7 space-y-2.5">
               {[
-                `À partir de Rs ${rs(from)} par jour — le prix affiché est le prix final`,
+                `Rs ${rs(from)} par jour dès 3 jours, livraison incluse — le prix affiché est le prix final`,
                 "Aucune durée minimale : louez pour une seule journée si vous voulez",
                 "Casque inclus pour chaque passager + assurance au tiers",
                 "Livraison et récupération à votre hôtel, partout sur l'île",

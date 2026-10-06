@@ -74,7 +74,8 @@ describe("the catalogue", () => {
   });
 
   it("vehicle prices are read, not copied", () => {
-    expect(byId("veh:a")?.p).toBe("Rs 699 / day");
+    // A scooter quotes the published scooter rate (SCOOTER_RATES.threePlus, 6 Oct 2026), whatever the price box says.
+    expect(byId("veh:a")?.p).toBe("Rs 799 / day");
   });
 
   it("dish prices are cents (Rs 2,500 is 250000)", () => {

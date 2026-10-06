@@ -174,7 +174,10 @@ describe("targets grown by their own box", () => {
   const grown: [string, string, string][] = [
     ["the calendar's month arrows", "components/AvailabilityCalendar.tsx", "inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg p-1.5"],
     ["the place modal's close", "components/PlaceDetailModal.tsx", "absolute top-4 right-4 z-20 w-11 h-11"],
-    ["the scooter modal's close", "components/ScooterDetailModal.tsx", "absolute top-4 right-4 z-20 w-11 h-11"],
+    // The scooter modal went on 6 Oct 2026: the booking sheet is the one
+    // rental surface, and its close, back and month arrows are 44px boxes.
+    ["the booking sheet's close and back", "components/BookingSection.tsx", "flex h-11 w-11 items-center justify-center rounded-full text-offwhite/80"],
+    ["the sheet calendar's month arrows", "components/rentals/RangeCalendar.tsx", "flex h-11 w-11 items-center justify-center rounded-full text-offwhite/80"],
     ["the fleet carousel's arrows", "components/Fleet.tsx", "absolute left-3 top-1/2 -translate-y-1/2 z-10 w-11 h-11"],
     ["the dish quantity stepper", "components/food/DishOrderPanel.tsx", "flex h-11 w-11 items-center justify-center rounded-full text-offwhite"],
     ["the footer's social buttons", "components/Footer.tsx", "w-11 h-11 rounded-full border border-dark-border"],
@@ -188,7 +191,8 @@ describe("targets grown by their own box", () => {
   it("no 36px icon button is left in the modals or carousels", () => {
     for (const f of [
       "components/PlaceDetailModal.tsx",
-      "components/ScooterDetailModal.tsx",
+      "components/BookingSection.tsx",
+      "components/rentals/RangeCalendar.tsx",
       "components/food/DishOrderPanel.tsx",
     ]) {
       expect(tsx(f), f).not.toContain("w-9 h-9");

@@ -308,7 +308,7 @@ export function carAirportPassage(o: {
     typeof fee === "number" && fee > 0
       ? ` Delivery is ${rsEn(fee)} either way.`
       : o.freeDelivery
-        ? " Delivery is free either way."
+        ? " Delivery is included either way."
         : "";
   const village = villageOf(o.location);
   return {

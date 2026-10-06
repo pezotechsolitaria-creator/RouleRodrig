@@ -31,7 +31,9 @@ const rsFigures = (s: string) =>
   [...s.matchAll(/Rs\s?(\d(?:[\d,\s]*\d)?)/g)].map((m) => Number(m[1].replace(/\D/g, "")));
 
 // The live shape, 29 Sept: the Swift at Rs 1,899 (repriced from 1,999 on
-// 10 Sept), scooters from Rs 699, one unfinished car draft. The zone fares are
+// 10 Sept), scooters at the published Rs 799 (SCOOTER_RATES, 6 Oct — the
+// price boxes still say 699 and 899, and no longer decide), one unfinished
+// car draft. The zone fares are
 // deliberately NOT the live ones, so a remembered figure cannot pass.
 const FLEET = [
   { price: "Rs 699(free delivery)", category: "scooter" },
@@ -60,7 +62,7 @@ describe("the getting-around notes", () => {
 
   it("reads the from-prices the category pages show", () => {
     expect(carFrom).toBe(1899);
-    expect(scooterFrom).toBe(699);
+    expect(scooterFrom).toBe(799);
   });
 
   it("prints no Rs figure, in either language, that is not the fleet's or the sheet's", () => {
@@ -71,8 +73,8 @@ describe("the getting-around notes", () => {
   });
 
   it("quotes the car and scooter prices in both languages", () => {
-    expect(notes[0].body).toContain("A car is from Rs 1,899 a day and a scooter from Rs 699");
-    expect(rsFigures(notes[0].bodyFr ?? "")).toEqual([1899, 699]);
+    expect(notes[0].body).toContain("A car is from Rs 1,899 a day and a scooter from Rs 799");
+    expect(rsFigures(notes[0].bodyFr ?? "")).toEqual([1899, 799]);
   });
 
   it("says no number for a category with nothing to rent", () => {
@@ -208,8 +210,8 @@ describe("the who / where / how-to-pay sentence", () => {
 
 // ── /browse/car: THE AIRPORT PASSAGE (C18) ─────────────────────────────────
 describe("collecting a car at Plaine Corail", () => {
-  it("states the fee from the category, and free only when deliveryIsFree says so", () => {
-    expect(carAirportPassage({ deliveryFee: 0, freeDelivery: true }).body).toContain("Delivery is free");
+  it("states the fee from the category, and included only when deliveryIsFree says so", () => {
+    expect(carAirportPassage({ deliveryFee: 0, freeDelivery: true }).body).toContain("Delivery is included");
     expect(carAirportPassage({ deliveryFee: 600 }).body).toContain("Delivery is Rs 600");
     expect(carAirportPassage({}).body).not.toMatch(/Delivery is|free/);
   });

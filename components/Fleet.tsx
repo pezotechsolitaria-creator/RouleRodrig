@@ -4,17 +4,18 @@ import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { vehicleHref } from "@/lib/vehicle-slug";
-import { Gauge, Zap, Users, Shield, ArrowRight, BadgeCheck, Ban, ChevronLeft, ChevronRight, Star, Maximize2, Snowflake, Fuel, MapPin, Bluetooth, DoorOpen, Check, LifeBuoy, Flame, CalendarClock } from "lucide-react";
+import { Gauge, Zap, Users, Shield, ArrowRight, ChevronLeft, ChevronRight, Star, Snowflake, Fuel, MapPin, Bluetooth, DoorOpen, Check, LifeBuoy, Truck } from "lucide-react";
 import { motion, useReducedMotion } from "framer-motion";
 import { DEFAULT_CONTENT, type FleetItem, type VehicleCategory } from "@/lib/defaults";
 import type { Language } from "@/lib/i18n";
 import { useLanguage } from "@/context/LanguageContext";
-import { realCopy } from "@/lib/placeholder-copy";
-import { loc } from "@/lib/localize";
-import { fleetTerm, fleetTerms, fleetPrice } from "@/lib/fleet-terms";
+import { fleetTerm } from "@/lib/fleet-terms";
 import { typeChips, shouldShowTypeFilter, applyTypeFilter } from "@/lib/vehicle-filter";
 import { useCurrency } from "@/context/CurrencyContext";
-import ScooterDetailModal from "@/components/ScooterDetailModal";
+import { openBooking } from "@/lib/rentals/events";
+import { deliveryFee, usesScooterRates, vehicleDayRate } from "@/lib/booking-pricing";
+import { RENT_COPY, rentLang, rs as rsIn } from "@/lib/rentals/copy";
+import { displayUnits } from "@/lib/rentals/units";
 import SaveButton from "@/components/SaveButton";
 
 type Spec = { icon: React.ElementType; label: string };
@@ -69,8 +70,11 @@ function resolveSpecs(item: FleetItem, lang: Language): Spec[] {
 function FleetImageCarousel({
   scooter,
   cardIndex,
+  onOpen,
 }: {
   scooter: FleetItem;
+  /** A tap on the photo opens the booking sheet; the arrows and dots don't. */
+  onOpen?: () => void;
   /** Which CARD this is in the grid. `i` inside the component is the index of
    *  a photo within this one card's carousel, and the two were being confused
    *  — see the loading attribute below. */
@@ -134,10 +138,12 @@ function FleetImageCarousel({
 
   const prev = (e: React.MouseEvent) => {
     e.preventDefault();
+    e.stopPropagation();
     setIdx((i) => (i - 1 + photos.length) % photos.length);
   };
   const next = (e: React.MouseEvent) => {
     e.preventDefault();
+    e.stopPropagation();
     setIdx((i) => (i + 1) % photos.length);
   };
 
@@ -152,7 +158,8 @@ function FleetImageCarousel({
   return (
     <div
       ref={wrapRef}
-      className="relative h-[240px] md:h-[300px] overflow-hidden group/carousel"
+      onClick={onOpen}
+      className={`relative h-[220px] md:h-[260px] overflow-hidden group/carousel${onOpen ? " cursor-pointer" : ""}`}
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
       onTouchStart={(e) => { setPaused(true); touchX.current = e.touches[0].clientX; }}
@@ -242,7 +249,7 @@ function FleetImageCarousel({
             {photos.map((_, i) => (
               <button
                 key={i}
-                onClick={(e) => { e.preventDefault(); setIdx(i); }}
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); setIdx(i); }}
                 className={`h-1.5 rounded-full transition-all ${i === idx ? "bg-yellow w-4" : "bg-white/60 w-1.5"}`}
                 aria-label={`Photo ${i + 1}`}
               />
@@ -258,16 +265,16 @@ export default function Fleet({
   fleet,
   categories,
   ratings,
-  recentBookings,
-  whatsapp,
-  eyebrow,
   title,
   titleAs = "h2",
   subtitle,
+  intro,
 }: {
   fleet?: FleetItem[];
   categories?: VehicleCategory[];
   ratings?: Record<string, { avg: number; count: number }>;
+  /** Kept for callers that still pass them; the cards no longer show
+   *  urgency badges or an eyebrow (owner brief, 6 Oct 2026). */
   recentBookings?: Record<string, number>;
   whatsapp?: string;
   eyebrow?: string;
@@ -276,20 +283,23 @@ export default function Fleet({
    *  only other candidate is the chrome bar, whose text is the one-word nav
    *  label ("Cars"). Defaults to h2 so every other caller is unchanged. */
   titleAs?: "h1" | "h2";
-  // ReactNode, not string: the browse pages append an inline link to their
-  // French twin here, and it must render inside this same paragraph rather
-  // than as a stray element outside the section's type ramp.
+  /** ONE sentence under the heading. */
   subtitle?: React.ReactNode;
+  /** The longer paragraph about renting here (and the French twin link),
+   *  kept on the page for readers and search, BELOW the cards. */
+  intro?: React.ReactNode;
 }) {
   const allItems = fleet ?? DEFAULT_CONTENT.fleet;
   const cats = categories ?? [];
   const { t, language } = useLanguage();
+  const r = RENT_COPY[rentLang(language)];
+  // The card's figure, grouped the reader's way ("Rs 1 899" in French).
+  const rs = (n: number | null | undefined) => rsIn(n, rentLang(language));
   const { convert } = useCurrency();
   const [activeCat, setActiveCat] = useState<string>("all");
   // Body style within the active category — "suv", "sedan". Separate state from
   // activeCat because the two filters compose: Cars → SUV.
   const [activeType, setActiveType] = useState<string>("all");
-  const [detail, setDetail] = useState<{ scooter: FleetItem; specs: Spec[]; included: string[] } | null>(null);
   const calm = useReducedMotion();
 
   const enabledIds = new Set(cats.filter((c) => c.enabled).map((c) => c.id));
@@ -314,17 +324,8 @@ export default function Fleet({
       : visibleItems;
 
   // ── Body-style filter (SUV / Sedan / 4x4 …) ──────────────────────────────
-  //
-  // The category answers "what am I renting"; this answers "which one". On
-  // /browse/cars the page has already narrowed to one category, so these chips
-  // are the only filter on screen and the ONLY way to tell four cars apart
-  // without reading every card.
-  //
-  // Which chips appear is derived, never declared: a style is offered only if
-  // the owner enabled it AND a bookable vehicle currently carries it. That is
-  // what makes a filter trustworthy — every chip returns results, so tapping
-  // one can never produce an empty grid, and a style disappears on its own the
-  // day the last car of that shape is taken off the site.
+  // Derived, never declared: a style is offered only if the owner enabled it
+  // AND a bookable vehicle carries it, so every chip returns results.
   const activeCatDef =
     showTabs && activeCat !== "all"
       ? cats.find((c) => c.id === activeCat)
@@ -336,94 +337,66 @@ export default function Fleet({
   const typeActive = showTypes && activeType !== "all" && typeChipList.some((c) => c.id === activeType);
   const typedItems = showTypes ? applyTypeFilter(baseItems, typeChipList, activeType) : baseItems;
 
-  // Switching category must drop a body style that belonged to the old one,
-  // or picking Scooters after SUV would silently show nothing.
+  // Switching category must drop a body style that belonged to the old one.
   useEffect(() => setActiveType("all"), [activeCat]);
 
   // ── TWO DIFFERENT STATES, AND THEY WERE ONE (M158) ────────────────────────
-  //
-  // `available === false` is the owner withdrawing a vehicle in admin: it is
-  // not for hire, full stop. `soldOutToday` is every unit being out on a trip
-  // TODAY, which says nothing about next Tuesday.
-  //
-  // They were collapsed into a single `out` flag that painted a red UNAVAILABLE
-  // badge and set pointer-events-none on the Book button. So the Burgman, which
-  // is simply booked today, could not be booked for ANY future date — the
-  // customer never reached the calendar that would have shown them the free
-  // days. The owner reported it as scooters going unavailable when they are
-  // not.
-  //
-  // The booking flow already gets this right: /api/availability is
-  // capacity-aware per date, the form renders a calendar of full days, and
-  // app/api/bookings re-checks server-side before accepting. This card was a
-  // cruder gate standing in front of a correct one.
+  // `available === false` is the owner withdrawing a vehicle: not for hire.
+  // `soldOutToday` is every unit out on a trip TODAY — bookable next Tuesday.
   const isWithdrawn = (it: FleetItem) => it.available === false;
   const isBusyToday = (it: FleetItem) =>
     it.available !== false && it.soldOutToday === true;
-  // Free today first, out-on-a-trip next, withdrawn last. Busy-today is still
-  // bookable, so it does not belong at the bottom with the withdrawn ones.
+  // Free today first, out-on-a-trip next, withdrawn last.
   const rank = (it: FleetItem) => (isWithdrawn(it) ? 2 : isBusyToday(it) ? 1 : 0);
-  const items = [...typedItems].sort((a, b) => rank(a) - rank(b));
+  // Numbered in catalogue order FIRST, then sorted, so "Avenis 125 · 02"
+  // stays 02 whether or not 01 is out today.
+  const cards = displayUnits(typedItems).sort((a, b) => rank(a.item) - rank(b.item));
 
   if (visibleItems.length === 0) return null;
 
-  // Resolved to a tag name rather than branching the JSX twice: two copies of a
-  // heading is how the two drift apart the first time somebody restyles one.
+  // Resolved to a tag name rather than branching the JSX twice.
   const Heading = titleAs;
 
+  const open = (scooter: FleetItem, unit: string) => openBooking({ scooter: scooter.id, unit });
+
   return (
-    <section id="fleet" className="bg-dark pt-5 pb-14" aria-label={t.a11yMore.vehicleFleet}>
-      <div className="max-w-5xl mx-auto px-4 md:px-6">
+    <section id="fleet" className="bg-dark pb-10 pt-6" aria-label={t.a11yMore.vehicleFleet}>
+      <div className="mx-auto max-w-5xl px-4 md:px-6">
         <div className="mb-6">
-          <p className="font-bebas text-yellow text-[11px] tracking-[0.3em] mb-1.5 uppercase">{eyebrow ?? t.fleet.sectionEyebrow}</p>
-          <Heading className="font-syne font-extrabold text-offwhite uppercase leading-tight text-2xl md:text-3xl">
+          <Heading className="font-syne text-[28px] font-extrabold leading-[1.1] text-offwhite md:text-4xl">
             {title ?? t.fleet.sectionTitle}
           </Heading>
-          <p className="mt-2 max-w-xl font-dm text-sm leading-relaxed text-muted">
+          <p className="mt-2 max-w-xl font-dm text-[15px] leading-relaxed text-muted">
             {subtitle ?? t.fleet.sectionSub}
           </p>
         </div>
 
         {showTabs && (
-          <div className="flex flex-wrap gap-2.5 mb-10">
-            <button
-              onClick={() => setActiveCat("all")}
-              className={`font-syne font-bold text-sm px-5 py-2.5 rounded-full transition-colors ${
-                activeCat === "all"
-                  ? "bg-yellow text-dark"
-                  : "bg-dark-card border border-dark-border text-muted hover:text-offwhite hover:border-yellow/40"
-              }`}
-            >
-              {t.fleet.allTypes}
-            </button>
-            {usedCats.map((c) => (
+          <div className="mb-6 flex flex-wrap gap-2">
+            {[{ id: "all", label: t.fleet.allTypes }, ...usedCats.map((c) => ({ id: c.id, label: c.label }))].map((c) => (
               <button
                 key={c.id}
+                type="button"
                 onClick={() => setActiveCat(c.id)}
-                className={`font-syne font-bold text-sm px-5 py-2.5 rounded-full transition-colors ${
+                aria-pressed={activeCat === c.id}
+                className={`inline-flex min-h-11 items-center rounded-full px-4 font-syne text-sm font-bold transition-colors ${
                   activeCat === c.id
                     ? "bg-yellow text-dark"
-                    : "bg-dark-card border border-dark-border text-muted hover:text-offwhite hover:border-yellow/40"
+                    : "border border-white/10 bg-white/[0.03] text-muted hover:text-offwhite"
                 }`}
               >
-                {fleetTerm(language, c.label)}
+                {c.id === "all" ? c.label : fleetTerm(language, c.label)}
               </button>
             ))}
           </div>
         )}
 
-        {/* ── Body style ────────────────────────────────────────────────────
-            A second, subordinate tier. When the category tabs above are on
-            screen those own the solid-gold active state, so these take the
-            quieter gold-wash treatment and the hierarchy stays legible; on a
-            single-category page like /browse/cars there is no row above, these
-            ARE the filter, and they take the solid pill. Two states for one
-            control, chosen by what else is on the page — not two components. */}
+        {/* ── Body style ── the existing chips, no new filter UI. */}
         {showTypes && (
           <div
             role="group"
             aria-label={`Filter ${(activeCatDef?.label ?? "vehicles").toLowerCase()} by type`}
-            className={`flex flex-wrap items-center gap-2 ${showTabs ? "-mt-5 mb-9" : "mb-10"}`}
+            className="mb-6 flex flex-wrap items-center gap-2"
           >
             {[
               { id: "all", label: t.fleet.allTypes, n: baseItems.length },
@@ -437,28 +410,21 @@ export default function Fleet({
                   type="button"
                   onClick={() => setActiveType(chip.id)}
                   aria-pressed={on}
-                  // min-h-11 is the 44px touch target, not a look: these sit
-                  // under a thumb on a phone, and at their natural 39px they
-                  // were the smallest tappable thing on the page.
                   className={`relative inline-flex min-h-11 items-center rounded-full border px-4 py-2 font-syne text-[13px] font-bold transition-colors ${
                     on
                       ? solid
                         ? "border-transparent text-dark"
                         : "border-yellow/40 bg-yellow/12 text-yellow"
-                      : "border-white/10 bg-white/[0.03] text-muted hover:border-yellow/30 hover:text-offwhite"
+                      : "border-white/10 bg-white/[0.03] text-muted hover:border-white/25 hover:text-offwhite"
                   }`}
                 >
-                  {/* The gold travels between chips instead of blinking out of
-                      one and into another — the single piece of authored motion
-                      in this row, and the thing that makes it feel like a
-                      control rather than a set of links. */}
                   {on && solid && (
                     calm ? (
                       <span className="absolute inset-0 rounded-full bg-yellow" />
                     ) : (
                       <motion.span
                         layoutId="fleet-type-pill"
-                        className="rr-reveal absolute inset-0 rounded-full bg-yellow"
+                        className="absolute inset-0 rounded-full bg-yellow"
                         transition={{ type: "spring", stiffness: 420, damping: 34 }}
                       />
                     )
@@ -475,193 +441,128 @@ export default function Fleet({
           </div>
         )}
 
-        {/* 3-up from xl. The card design is untouched — this only stops a
-            long catalogue turning into a very long scroll on a wide screen. */}
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 md:gap-6">
-          {items.map((scooter, i) => {
-            const specs = resolveSpecs(scooter, language);
-            const ownInc = (scooter.included ?? []).filter(Boolean);
-            const included = ownInc.length
-              ? fleetTerms(language, ownInc)
-              : (isScooterCat(scooter.category ?? "scooter") || scooter.id === "burgman" || scooter.id === "avenis")
-              ? [...t.booking.included]
-              : [];
-            // Withdrawn by the owner — genuinely not for hire, so the button
-            // is disabled. Booked today is NOT this: see the sort comment.
+        {/* Vertical cards on a phone, two columns from 900px. The whole card
+            opens the booking sheet with this vehicle chosen; Details is a real
+            link to the vehicle's own page. */}
+        <div className="grid grid-cols-1 gap-5 min-[900px]:grid-cols-2">
+          {cards.map((u, i) => {
+            const scooter = u.item;
             const out = scooter.available === false;
             const busyToday = !out && scooter.soldOutToday === true;
+            const rate = vehicleDayRate(scooter);
+            const scooterRates = usesScooterRates(scooter);
+            const chips = cardChips(scooter, language, deliveryFee(scooter, cats) === 0 ? r.deliveryIncluded : null);
+            const rating = ratings?.[scooter.id];
             return (
-              <motion.div
-                key={`${scooter.id}-${i}`}
-                initial={{ opacity: 0, y: 12 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, margin: "-40px" }}
-                transition={{ duration: 0.35, delay: Math.min(i, 3) * 0.05 }}
-                className="rr-reveal group relative bg-dark-card rounded-2xl overflow-hidden border border-white/10 transition-colors duration-300 hover:border-yellow/50"
+              <article
+                key={u.key}
+                className={`group relative flex flex-col overflow-hidden rounded-2xl border border-white/[0.12] bg-dark-card transition-colors ${out ? "" : "hover:border-white/25"}`}
               >
-                {/* Photo carousel */}
-                <FleetImageCarousel scooter={scooter} cardIndex={i} />
+                <FleetImageCarousel scooter={scooter} cardIndex={i} onOpen={out ? undefined : () => open(scooter, u.key)} />
 
-                {/* Save (wishlist) heart */}
-                <div className="absolute top-5 right-5 z-10">
+                <div className="absolute right-4 top-4 z-10">
                   <SaveButton
                     item={{
                       id: scooter.id,
                       type: "scooter",
-                      name: scooter.name,
+                      name: u.label,
                       image: scooter.images?.[0] || scooter.image,
-                      href: `/browse/${scooter.category ?? "scooter"}`,
-                      meta: `${convert(scooter.price)} ${scooter.unit}`,
+                      href: vehicleHref(scooter),
+                      meta: rate ? `${rs(rate)} ${scooter.unit}` : "",
                     }}
                   />
                 </div>
 
-                {/* Badges overlay */}
-                <div className="absolute top-5 left-5 flex items-center gap-2 z-10">
-                  <span className="font-bebas text-xs tracking-[0.2em] bg-yellow text-dark px-3.5 py-1.5 rounded-full">
-                    {fleetTerm(language, scooter.badge)}
-                  </span>
-                  {out ? (
-                    <span className="flex items-center gap-1.5 font-bebas text-[10px] tracking-[0.15em] bg-red-500/90 text-white px-3 py-1.5 rounded-full">
-                      <Ban size={10} /> {t.fleet.unavailable}
-                    </span>
-                  ) : busyToday ? (
-                    /* Amber, not red, and it says what is true: out on a trip
-                       today, bookable for any other date. The Book button
-                       below stays live so the customer reaches the calendar. */
-                    <span className="flex items-center gap-1.5 font-bebas text-[10px] tracking-[0.15em] bg-amber-500/90 text-dark px-3 py-1.5 rounded-full">
-                      <CalendarClock size={10} /> {t.fleet.bookedToday}
-                    </span>
-                  ) : (
-                    <span className="flex items-center gap-1.5 font-bebas text-[10px] tracking-[0.15em] bg-green-500/90 text-white px-3 py-1.5 rounded-full">
-                      <BadgeCheck size={10} /> {t.fleet.available}
-                    </span>
+                <div className="relative flex flex-1 flex-col p-5">
+                  {/* The card's main action covers the text area; Details and
+                      the photo controls sit above it. No nested buttons. */}
+                  {!out && (
+                    <button
+                      type="button"
+                      onClick={() => open(scooter, u.key)}
+                      aria-label={`${r.reserve} — ${u.label}`}
+                      className="absolute inset-0 z-[1] rounded-b-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-offwhite/70"
+                    />
                   )}
-                </div>
-
-                {/* Content */}
-                <div className="p-5">
-                  {/* The admin form pre-fills this with "Add a short tagline."
-                      as a PROMPT to the owner. Three of the four cars were
-                      printing it above the model name on /browse/car. */}
-                  {realCopy(
-                    loc(language, scooter.tagline, scooter.taglineFr, scooter.taglineCr),
-                  ) && (
-                    <p className="font-bebas text-muted text-[11px] tracking-[0.2em] mb-1 uppercase">
-                      {loc(language, scooter.tagline, scooter.taglineFr, scooter.taglineCr)}
+                  <h3 className="font-syne text-lg font-bold leading-snug text-offwhite">{u.label}</h3>
+                  {rating && rating.count > 0 ? (
+                    <p className="mt-1 flex items-center gap-1 font-dm text-xs text-muted">
+                      <Star size={12} className="fill-offwhite text-offwhite" aria-hidden />
+                      <span className="tabular-nums text-offwhite/85">{rating.avg.toFixed(1)}</span>
+                      <span className="tabular-nums">({rating.count})</span>
                     </p>
-                  )}
-                  {/* The name is a real link to the vehicle's own page. The
-                      Details button below still opens the modal — comparing a
-                      grid is faster than loading three pages — but until now
-                      there was no crawlable path to the vehicle pages at all,
-                      and a URL nothing links to is a URL Google discovers late
-                      and ranks lower. */}
-                  <h3 className="font-syne font-extrabold text-offwhite uppercase leading-none mb-2 text-xl md:text-2xl">
-                    <Link
-                      href={vehicleHref(scooter)}
-                      className="hover:text-yellow transition-colors"
-                    >
-                      {scooter.name}
-                    </Link>
-                  </h3>
-                  {(() => {
-                    const r = ratings?.[scooter.id];
-                    return r && r.count > 0 ? (
-                      <div className="flex items-center gap-1.5 mb-3">
-                        <span className="flex items-center gap-0.5">
-                          {[1, 2, 3, 4, 5].map((n) => (
-                            <Star key={n} size={13} className={n <= Math.round(r.avg) ? "text-yellow fill-yellow" : "text-muted/30"} />
-                          ))}
-                        </span>
-                        <span className="font-dm text-offwhite text-xs font-medium">{r.avg.toFixed(1)}</span>
-                        <span className="font-dm text-muted text-[11px]">({r.count})</span>
-                      </div>
-                    ) : null;
-                  })()}
-                  {(recentBookings?.[scooter.id] ?? 0) >= 2 && (
-                    <div className="inline-flex items-center gap-1.5 mb-4 bg-orange-500/10 border border-orange-500/30 text-orange-400 rounded-full px-3 py-1">
-                      <Flame size={12} />
-                      <span className="font-dm text-xs font-medium">
-                        {t.fleet.bookedThisWeek
-                          ? t.fleet.bookedThisWeek(recentBookings![scooter.id])
-                          : `Booked ${recentBookings![scooter.id]}× this week`}
-                      </span>
-                    </div>
-                  )}
-                  <p className="text-muted/80 font-dm text-sm leading-snug line-clamp-2 mb-3">
-                    {loc(language, scooter.description, scooter.descriptionFr, scooter.descriptionCr)}
-                  </p>
+                  ) : null}
 
-                  {specs.length > 0 && (
-                    <div className="flex flex-wrap gap-2 mb-5">
-                      {specs.map((spec) => {
-                        const Icon = spec.icon;
+                  {chips.length > 0 && (
+                    <ul className="mt-3 flex flex-wrap gap-1.5">
+                      {chips.map((c) => {
+                        const Icon = c.icon;
                         return (
-                          <span
-                            key={spec.label}
-                            className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs font-dm text-offwhite/85"
+                          <li
+                            key={c.label}
+                            className="inline-flex items-center gap-1.5 rounded-full border border-white/10 px-2.5 py-1 font-dm text-xs text-offwhite/80"
                           >
-                            <Icon size={13} className="text-yellow shrink-0" /> {spec.label}
-                          </span>
+                            <Icon size={12} className="shrink-0 text-muted" aria-hidden /> {c.label}
+                          </li>
                         );
                       })}
-                    </div>
+                    </ul>
                   )}
 
-                  <div className="pt-4 border-t border-white/10 space-y-3">
-                    <div>
-                      <span className="font-syne font-extrabold text-yellow text-2xl">{convert(fleetPrice(language, scooter.price))}</span>
-                      <span className="font-dm text-muted text-sm ml-1">{fleetTerm(language, scooter.unit)}</span>
+                  {out ? (
+                    <p className="mt-3 font-dm text-xs text-muted">{r.withdrawn}</p>
+                  ) : busyToday ? (
+                    /* Amber, not red, and it says what is true: out on a trip
+                       today, bookable for any other date. */
+                    <p className="mt-3 font-dm text-xs text-amber-300">{r.outToday}</p>
+                  ) : null}
+
+                  <div className="mt-auto flex items-end justify-between gap-3 pt-4">
+                    <div className="min-w-0">
+                      {rate > 0 && (
+                        <p className="font-syne text-xl font-extrabold leading-none tabular-nums text-offwhite">
+                          {convert(rs(rate))}
+                          <span className="ml-1 font-dm text-sm font-normal text-muted">{fleetTerm(language, scooter.unit)}</span>
+                        </p>
+                      )}
+                      {scooterRates && rate > 0 && <p className="mt-1 font-dm text-xs text-muted">{r.scooterSub}</p>}
                     </div>
-                    <div className="flex items-center gap-2.5">
-                      <button
-                        type="button"
-                        onClick={() => setDetail({ scooter, specs, included })}
-                        className="flex items-center justify-center gap-1.5 font-syne font-bold text-sm px-4 py-3 rounded-full border border-dark-border text-offwhite/80 hover:border-yellow/50 hover:text-yellow transition-colors shrink-0"
-                      >
-                        <Maximize2 size={13} /> Details
-                      </button>
-                      <Link
-                        href="#booking"
-                        onClick={() => {
-                          if (!out) {
-                            window.dispatchEvent(
-                              new CustomEvent("rr:prefill-booking", { detail: { scooter: scooter.id } }),
-                            );
-                          }
-                        }}
-                        className={`flex-1 flex items-center justify-center gap-2 font-syne font-bold text-sm px-6 py-3 rounded-full transition-colors ${
-                          out
-                            ? "bg-dark-border text-muted cursor-not-allowed pointer-events-none"
-                            : "bg-yellow text-dark hover:bg-yellow-dark"
-                        }`}
-                        aria-label={`Book ${scooter.name}`}
-                        aria-disabled={out}
-                      >
-                        {out
-                          ? t.fleet.unavailableBtn
-                          : <>{t.fleet.bookNow} <ArrowRight size={14} /></>}
-                      </Link>
-                    </div>
+                    <Link
+                      href={vehicleHref(scooter)}
+                      className="relative z-[2] inline-flex min-h-11 shrink-0 items-center gap-1 rounded-full px-1 font-dm text-sm text-offwhite/85 underline-offset-4 hover:text-offwhite hover:underline"
+                    >
+                      {r.details} <ArrowRight size={14} aria-hidden />
+                    </Link>
                   </div>
                 </div>
-              </motion.div>
+              </article>
             );
           })}
         </div>
-      </div>
 
-      {detail && (
-        <ScooterDetailModal
-          scooter={detail.scooter}
-          specs={detail.specs}
-          included={detail.included}
-          rating={ratings?.[detail.scooter.id]}
-          whatsapp={whatsapp}
-          onClose={() => setDetail(null)}
-        />
-      )}
+        {intro ? <div className="mt-10 max-w-2xl font-dm text-sm leading-relaxed text-muted">{intro}</div> : null}
+      </div>
     </section>
   );
+}
+
+/**
+ * Three chips per card, from the owner's own specs: for a scooter the engine,
+ * the gearbox and the riders; for a car the gearbox, the seats and — when the
+ * category delivers free — "Delivery included" in place of a third spec.
+ * Labels pass through fleetTerm, so a French card reads French.
+ */
+function cardChips(item: FleetItem, lang: Language, deliveryIncluded: string | null): Spec[] {
+  const own = (item.specs ?? []).filter(Boolean);
+  const scooterish = isScooterCat(item.category ?? "scooter");
+  const base = own.length ? own : scooterish ? SCOOTER_SPECS.map((s) => s.label) : [];
+  const pick = (re: RegExp) => base.find((s) => re.test(s));
+  const wanted = scooterish
+    ? [pick(/cc|engine/i), pick(/auto|manual|gear/i), pick(/rider|seat|person|people/i)]
+    : [pick(/auto|manual|gear/i), pick(/seat|place|passenger/i), deliveryIncluded ? null : pick(/air|a\/c|\bac\b|clim/i)];
+  const chosen = [...new Set(wanted.filter((s): s is string => Boolean(s)))];
+  for (const s of base) if (chosen.length < (deliveryIncluded && !scooterish ? 2 : 3) && !chosen.includes(s)) chosen.push(s);
+  const chips: Spec[] = resolveSpecs({ ...item, specs: chosen }, lang);
+  if (deliveryIncluded && !scooterish) chips.push({ icon: Truck, label: deliveryIncluded });
+  return chips.slice(0, 3);
 }

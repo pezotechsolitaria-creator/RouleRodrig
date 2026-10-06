@@ -26,13 +26,14 @@ describe("TrustBar", () => {
 
   it("keeps the two promises that hold for any rental", () => {
     const t = text(bar({ category: "kayak", kind: "equipment" }));
-    expect(t).toContain("WhatsApp support");
-    expect(t).toContain("Easy booking");
+    expect(t).toContain("Delivered to your stay");
+    expect(t).toContain("WhatsApp if you need us");
+    expect(t).not.toMatch(/Insured|No mileage cap/);
   });
 
   it("does not leave two items stranded in a four-column row", () => {
     const html = bar({ category: "kayak", kind: "equipment" });
-    expect(html).toContain("grid-cols-2");
+    expect(html).toContain("sm:grid-cols-2");
     expect(html).not.toContain("lg:grid-cols-4");
   });
 
@@ -42,14 +43,14 @@ describe("TrustBar", () => {
     }
   });
 
-  it("still says what it always said on the two live categories", () => {
+  // Owner brief, 6 Oct 2026: one row of four lines, each true of a car and a
+  // scooter alike, so the two live pages say the same thing.
+  it("says the same four lines on the two live categories", () => {
     const scooter = bar({ category: "scooter" });
-    expect(text(scooter)).toContain("Helmet included");
-    expect(text(scooter)).toContain("Free scooter delivery");
-    expect(scooter).toContain("grid grid-cols-2 lg:grid-cols-4 gap-x-6");
-    const car = text(bar({ category: "car" }));
-    expect(car).toContain("Air conditioning");
-    expect(car).not.toMatch(/helmet/i);
+    expect(text(scooter)).toBe("Insured Delivered to your stay No mileage cap WhatsApp if you need us");
+    expect(scooter).toContain("lg:grid-cols-4");
+    expect(bar({ category: "car" })).toBe(scooter);
+    expect(text(scooter)).not.toMatch(/helmet|free/i);
   });
 });
 

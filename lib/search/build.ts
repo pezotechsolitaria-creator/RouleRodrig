@@ -3,7 +3,7 @@ import { SERVICE_TYPES } from "@/lib/defaults";
 import { loc } from "@/lib/localize";
 import { placeHref } from "@/lib/place-href";
 import { vehicleHref, vehicleName } from "@/lib/vehicle-slug";
-import { isSellableFleetItem, priceNumber } from "@/lib/site-data";
+import { isSellableFleetItem, vehiclePriceNumber } from "@/lib/site-data";
 import { EXPERIENCES } from "@/lib/experiences";
 import { centsToShortString } from "@/lib/money";
 import { STATIC_PAGES } from "./pages";
@@ -97,7 +97,7 @@ export function buildDocs(content: SiteContent, extras: SearchExtras, lang: Sear
 
   for (const v of (content.fleet ?? []) as FleetItem[]) {
     if (!isSellableFleetItem(v)) continue;
-    const n = priceNumber(v.price);
+    const n = vehiclePriceNumber(v as { price: string; category?: string });
     const cat = (v as { category?: string }).category ?? "scooter";
     docs.push({
       id: `veh:${v.id}`,

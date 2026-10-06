@@ -48,11 +48,12 @@ describe("being booked today does not withdraw a vehicle", () => {
     );
   });
 
-  it("shows it in amber with its own words, not the red UNAVAILABLE", () => {
-    expect(FLEET).toContain("t.fleet.bookedToday");
+  it("shows it in amber with its own words, not the withdrawn line", () => {
+    // "Out today · other dates open" (lib/rentals/copy.ts), since 6 Oct 2026.
+    expect(FLEET).toContain("r.outToday");
     const badge = FLEET.slice(FLEET.indexOf("busyToday ?"));
     expect(badge).toContain("amber");
-    expect(badge.slice(0, 400)).not.toContain("t.fleet.unavailable");
+    expect(badge.slice(0, 400)).not.toContain("r.withdrawn");
   });
 });
 
@@ -68,10 +69,13 @@ describe("the sort no longer buries a bookable vehicle", () => {
 });
 
 describe("the booking form does not contradict its own calendar", () => {
-  it("gives the availability strip three states", () => {
-    expect(BOOKING).toMatch(/s\.available === false \?/);
+  // The availability strip under the form went with the in-page form (owner
+  // brief, 6 Oct 2026: "remove the availability echo"). A withdrawn vehicle
+  // never reaches the sheet's list (the filter below); one out today does, and
+  // says so.
+  it("tells out-today apart in the sheet's vehicle list", () => {
     expect(BOOKING).toMatch(/s\.soldOutToday \?/);
-    expect(BOOKING).toContain("t.fleet.bookedToday");
+    expect(BOOKING).toContain("r.outToday");
   });
 
   it("still calls the per-date availability endpoint", () => {
@@ -100,8 +104,9 @@ describe("the booking form does not contradict its own calendar", () => {
   it("marks that vehicle as out today instead of deleting the row", () => {
     // Offering it silently would be the opposite error — a customer picking a
     // scooter with no idea it is on a trip.
-    const select = BOOKING.slice(BOOKING.indexOf("scooters.map((s) => ("));
-    expect(select.slice(0, 400)).toContain("t.fleet.bookedToday");
+    const select = BOOKING.slice(BOOKING.indexOf('role="listbox"'));
+    expect(select.indexOf('role="listbox"')).toBe(0);
+    expect(select.slice(0, 1600)).toContain("r.outToday");
   });
 });
 

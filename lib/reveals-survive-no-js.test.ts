@@ -75,7 +75,10 @@ describe("every scroll reveal survives a reader with no JavaScript", () => {
     // A tripwire: if the scanner stops matching, everything below passes
     // vacuously and the page goes back to being blank without JavaScript.
     expect(revealFiles.length).toBeGreaterThan(5);
-    expect(reveals.length).toBeGreaterThanOrEqual(15);
+    // 15 until 6 Oct 2026, when the rental cards and the in-page booking
+    // form stopped hiding on load at all (the form became a sheet): five
+    // fewer nodes a reader without JavaScript could lose.
+    expect(reveals.length).toBeGreaterThanOrEqual(10);
   });
 
   it("every one carries the class the noscript rule un-hides", () => {

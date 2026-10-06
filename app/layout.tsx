@@ -22,7 +22,7 @@ import GlobalTiRoule from "@/components/GlobalTiRoule";
 import GlobalSearch from "@/components/search/GlobalSearch";
 import SkipLink from "@/components/SkipLink";
 import { getContent } from "@/lib/content";
-import { priceNumber } from "@/lib/site-data";
+import { vehiclePriceNumber } from "@/lib/site-data";
 import { cheapestDailyRate, defaultMetaDescription } from "@/lib/home-description";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
@@ -258,7 +258,7 @@ export default async function RootLayout({
   const content = await getContent();
   const scooterPrices = content.fleet
     .filter((f) => (f.category ?? "scooter") === "scooter")
-    .map((f) => priceNumber(f.price))
+    .map((f) => vehiclePriceNumber(f))
     .filter((n): n is number => n != null && n > 0);
   const scooterDailyMur = scooterPrices.length
     ? Math.min(...scooterPrices)

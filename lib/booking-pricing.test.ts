@@ -7,8 +7,11 @@ import {
   extractDailyPrice,
   priceBreakdown,
   rentalDays,
+  SCOOTER_RATES,
+  scooterTotal,
   todayInRodrigues,
   validateRentalWindow,
+  vehicleDayRate,
 } from "./booking-pricing";
 
 const SCOOTER = { price: "Rs 1,200/day", category: "scooter" };
@@ -64,30 +67,71 @@ describe("priceBreakdown", () => {
   // is the opposite, and the scooters' own price label always said so —
   // "From Rs 699(free delivery)". A live booking went out charging a scooter
   // Rs 400 before anyone noticed.
-  it("scooter, 1 day: full rate, delivery FREE, 25% deposit", () => {
+  it("scooter, 1 day: the one-day rate, delivery included, 25% due now", () => {
     const b = priceBreakdown(SCOOTER, 1)!;
-    expect(b).toMatchObject({ rental: 1200, delivery: 0, total: 1200, pct: 25 });
-    expect(b.deposit).toBe(300);
-    expect(b.balance).toBe(900);
+    expect(b).toMatchObject({ rental: 1699, rate: 1699, delivery: 0, total: 1699, pct: 25 });
+    expect(b.deposit).toBe(425); // 424.75, rounded
+    expect(b.balance).toBe(1274);
   });
 
-  // No automatic discount (M159). The tiers took 10% off at 3 days and 15% at
-  // 7, silently: an 8-day Avenis was quoted Rs 594 a day against an advertised
-  // Rs 699. The rate on the card is now the rate charged, at every length.
-  it("charges the advertised rate at every length, with no silent discount", () => {
-    for (const days of [1, 2, 3, 6, 7, 8, 14, 30]) {
-      expect(priceBreakdown(SCOOTER, days)!.rental).toBe(1200 * days);
+  // ── THE PUBLISHED SCOOTER LIST (owner brief, 6 Oct 2026) ─────────────────
+  //
+  // 1 day Rs 1,699 · 2 days Rs 899 a day · 3 days or more Rs 799 a day, for
+  // the WHOLE rental, delivery included. It replaces whatever each scooter's
+  // price box says, so the card, the sheet and the server can only agree.
+  // Still no silent discount (M159): every length is a price the page prints.
+  it("prices every scooter from the published list, whatever its price box says", () => {
+    expect(SCOOTER_RATES).toEqual({ oneDay: 1699, twoDays: 899, threePlus: 799 });
+    const cases: [number, number][] = [[1, 1699], [2, 1798], [3, 2397], [5, 3995], [7, 5593], [8, 6392], [30, 23970]];
+    for (const [days, rental] of cases) {
+      expect(scooterTotal(days), `${days} days`).toBe(rental);
+      expect(priceBreakdown(SCOOTER, days)!.rental, `${days} days`).toBe(rental);
+      expect(priceBreakdown({ price: "From Rs 699(free delivery)", category: "scooter" }, days)!.rental).toBe(rental);
     }
   });
 
-  it("reproduces the real booking that exposed this", () => {
-    // RR-329D81: AVENIS 125cc at Rs 699, 8 days, delivered. It was quoted
-    // Rs 4,752 rental (Rs 594/day) + Rs 400 delivery = Rs 5,152.
+  it("charges 3 days or more at Rs 799 a day for the whole rental, not just the third day", () => {
+    expect(priceBreakdown(SCOOTER, 3)!.rate).toBe(799);
+    expect(priceBreakdown(SCOOTER, 7)!.rate).toBe(799);
+    expect(priceBreakdown(SCOOTER, 2)!.rate).toBe(899);
+  });
+
+  it("refuses a day count that is not a whole positive number", () => {
+    for (const days of [0, -1, 1.5, NaN]) expect(scooterTotal(days)).toBeNull();
+  });
+
+  it("advertises the 3-days-or-more rate on a scooter, the price box on anything else", () => {
+    expect(vehicleDayRate(SCOOTER)).toBe(799);
+    expect(vehicleDayRate({ price: "Rs 699(free delivery)", category: "scooter" })).toBe(799);
+    expect(vehicleDayRate({ price: "on request", category: "scooter" })).toBe(0);
+    expect(vehicleDayRate(CAR)).toBe(2500);
+    expect(vehicleDayRate({ price: "Rs 1,899", category: "car" })).toBe(1899);
+  });
+
+  it("rounds Due now UP at the half rupee, and Due at pickup is the rest", () => {
+    // Rs 1,699 at 50% is Rs 849.50: the customer pays Rs 850 now, Rs 849 later.
+    const b = priceBreakdown(SCOOTER, 1, [{ id: "scooter", depositPct: 50 }])!;
+    expect(b.deposit).toBe(850);
+    expect(b.balance).toBe(849);
+    const week = priceBreakdown(SCOOTER, 7, [{ id: "scooter", depositPct: 50 }])!;
+    expect(week.deposit).toBe(2797); // 5,593 / 2 = 2,796.50
+    expect(week.balance).toBe(2796);
+  });
+
+  it("reproduces the real booking that exposed the old silent discount (M159)", () => {
+    // RR-329D81: AVENIS 125cc, 8 days, delivered. It was quoted Rs 4,752
+    // rental (Rs 594/day) + Rs 400 delivery. It is now the published list.
     const avenis = { price: "From Rs 699(free delivery)", category: "scooter" };
     const b = priceBreakdown(avenis, 8)!;
-    expect(b.rental).toBe(5592);   // 8 x 699, not 8 x 594
-    expect(b.delivery).toBe(0);    // free, not Rs 400
-    expect(b.total).toBe(5592);
+    expect(b.rental).toBe(6392);   // 8 x 799
+    expect(b.delivery).toBe(0);    // included, not Rs 400
+    expect(b.total).toBe(6392);
+  });
+
+  it("charges a car its advertised rate at every length, with no silent discount", () => {
+    for (const days of [1, 2, 3, 6, 7, 8, 14, 30]) {
+      expect(priceBreakdown(CAR, days)!.rental).toBe(2500 * days);
+    }
   });
 
   it("car: delivery IS charged, and a 50% deposit", () => {

@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { costLabel, costTiers, modelCostTable } from "./vehicle-cost";
+import { costLabel, costTiers, modelCostTable, SCOOTER_COST_DAYS } from "./vehicle-cost";
 import { priceBreakdown } from "./booking-pricing";
 
 const read = (...p: string[]) => readFileSync(join(process.cwd(), ...p), "utf8");
@@ -43,9 +43,21 @@ describe("costTiers", () => {
     expect([1, 3, 7].map(costLabel)).toEqual(["1 day", "3 days", "1 week"]);
   });
 
-  it("claims no discount, because M159 removed them", () => {
-    const tiers = costTiers({ price: "Rs 699", category: "scooter" }, CATS);
-    expect(tiers.every((t) => t.off === 0 && t.perDay === 699)).toBe(true);
+  it("claims no discount on a car, because M159 removed them", () => {
+    const tiers = costTiers({ price: "Rs 1,899", category: "car" }, CATS);
+    expect(tiers.every((t) => t.off === 0 && t.perDay === 1899)).toBe(true);
+  });
+
+  it("prints a scooter's published list, row for row (6 Oct 2026)", () => {
+    // 1 day Rs 1,699 · 2 days Rs 899 a day · 3 days or more Rs 799 a day —
+    // the same function the checkout charges with, whatever the box says.
+    const tiers = costTiers({ price: "Rs 699(free delivery)", category: "scooter" }, CATS, SCOOTER_COST_DAYS);
+    expect(tiers.map((t) => [t.label, t.rental, t.perDay])).toEqual([
+      ["1 day", 1699, 1699],
+      ["2 days", 1798, 899],
+      ["3 days", 2397, 799],
+      ["1 week", 5593, 799],
+    ]);
   });
 
   it("returns nothing for a vehicle with no usable price", () => {
@@ -84,7 +96,7 @@ describe("both pages use it", () => {
   const BROWSE_CODE = code(BROWSE);
 
   it("the detail page no longer does the arithmetic itself", () => {
-    expect(DETAIL).toContain("costTiers(item, content.vehicleCategories)");
+    expect(DETAIL).toContain("costTiers(item, content.vehicleCategories, scooterRates ? SCOOTER_COST_DAYS : undefined)");
     expect(DETAIL).not.toContain("priceBreakdown(");
   });
 

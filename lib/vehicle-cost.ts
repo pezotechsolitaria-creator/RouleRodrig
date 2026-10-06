@@ -18,6 +18,9 @@ import { vehicleHref, vehicleName } from "@/lib/vehicle-slug";
 /** The rental lengths both tables show. */
 export const COST_DAYS = [1, 3, 7] as const;
 
+/** Scooters add the 2-day rate: it is a price of its own (SCOOTER_RATES). */
+export const SCOOTER_COST_DAYS = [1, 2, 3, 7] as const;
+
 export type CostTier = {
   days: number;
   /** "1 day", "3 days", "1 week". */
@@ -25,8 +28,9 @@ export type CostTier = {
   /** Rental only, whole rupees: no delivery, no deposit. */
   rental: number;
   perDay: number;
-  /** Percent below the 1-day rate. 0 since M159 removed the automatic tiers;
-   *  kept so a discount the owner sets later shows up without a redesign. */
+  /** Percent below the 1-day rate. 0 for a car since M159 removed the
+   *  automatic tiers; a scooter's published list (SCOOTER_RATES) lands here
+   *  too. No page prints it as a "% OFF" badge (owner brief, 6 Oct 2026). */
   off: number;
 };
 

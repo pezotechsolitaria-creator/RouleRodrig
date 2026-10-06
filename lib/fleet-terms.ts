@@ -40,11 +40,14 @@ const TERMS: Record<string, Pair> = {
   automatic: { fr: "Automatique", cr: "Otomatik" },
   manual: { fr: "Manuelle", cr: "Manyel" },
   "helmet included": { fr: "Casque inclus", cr: "Kask inklir" },
+  "baby seat available": { fr: "Siège bébé disponible", cr: "Sez bebe disponib" },
   // ── included ─────────────────────────────────────────────────────────────
   "full tank of fuel": { fr: "Plein de carburant", cr: "Plin lesans" },
   "full tank": { fr: "Plein de carburant", cr: "Plin lesans" },
   insurance: { fr: "Assurance", cr: "Lasirans" },
   "free delivery": { fr: "Livraison gratuite", cr: "Livrezon gratis" },
+  // The owner brief of 6 Oct 2026 renamed it: delivery is in the price.
+  "delivery included": { fr: "Livraison incluse", cr: "Livrezon inkli" },
   "24/7 support": { fr: "Assistance 24/7", cr: "Sipor 24/7" },
   "24/7 customer support": { fr: "Service client 24/7", cr: "Servis kliyan 24/7" },
   "lock & chain": { fr: "Antivol et chaîne", cr: "Kadna ek lasenn" },

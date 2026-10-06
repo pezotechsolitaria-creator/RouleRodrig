@@ -54,8 +54,14 @@ vi.mock("@/components/PageLanguage", () => ({ default: () => null }));
 vi.mock("@/components/nav/HubBacklink", () => ({ default: () => null }));
 // The fleet grid prints the page's heading and the intro it is handed.
 vi.mock("@/components/Fleet", () => ({
-  default: (p: { title: string; subtitle?: ReactNode }) =>
-    createElement("section", null, createElement("h1", null, p.title), createElement("p", null, p.subtitle)),
+  default: (p: { title: string; subtitle?: ReactNode; intro?: ReactNode }) =>
+    createElement(
+      "section",
+      null,
+      createElement("h1", null, p.title),
+      createElement("p", null, p.subtitle),
+      createElement("p", null, p.intro),
+    ),
 }));
 // The booking form: only the panel it renders from `conditions`, exactly as
 // BookingSection does (<RentalConditions items={conditions} />). The panel is
@@ -207,9 +213,10 @@ beforeEach(() => {
 describe("/browse/getting-around", () => {
   it("quotes the from-prices the category pages show, and no other Rs figure", async () => {
     const t = visible(await renderBrowse("getting-around"));
-    expect(t).toContain("A car is from Rs 1,899 a day and a scooter from Rs 699");
-    // Every Rs amount on the page is the fleet's or the price sheet's.
-    const allowed = new Set([1899, 699, 1131, 1464, 1797]);
+    expect(t).toContain("A car is from Rs 1,899 a day and a scooter from Rs 799");
+    // Every Rs amount on the page is the fleet's, the published scooter rate
+    // (SCOOTER_RATES.threePlus) or the price sheet's.
+    const allowed = new Set([1899, 799, 1131, 1464, 1797]);
     const figures = rsFigures(t);
     expect(figures.length).toBeGreaterThanOrEqual(5);
     expect(figures.filter((n) => !allowed.has(n))).toEqual([]);
@@ -225,7 +232,7 @@ describe("/browse/getting-around", () => {
   it("names no car price while cars are switched off", async () => {
     setView({ carsOn: false });
     const t = visible(await renderBrowse("getting-around"));
-    expect(t).toContain("A scooter is from Rs 699 a day");
+    expect(t).toContain("A scooter is from Rs 799 a day");
     expect(t).not.toMatch(/A car is from/);
   });
 
@@ -248,7 +255,7 @@ describe("/browse/getting-around", () => {
     setView({ airport: null });
     const t = visible(await renderBrowse("getting-around"));
     expect(t).toContain("fixed fares by zone, measured by road, listed on the airport transfers page");
-    expect(rsFigures(t).filter((n) => ![1899, 699].includes(n))).toEqual([]);
+    expect(rsFigures(t).filter((n) => ![1899, 799].includes(n))).toEqual([]);
   });
 
   it("links /transfers, and the French guide as the blog's twin — not this page's", async () => {
@@ -279,7 +286,7 @@ describe("/browse/car", () => {
     setView({ carFee: 0 });
     expect(visible(await renderBrowse("car"))).not.toMatch(/delivered free|delivery is free/i);
     setView({ carFee: 0, swift: "Rs 1899(Free delivery fee)" });
-    expect(visible(await renderBrowse("car"))).toContain("Delivery is free either way.");
+    expect(visible(await renderBrowse("car"))).toContain("Delivery is included either way.");
   });
 
   it("links the intro and the airport passage to /transfers", async () => {
@@ -403,7 +410,7 @@ describe("/browse/scooter", () => {
 
   it("says scooter delivery is free because its fee is 0, and prints no car table", async () => {
     const t = visible(await renderBrowse("scooter"));
-    expect(t).toContain("helmet included and delivered free to your guest house");
+    expect(t).toContain("with helmets and delivery to your guest house included");
     expect(t).toContain("Roule Rodrigues rents scooters from Baie Aux Huîtres on Rodrigues:");
     expect(t).not.toContain("What car hire costs");
   });
@@ -471,7 +478,7 @@ describe("the place listings' markup", () => {
 describe("category titles and descriptions", () => {
   const len = (s: unknown) => Array.from(String(s)).length;
   const EXPECT: Record<string, number | null> = {
-    scooter: 699,
+    scooter: 799,
     car: 1899,
     stays: 1000,
     activities: 1999,
@@ -500,7 +507,10 @@ describe("category titles and descriptions", () => {
       const m = await browseMeta(category);
       expect(len(m.title), String(m.title)).toBeLessThanOrEqual(60);
       expect(len(m.description), String(m.description)).toBeLessThanOrEqual(155);
-      if (EXPECT[category]) expect(m.description).toMatch(/From Rs 1\d,\d{3}\.$/);
+      // A scooter quotes the published rate (SCOOTER_RATES), whatever its
+      // price box says; everything else follows the data.
+      if (EXPECT[category])
+        expect(m.description).toMatch(category === "scooter" ? /From Rs 799\.$/ : /From Rs 1\d,\d{3}\.$/);
     }
   });
 
@@ -595,7 +605,7 @@ describe("the French pages", () => {
     const mod = await import("@/app/fr/location-scooter-rodrigues/page");
     const d = String((await mod.generateMetadata()).description);
     expect(d).toBe(
-      "Louez un scooter à Rodrigues dès Rs 699 par jour. Casque et assurance inclus, livraison à votre hôtel, sans durée minimale. Réservez en ligne.",
+      "Louez un scooter à Rodrigues dès Rs 799 par jour. Casque et assurance inclus, livraison à votre hôtel, sans durée minimale. Réservez en ligne.",
     );
   });
 

@@ -10,10 +10,12 @@
 // disagree by construction.
 //
 // Pricing rules (owner's):
-//   * daily rate parsed from the fleet item's display price ("Rs 1,200/day")
-//   * 3+ days: 10% off the daily rate; 7+ days: 15% off
+//   * scooters: the published list in SCOOTER_RATES (1 day / 2 days / 3+ days)
+//   * everything else: the daily rate parsed from the fleet item's price box
+//     ("Rs 1,899") times the days, counted inclusively
 //   * delivery: whatever the owner set on the vehicle's category in /admin
-//   * deposit to confirm: whatever the owner set on the category — balance at pickup
+//   * due now: the percentage the owner set on the category — the rest is due
+//     at pickup. The car security hold (CAR_SECURITY_HOLD) is separate money.
 
 export type PriceableVehicle = { price: string; category?: string };
 
@@ -125,11 +127,75 @@ export function depositPct(
   return catId === "car" ? 50 : 25;
 }
 
+// ── SCOOTER RATES: PER DAY, DELIVERY INCLUDED (owner, 6 Oct 2026) ───────────
+//
+//   1 day            Rs 1,699
+//   2 days           Rs   899 a day  (Rs 1,798)
+//   3 days or more   Rs   799 a day  for the WHOLE rental, not blended
+//
+// These replace "From Rs 699(free delivery)" — a slogan the server parsed for a
+// number. They are ADVERTISED, every one of them: the card says "Rs 799 / day ·
+// 3 days or more", the vehicle page prints all three, and the booking sheet
+// shows the line before the customer commits. So M159's rule still holds — the
+// rate a customer is shown is the rate they are charged; what changed is that
+// the rate now depends on the length, in the open, instead of silently.
+//
+// Every scooter, whatever its own price box says: the fleet is one product at
+// one price list, and a box the owner typed "Rs 699" into must not undercut it.
+// If a scooter ever needs its own list, it belongs on the vehicle in admin.
+export const SCOOTER_RATES = { oneDay: 1699, twoDays: 899, threePlus: 799 } as const;
+
+/** The scooter rental total for `days` (whole days, inclusive), or null. */
+export function scooterTotal(days: number): number | null {
+  if (!Number.isInteger(days) || days < 1) return null;
+  if (days === 1) return SCOOTER_RATES.oneDay;
+  if (days === 2) return SCOOTER_RATES.twoDays * 2;
+  return days * SCOOTER_RATES.threePlus;
+}
+
+/** Does this vehicle price from the scooter list? */
+export function usesScooterRates(vehicle: { category?: string } | undefined): boolean {
+  return (vehicle?.category ?? "scooter") === "scooter";
+}
+
+/**
+ * The ONE per-day figure a vehicle is advertised at — cards, the vehicle page,
+ * the "from" sentences, JSON-LD Offer.price, meta titles, search.
+ *
+ * Scooters: the 3-days-or-more rate (the card says so beside it). Everything
+ * else: the number in the owner's price box, read by the same parser that
+ * prices the booking. 0 when there is no price — the caller's "unpriceable".
+ */
+export function vehicleDayRate(vehicle: PriceableVehicle | undefined): number {
+  if (!vehicle) return 0;
+  if (usesScooterRates(vehicle)) return extractDailyPrice(vehicle.price) > 0 ? SCOOTER_RATES.threePlus : 0;
+  return extractDailyPrice(vehicle.price);
+}
+
+/**
+ * The car security hold, taken at pickup and returned at drop-off — NOT part
+ * of the price and never part of the online payment (see "Two different
+ * deposits"). The owner's FAQ answer states it ("A security deposit of
+ * Rs 5,000 applies to car rentals"), so it is read from there when it can be,
+ * and this is only the figure that answer has always given.
+ */
+export const CAR_SECURITY_HOLD = 5000;
+
+export function securityHoldFrom(faqAnswer: string | null | undefined): number {
+  const m = (faqAnswer ?? "").match(/Rs\s*([\d][\d,.\s  ]*)/i);
+  const n = m ? parseInt(m[1].replace(/[^\d]/g, ""), 10) : NaN;
+  return Number.isFinite(n) && n > 0 ? n : CAR_SECURITY_HOLD;
+}
+
 export type PriceBreakdown = {
   rental: number;
+  /** The per-day rate this length is charged at (rental / days, whole rupees). */
+  rate: number;
   delivery: number;
   total: number;
+  /** Due now — the online part-payment. Half rounded up at 50%. */
   deposit: number;
+  /** Due at pickup — the remainder. */
   balance: number;
   pct: number;
 };
@@ -142,23 +208,20 @@ export function priceBreakdown(
   if (!vehicle || days <= 0) return null;
   const daily = extractDailyPrice(vehicle.price);
   if (!daily) return null;
-  // ── NO AUTOMATIC DISCOUNT (M159) ─────────────────────────────────────────
+  // ── NO SILENT DISCOUNT (M159) ────────────────────────────────────────────
   //
-  // This applied 15% off at 7 days and 10% at 3, silently. An 8-day Avenis
-  // was quoted at Rs 594 a day when the advertised rate is Rs 699 — the owner
-  // saw it on a real booking confirmation and called it what it is. The rate a
-  // customer is shown on the vehicle card is now the rate they are charged.
-  //
-  // If a multi-day discount is wanted later it belongs in admin beside the
-  // delivery fee and the deposit percentage, as a number the owner sets and
-  // can see — not two hardcoded multipliers he could feel and never change.
-  const rate = daily;
-  const rental = rate * days;
+  // This once applied 15% off at 7 days and 10% at 3, silently: an 8-day
+  // Avenis was quoted Rs 594 a day against an advertised Rs 699. The scooter
+  // list above is the opposite of that — published at every length — and
+  // every other vehicle is its advertised day rate times the days.
+  const rental = usesScooterRates(vehicle) ? (scooterTotal(days) ?? daily * days) : daily * days;
   const delivery = deliveryFee(vehicle, categories);
   const total = rental + delivery;
   const pct = depositPct(vehicle, categories);
+  // Math.round on a whole-rupee total: at 50% an odd total lands on .5 and
+  // rounds UP (Rs 1,699 -> Rs 850 now, Rs 849 at pickup).
   const deposit = Math.round((total * pct) / 100);
-  return { rental, delivery, total, deposit, balance: total - deposit, pct };
+  return { rental, rate: Math.round(rental / days), delivery, total, deposit, balance: total - deposit, pct };
 }
 
 /** Today's date in Rodrigues (UTC+4), as YYYY-MM-DD. A traveler booking from

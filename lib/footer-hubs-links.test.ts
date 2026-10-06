@@ -144,7 +144,8 @@ describe("the /fr hub prints the live 'dès' figure, or none (C1)", () => {
         items: [{ id: "h", category: "hotel", name: "Lodge", image: "/x.jpg", description: "", priceNote: "Rs 1,313 per night" } as RecommendedPlace],
       },
     });
-    expect(t).toContain(fold(`Dès ${fr(747)} par jour, casque et assistance compris.`));
+    // A scooter quotes the published scooter rate (SCOOTER_RATES.threePlus, 6 Oct 2026), whatever the price box says.
+    expect(t).toContain(fold(`Dès ${fr(799)} par jour, casque et assistance compris.`));
     expect(t).toContain(fold(`Dès ${fr(1848)} par jour, livrée où vous êtes.`));
     expect(t).toContain(fold(`Où dormir, dès ${fr(1313)} la nuit.`));
     expect(t).not.toContain("1 499");
