@@ -107,6 +107,7 @@ import { MASCOT_POSES } from "@/lib/mascot";
 import { EXPERIENCE_CATEGORIES } from "@/lib/experience-categories";
 import { parseVideoUrl, describeVideoUrl } from "@/lib/video";
 import { rupees } from "@/lib/bookings/in-person";
+import { SCOOTER_RATES, scooterRates, type DayRates } from "@/lib/booking-pricing";
 import {
   confirmedClashes,
   deskFilterCounts,
@@ -1906,6 +1907,56 @@ function FleetEditor({
                     : `Deposit: ${c.depositPct}% to confirm, the remaining ${100 - c.depositPct}% at pickup.`}
                 </p>
 
+                {/* ── THE SCOOTER PRICE LIST (owner, 6 Oct 2026: "it should be
+                    auto"). Three numbers, per day by length. The site applies
+                    the right one to whatever dates a customer picks — the
+                    card, the booking sheet, the server's charge, Google's
+                    Offer and the FAQ's {scooter_…} placeholders all read
+                    these. Empty keeps the published default, shown as the
+                    placeholder, exactly like the fee and deposit above. */}
+                {c.id === "scooter" && (() => {
+                  const live = scooterRates([c]);
+                  const rate = (key: keyof DayRates, label: string) => (
+                    <label className="inline-flex flex-col gap-1 font-dm text-[11px] text-muted/70">
+                      {label}
+                      <span className="relative">
+                        <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 font-dm text-xs text-muted/50">Rs</span>
+                        <input
+                          value={c.dayRates?.[key] === undefined ? "" : String(c.dayRates[key])}
+                          onChange={(e) => {
+                            const raw = e.target.value.replace(/[^\d]/g, "");
+                            updateCat(i, {
+                              dayRates: {
+                                ...c.dayRates,
+                                [key]: raw === "" ? undefined : Math.min(99999, Math.max(1, parseInt(raw, 10))),
+                              },
+                            });
+                          }}
+                          inputMode="numeric"
+                          placeholder={String(SCOOTER_RATES[key])}
+                          aria-label={`Scooter price per day, ${label}, in rupees`}
+                          className="w-[112px] bg-[#0d0d0d] border border-[#2a2a2a] rounded-lg pl-9 pr-3 py-2 text-offwhite text-sm font-dm tabular-nums placeholder:text-muted/35 focus:border-yellow focus:outline-none"
+                        />
+                      </span>
+                    </label>
+                  );
+                  return (
+                    <div className="pl-[52px] space-y-2">
+                      <p className="font-dm text-xs font-semibold text-offwhite/85">
+                        Scooter prices — applied automatically by the number of days
+                      </p>
+                      <div className="flex flex-wrap items-end gap-3">
+                        {rate("oneDay", "1 day")}
+                        {rate("twoDays", "2 days, per day")}
+                        {rate("threePlus", "3 days or more, per day")}
+                      </div>
+                      <p className="font-dm text-[11px] text-muted/55">
+                        {`A customer pays: 1 day Rs ${live.oneDay.toLocaleString("en-US")} · 2 days Rs ${(live.twoDays * 2).toLocaleString("en-US")} · 3 days Rs ${(live.threePlus * 3).toLocaleString("en-US")} · 7 days Rs ${(live.threePlus * 7).toLocaleString("en-US")}. Every scooter uses this list; cards show Rs ${live.threePlus.toLocaleString("en-US")} / day, 3 days or more.`}
+                      </p>
+                    </div>
+                  );
+                })()}
+
                 {/* The address, fixed, and what KIND of rental this is
                     (architecture review 2026-09-30, item 3). rentalKind unset
                     reads as a motor vehicle — today's behaviour — so the select
@@ -2200,6 +2251,12 @@ function FleetEditor({
                 onChange={(v) => updateScooter(idx, { price: v })}
                 placeholder="e.g. From Rs 800"
               />
+              {(scooter.category ?? "scooter") === "scooter" && (
+                <p className="mt-1.5 font-dm text-[11px] text-muted/55">
+                  Scooters are charged from the price list in Vehicle categories → Scooters (1 day · 2 days · 3+ days).
+                  Keep any price here — it marks this scooter as for hire.
+                </p>
+              )}
             </Field>
             <Field label="CATEGORY">
               <select
@@ -6560,6 +6617,20 @@ function FaqEditor({
         <Field label="SUBTITLE">
           <TextInput value={faq.subtitle} onChange={(v) => set({ subtitle: v })} />
         </Field>
+      </div>
+
+      {/* Placeholders the public site fills with the live price
+          (lib/rentals/price-tokens.ts), so an answer never goes stale when
+          the scooter list or a car price changes. */}
+      <div className="rounded-2xl border border-[#2a2a2a] bg-[#0d0d0d] p-5 font-dm text-xs text-muted/70 space-y-1.5">
+        <p className="font-semibold text-offwhite/85">Prices that update themselves</p>
+        <p>
+          Type one of these in an answer and the website shows the current price in its place:{" "}
+          <code className="text-yellow">{"{scooter_1_day}"}</code> one day ·{" "}
+          <code className="text-yellow">{"{scooter_2_days}"}</code> two days in all ·{" "}
+          <code className="text-yellow">{"{scooter_per_day}"}</code> per day from 3 days ·{" "}
+          <code className="text-yellow">{"{car_from}"}</code> cheapest car per day.
+        </p>
       </div>
 
       {/* An FAQ answer is also structured data: /browse/car and

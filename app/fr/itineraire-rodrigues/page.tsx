@@ -96,7 +96,8 @@ const PLAN: Array<[string, string, string]> = [
 export default async function ItinerairePage() {
   const content = await getContent();
   const { fleet } = await getFleetView();
-  const faq = FAQ(fleetFromPrice(fleet, "scooter"), fleetFromPrice(fleet, "car"));
+  const cats = content.vehicleCategories;
+  const faq = FAQ(fleetFromPrice(fleet, "scooter", cats), fleetFromPrice(fleet, "car", cats));
 
   return (
     <>

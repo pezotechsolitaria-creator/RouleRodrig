@@ -23,7 +23,7 @@ const rsEn = (n: number) => `Rs ${n.toLocaleString("en-US")}`;
 const rsFr = (n: number) => `Rs ${n.toLocaleString("fr-FR")}`;
 
 type FleetRow = { price: string; category?: string | null };
-type CategoryRow = { id: string; enabled?: boolean };
+type CategoryRow = DeliveryPricedCategory & { enabled?: boolean };
 
 /**
  * The cheapest daily rate in one vehicle category, or null.
@@ -43,7 +43,7 @@ export function categoryFrom(
   const sellable = fleet.some(
     (f) => (f.category ?? "scooter") === category && isSellableFleetItem(f),
   );
-  return sellable ? fleetFromPrice(fleet, category) : null;
+  return sellable ? fleetFromPrice(fleet, category, categories) : null;
 }
 
 type AirportFares = Pick<

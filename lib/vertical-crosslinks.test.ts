@@ -34,7 +34,9 @@ describe("the page that ranks answers the question it raises", () => {
   it("reads that price from the live fleet, never types it", () => {
     // A car price hardcoded here would drift from the car page the first time
     // the owner changed it, and the two would advertise different numbers.
-    expect(src).toMatch(/const carFrom = fleetFromPrice\(fleet, "car"\)/);
+    // The categories ride along since 6 Oct 2026: the scooter list the owner
+    // sets in /admin lives on them.
+    expect(src).toMatch(/const carFrom = fleetFromPrice\(fleet, "car", content\.vehicleCategories\)/);
     expect(src).not.toMatch(/Rs 1 ?500/);
   });
 

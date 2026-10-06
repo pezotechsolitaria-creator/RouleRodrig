@@ -31,7 +31,7 @@ export function namedStays<T extends { category?: string | null; name?: string |
 }
 
 export function liveFromPrice(
-  content: Pick<SiteContent, "fleet" | "recommended">,
+  content: Pick<SiteContent, "fleet" | "recommended"> & Partial<Pick<SiteContent, "vehicleCategories">>,
   from: PricedFrom,
 ): number | null {
   if (from === "stays") {
@@ -40,7 +40,7 @@ export function liveFromPrice(
   const sellable = content.fleet.some(
     (f) => (f.category ?? "scooter") === from && isSellableFleetItem(f),
   );
-  return sellable ? fleetFromPrice(content.fleet, from) : null;
+  return sellable ? fleetFromPrice(content.fleet, from, content.vehicleCategories) : null;
 }
 
 /**

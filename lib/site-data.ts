@@ -2,7 +2,7 @@ import { cache } from "react";
 import { getContent } from "@/lib/content";
 import { getPrivileged } from "@/lib/supabase/admin";
 import { isActiveHold, HOLDING_STATUSES } from "@/lib/holds";
-import { extractDailyPrice, vehicleDayRate } from "@/lib/booking-pricing";
+import { extractDailyPrice, vehicleDayRate, type DeliveryPricedCategory } from "@/lib/booking-pricing";
 import type { FleetItem, SiteContent } from "@/lib/defaults";
 import type { BrowseCategory } from "@/components/WhatLookingFor";
 
@@ -142,11 +142,14 @@ export function priceNumber(price: string): number | null {
 /**
  * A VEHICLE's advertised per-day figure, or null — what every card, "from"
  * sentence, title, Offer and search result quotes. Scooters are the published
- * 3-days-or-more rate (lib/booking-pricing SCOOTER_RATES), never the number
+ * 3-days-or-more rate (lib/booking-pricing scooterRates()), never the number
  * typed in a scooter's price box, so no page can undercut the checkout.
  */
-export function vehiclePriceNumber(item: { price: string; category?: string | null }): number | null {
-  const n = vehicleDayRate({ price: item.price, category: item.category ?? undefined });
+export function vehiclePriceNumber(
+  item: { price: string; category?: string | null },
+  categories: DeliveryPricedCategory[] | undefined,
+): number | null {
+  const n = vehicleDayRate({ price: item.price, category: item.category ?? undefined }, categories);
   return n > 0 ? n : null;
 }
 function firstImage(
@@ -198,7 +201,7 @@ export function buildBrowseCategories(
     );
     if (!items.length) continue;
     const prices = items
-      .map((it) => vehiclePriceNumber(it))
+      .map((it) => vehiclePriceNumber(it, content.vehicleCategories))
       .filter((n): n is number => n != null);
     const min = prices.length ? Math.min(...prices) : null;
     vehicleBookings[vc.id] = items.reduce(
@@ -329,7 +332,9 @@ export const FLEET_PRICE_FALLBACK = 699;
  */
 export function fleetFromPrice(
   fleet: { price: string; category?: string | null }[],
-  category?: string,
+  category: string | undefined,
+  /** content.vehicleCategories — the scooter list the owner set lives there. */
+  categories: DeliveryPricedCategory[] | undefined,
 ): number {
   const inScope = category
     ? fleet.filter(
@@ -337,7 +342,7 @@ export function fleetFromPrice(
       )
     : fleet;
   const prices = inScope
-    .map((f) => vehiclePriceNumber(f))
+    .map((f) => vehiclePriceNumber(f, categories))
     .filter((n): n is number => n != null && n > 0);
   return prices.length ? Math.min(...prices) : FLEET_PRICE_FALLBACK;
 }

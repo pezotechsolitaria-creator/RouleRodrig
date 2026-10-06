@@ -10,7 +10,9 @@
 // disagree by construction.
 //
 // Pricing rules (owner's):
-//   * scooters: the published list in SCOOTER_RATES (1 day / 2 days / 3+ days)
+//   * scooters: the published list (1 day / 2 days / 3+ days) the owner sets
+//     on the Scooters category in /admin — scooterRates() — with SCOOTER_RATES
+//     as the figures used until he does
 //   * everything else: the daily rate parsed from the fleet item's price box
 //     ("Rs 1,899") times the days, counted inclusively
 //   * delivery: whatever the owner set on the vehicle's category in /admin
@@ -19,8 +21,17 @@
 
 export type PriceableVehicle = { price: string; category?: string };
 
+/** A per-length price list: whole rupees PER DAY at each length. */
+export type DayRates = { oneDay: number; twoDays: number; threePlus: number };
+
 /** The only parts of a vehicle category this module needs to price a rental. */
-export type DeliveryPricedCategory = { id: string; deliveryFee?: number; depositPct?: number };
+export type DeliveryPricedCategory = {
+  id: string;
+  deliveryFee?: number;
+  depositPct?: number;
+  /** The scooter list, set in /admin (VehicleCategory.dayRates). */
+  dayRates?: Partial<DayRates>;
+};
 
 export const DELIVERY_EACH_WAY = 200;
 
@@ -142,15 +153,37 @@ export function depositPct(
 //
 // Every scooter, whatever its own price box says: the fleet is one product at
 // one price list, and a box the owner typed "Rs 699" into must not undercut it.
-// If a scooter ever needs its own list, it belongs on the vehicle in admin.
-export const SCOOTER_RATES = { oneDay: 1699, twoDays: 899, threePlus: 799 } as const;
+//
+// ── THE OWNER SETS IT, THE SITE FOLLOWS ("it should be auto", 6 Oct 2026) ──
+// The list lives on the Scooters category in /admin (dayRates), beside its
+// delivery fee and deposit. Every surface — card, sheet, server charge, Offer,
+// llms.txt, the FAQ's {scooter_…} placeholders — reads it through
+// scooterRates(), so one edit there reprices the whole site. SCOOTER_RATES is
+// only what applies to a field he has never set.
+export const SCOOTER_RATES: Readonly<DayRates> = Object.freeze({ oneDay: 1699, twoDays: 899, threePlus: 799 });
+
+/**
+ * The scooter list in force: each field the owner set in /admin, else the
+ * default. A blank, zero, negative or absurd figure is a typo, not a price —
+ * it falls back for that field alone rather than pricing a scooter at Rs 0.
+ */
+export function scooterRates(categories?: DeliveryPricedCategory[]): DayRates {
+  const set = categories?.find((c) => c.id === "scooter")?.dayRates;
+  const pick = (v: unknown, fallback: number) =>
+    typeof v === "number" && Number.isFinite(v) && v >= 1 && v <= 99999 ? Math.round(v) : fallback;
+  return {
+    oneDay: pick(set?.oneDay, SCOOTER_RATES.oneDay),
+    twoDays: pick(set?.twoDays, SCOOTER_RATES.twoDays),
+    threePlus: pick(set?.threePlus, SCOOTER_RATES.threePlus),
+  };
+}
 
 /** The scooter rental total for `days` (whole days, inclusive), or null. */
-export function scooterTotal(days: number): number | null {
+export function scooterTotal(days: number, rates: DayRates): number | null {
   if (!Number.isInteger(days) || days < 1) return null;
-  if (days === 1) return SCOOTER_RATES.oneDay;
-  if (days === 2) return SCOOTER_RATES.twoDays * 2;
-  return days * SCOOTER_RATES.threePlus;
+  if (days === 1) return rates.oneDay;
+  if (days === 2) return rates.twoDays * 2;
+  return days * rates.threePlus;
 }
 
 /** Does this vehicle price from the scooter list? */
@@ -162,13 +195,21 @@ export function usesScooterRates(vehicle: { category?: string } | undefined): bo
  * The ONE per-day figure a vehicle is advertised at — cards, the vehicle page,
  * the "from" sentences, JSON-LD Offer.price, meta titles, search.
  *
- * Scooters: the 3-days-or-more rate (the card says so beside it). Everything
- * else: the number in the owner's price box, read by the same parser that
- * prices the booking. 0 when there is no price — the caller's "unpriceable".
+ * Scooters: the 3-days-or-more rate of the list in force (the card says so
+ * beside it). Everything else: the number in the owner's price box, read by
+ * the same parser that prices the booking. 0 when there is no price — the
+ * caller's "unpriceable".
+ *
+ * `categories` is REQUIRED (pass `undefined` only where no content exists):
+ * a call site that forgot it would advertise the default list while the
+ * checkout charged the owner's.
  */
-export function vehicleDayRate(vehicle: PriceableVehicle | undefined): number {
+export function vehicleDayRate(
+  vehicle: PriceableVehicle | undefined,
+  categories: DeliveryPricedCategory[] | undefined,
+): number {
   if (!vehicle) return 0;
-  if (usesScooterRates(vehicle)) return extractDailyPrice(vehicle.price) > 0 ? SCOOTER_RATES.threePlus : 0;
+  if (usesScooterRates(vehicle)) return extractDailyPrice(vehicle.price) > 0 ? scooterRates(categories).threePlus : 0;
   return extractDailyPrice(vehicle.price);
 }
 
@@ -214,7 +255,9 @@ export function priceBreakdown(
   // Avenis was quoted Rs 594 a day against an advertised Rs 699. The scooter
   // list above is the opposite of that — published at every length — and
   // every other vehicle is its advertised day rate times the days.
-  const rental = usesScooterRates(vehicle) ? (scooterTotal(days) ?? daily * days) : daily * days;
+  const rental = usesScooterRates(vehicle)
+    ? (scooterTotal(days, scooterRates(categories)) ?? daily * days)
+    : daily * days;
   const delivery = deliveryFee(vehicle, categories);
   const total = rental + delivery;
   const pct = depositPct(vehicle, categories);

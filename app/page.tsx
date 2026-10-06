@@ -304,7 +304,7 @@ export default async function Home() {
   // rendered the derived minimum for a long time. A comment quoting a hardcoded
   // number is the same drift as the code doing it.)
   const dayRates = fleet
-    .map((f) => vehiclePriceNumber(f))
+    .map((f) => vehiclePriceNumber(f, content.vehicleCategories))
     .filter((n): n is number => n != null && n > 0);
 
   // The locality the PAGE shows, so the structured data cannot contradict it.

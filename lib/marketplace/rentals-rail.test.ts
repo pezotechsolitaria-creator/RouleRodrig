@@ -141,7 +141,7 @@ describe("the vehicle cards", () => {
       for (const card of buildRentalsRail(c).vehicles) {
         const slug = card.href.split("/").pop()!;
         const units = findVehicleUnits(c.fleet, card.category, slug).filter(isSellableFleetItem);
-        expect(card.perDay, card.href).toBe(vehiclePriceNumber(unitToBook(units)!));
+        expect(card.perDay, card.href).toBe(vehiclePriceNumber(unitToBook(units)!, c.vehicleCategories));
       }
     }
   });

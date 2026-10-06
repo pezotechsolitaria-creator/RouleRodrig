@@ -5,6 +5,7 @@ import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import { DEFAULT_CONTENT, DEFAULT_QUICK_ACCESS, DEFAULT_HOME_CARDS, type SiteContent } from './defaults';
 import { migrateQuickAccess, migrateHomeCards } from './quick-access';
 import { CONTENT_CONFLICT_MESSAGE } from './admin/content-version';
+import { withPriceTokens } from './rentals/price-tokens';
 
 // Cookie-free public read client. site_content ('main') is public-readable, so
 // reading it without cookies lets every page that calls getContent be cached
@@ -294,11 +295,13 @@ export async function getContent(): Promise<SiteContent> {
   }
 
   try {
-    return withCodeMigrations(withoutHidden(await readPublicContentAt(version)));
+    // {scooter_1_day}-style FAQ placeholders are filled here, after the cache,
+    // from the price list the same content carries (lib/rentals/price-tokens).
+    return withPriceTokens(withCodeMigrations(withoutHidden(await readPublicContentAt(version))));
   } catch {
     // Uncached fallback, which has its own defaults-on-failure behaviour.
     // Filtered too — a database blip must not un-hide the owner's listings.
-    return withoutHidden((await getContentWithStatus()).content);
+    return withPriceTokens(withoutHidden((await getContentWithStatus()).content));
   }
 }
 

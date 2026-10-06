@@ -11,7 +11,13 @@ import {
 } from "@/lib/site-data";
 import { realCopy } from "@/lib/placeholder-copy";
 import { costTiers, SCOOTER_COST_DAYS } from "@/lib/vehicle-cost";
-import { deliveryFee, depositPct, securityHoldFrom, usesScooterRates } from "@/lib/booking-pricing";
+import {
+  deliveryFee,
+  depositPct,
+  scooterRates as scooterRatesOf,
+  securityHoldFrom,
+  usesScooterRates,
+} from "@/lib/booking-pricing";
 import BookingSection from "@/components/BookingSection";
 import { vehicleMetaTitle } from "@/lib/browse-copy";
 import { breadcrumbLd, productLd, sellerLd } from "@/lib/schema";
@@ -101,7 +107,7 @@ async function resolve(category: string, vehicle: string) {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { category, vehicle } = await params;
   try {
-    const { item } = await resolve(category, vehicle);
+    const { item, content } = await resolve(category, vehicle);
     if (!item) return {};
     const url = `${SITE_URL}/browse/${category}/${vehicleSlug(item)}`;
     // The price belongs in the title: it pre-qualifies the tap, and a link
@@ -109,7 +115,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     // SEO audit 2026-09-29 T5: "Toyota Hilux — Rs 2899/day in Rodrigues" had
     // no "rental" and an ungrouped price beside category titles that say
     // "Rs 1,899". vehicleMetaTitle keeps it inside 60 characters.
-    const from = vehiclePriceNumber(item);
+    const from = vehiclePriceNumber(item, content.vehicleCategories);
     const title = vehicleMetaTitle(vehicleName(item), category, from);
     const description =
       // Specs, inclusions and the price, when there is a price — see
@@ -164,7 +170,7 @@ export default async function VehiclePage({ params }: Props) {
   const conditions = pickConditions(content.faq?.items, category, kind);
   const takeIt =
     TAKE_IT[category] ?? (kind === "equipment" ? TAKE_IT_EQUIPMENT : TAKE_IT_MOTOR);
-  const from = vehiclePriceNumber(item);
+  const from = vehiclePriceNumber(item, content.vehicleCategories);
   const scooterRates = usesScooterRates(item);
   const deliveryIncluded = deliveryFee(item, content.vehicleCategories) === 0;
   const duePct = depositPct(item, content.vehicleCategories);
@@ -234,6 +240,7 @@ export default async function VehiclePage({ params }: Props) {
               price: from ?? null,
               category,
               rentalKind: kind,
+              scooterRates: scooterRatesOf(content.vehicleCategories),
               url,
               // Without this, schema.ts defaults to InStock — so a vehicle
               // the owner had switched off told Google it was available, on a

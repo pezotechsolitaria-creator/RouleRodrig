@@ -30,7 +30,7 @@ import {
   CAR_SECURITY_HOLD,
   priceBreakdown,
   rentalDays,
-  SCOOTER_RATES,
+  scooterRates,
   scooterTotal,
   todayInRodrigues,
   usesScooterRates,
@@ -177,6 +177,9 @@ export default function BookingSection({
   const effectiveEnd = form.end_date || form.start_date;
   const days = rentalDays(form.start_date, effectiveEnd);
   const breakdown = priceBreakdown(selectedScooter, days, categories);
+  // The scooter list the owner set in /admin (Scooters category), else the
+  // published defaults — the same figures the server charges with.
+  const rates = scooterRates(categories);
   const totalLabel = breakdown ? `Rs ${breakdown.total.toLocaleString()}` : "";
   const activeUnits = (selectedScooter?.assets ?? []).filter((a) => a.active !== false).length;
   const capacity = activeUnits > 0 ? activeUnits : Math.max(1, selectedScooter?.units ?? 1);
@@ -371,7 +374,7 @@ export default function BookingSection({
   const scooterPriced = !!selectedScooter && usesScooterRates(selectedScooter);
   const addDayOffer = (() => {
     if (!breakdown || !scooterPriced || days < 1 || days > 2 || !effectiveEnd) return null;
-    const next = scooterTotal(days + 1);
+    const next = scooterTotal(days + 1, rates);
     if (next == null) return null;
     const end = isoAddDays(effectiveEnd, 1);
     if (isFull(end)) return null;
@@ -854,7 +857,7 @@ export default function BookingSection({
                         </span>
                         {selectedScooter && (
                           <span className="shrink-0 text-right font-dm text-sm tabular-nums text-offwhite">
-                            {convert(rs(vehicleDayRate(selectedScooter)))}
+                            {convert(rs(vehicleDayRate(selectedScooter, categories)))}
                             <span className="block text-[11px] text-muted">{r.perDay}</span>
                           </span>
                         )}
@@ -886,7 +889,7 @@ export default function BookingSection({
                                     {s.soldOutToday ? <span className="block font-dm text-xs text-amber-300">{r.outToday}</span> : null}
                                   </span>
                                   <span className="shrink-0 font-dm text-sm tabular-nums text-offwhite/85">
-                                    {convert(rs(vehicleDayRate(s)))} <span className="text-muted">{r.perDay}</span>
+                                    {convert(rs(vehicleDayRate(s, categories)))} <span className="text-muted">{r.perDay}</span>
                                   </span>
                                   {on && <Check size={16} className="shrink-0 text-yellow" aria-hidden />}
                                 </button>
@@ -940,12 +943,12 @@ export default function BookingSection({
                       {!breakdown && scooterPriced && (
                         <div className="mt-4 border-t border-white/[0.08] font-dm text-sm">
                           <dl className="divide-y divide-white/[0.06]" aria-label={r.rateTable}>
-                            {line(r.days(1), convert(rs(SCOOTER_RATES.oneDay)))}
-                            {line(r.days(2), convert(rs(SCOOTER_RATES.twoDays * 2)))}
+                            {line(r.days(1), convert(rs(rates.oneDay)))}
+                            {line(r.days(2), convert(rs(rates.twoDays * 2)))}
                             {line(
                               r.threePlus,
                               <>
-                                {convert(rs(SCOOTER_RATES.threePlus))} <span className="text-muted">{r.perDay}</span>
+                                {convert(rs(rates.threePlus))} <span className="text-muted">{r.perDay}</span>
                               </>,
                             )}
                           </dl>

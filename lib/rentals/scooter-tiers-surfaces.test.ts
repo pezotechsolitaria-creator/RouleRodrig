@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { productLd } from "@/lib/schema";
-import { scooterTotal } from "@/lib/booking-pricing";
+import { SCOOTER_RATES, scooterTotal } from "@/lib/booking-pricing";
 
 // ── THE SCOOTER LIST, WHEREVER A PRICE IS STATED (6 Oct 2026) ───────────────
 //
@@ -17,7 +17,7 @@ describe("a scooter's Offer states the three rates, each with its days", () => {
   const base = { name: "Avenis 125", url: "https://roulerodrig.com/browse/scooter/avenis-125cc" };
 
   it("lists 1 day, 2 days and 3-or-more as separate per-day prices", () => {
-    const offer = productLd({ ...base, category: "scooter", price: 799 }).offers as {
+    const offer = productLd({ ...base, category: "scooter", price: 799, scooterRates: SCOOTER_RATES }).offers as {
       price: number;
       priceSpecification: Spec[];
     };
@@ -31,9 +31,11 @@ describe("a scooter's Offer states the three rates, each with its days", () => {
 
   it("keeps a car, and anything not on the list, to one per-day price", () => {
     for (const p of [
-      { ...base, category: "car", price: 1899 },
-      { ...base, category: "scooter", price: 1200 },
-      { ...base, category: "scooter", price: 799, rentalKind: "equipment" as const },
+      { ...base, category: "car", price: 1899, scooterRates: SCOOTER_RATES },
+      { ...base, category: "scooter", price: 1200, scooterRates: SCOOTER_RATES },
+      { ...base, category: "scooter", price: 799, rentalKind: "equipment" as const, scooterRates: SCOOTER_RATES },
+      // No list handed over: one plain price, never a guessed one.
+      { ...base, category: "scooter", price: 799 },
     ]) {
       const spec = (productLd(p).offers as { priceSpecification: Spec }).priceSpecification;
       expect(Array.isArray(spec), JSON.stringify(p)).toBe(false);
@@ -51,12 +53,15 @@ describe("the sheet tells a short scooter rental what one more day costs", () =>
   });
 
   it("is the arithmetic the checkout charges: Rs 99, then Rs 599", () => {
-    expect(scooterTotal(2)! - scooterTotal(1)!).toBe(99);
-    expect(scooterTotal(3)! - scooterTotal(2)!).toBe(599);
+    expect(scooterTotal(2, SCOOTER_RATES)! - scooterTotal(1, SCOOTER_RATES)!).toBe(99);
+    expect(scooterTotal(3, SCOOTER_RATES)! - scooterTotal(2, SCOOTER_RATES)!).toBe(599);
   });
 
   it("shows the list where the line items go, before a range exists", () => {
     expect(SRC).toContain("{!breakdown && scooterPriced && (");
-    expect(SRC).toContain("line(r.days(1), convert(rs(SCOOTER_RATES.oneDay)))");
+    expect(SRC).toContain("line(r.days(1), convert(rs(rates.oneDay)))");
+    // ...the owner's list, the same one the server charges with.
+    expect(SRC).toContain("const rates = scooterRates(categories);");
+    expect(SRC).toContain("scooterTotal(days + 1, rates)");
   });
 });

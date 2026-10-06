@@ -1,6 +1,6 @@
 import { DEFAULT_CONTENT, type RecommendedPlace, type SiteContent } from "@/lib/defaults";
 import type { TransferFares } from "@/lib/rides/fares";
-import { deliveryFee, SCOOTER_RATES } from "@/lib/booking-pricing";
+import { deliveryFee, scooterRates } from "@/lib/booking-pricing";
 import { EXPERIENCES, experiencesOfType, fromPriceOf } from "@/lib/experiences";
 import { experiencesFaq, priceRangeOf, type PriceRange } from "@/lib/experiences-faq";
 import { foodFaq } from "@/lib/food-faq";
@@ -222,11 +222,12 @@ export function buildLlmsTxt(d: LlmsData): string {
   const pm = portMathurin(airport);
 
   // The scooter "from" figure is the 3-days-or-more rate of a published list
-  // (SCOOTER_RATES, 6 Oct 2026). Said alone, an assistant quotes it for a
-  // one-day hire that costs Rs 1,699 — so the list goes with it.
+  // (the owner's, set in /admin; 6 Oct 2026). Said alone, an assistant
+  // quotes it for a one-day hire that costs Rs 1,699 — so the list goes with it.
+  const sr = scooterRates(content.vehicleCategories);
   const scooterList =
-    scooterFrom === SCOOTER_RATES.threePlus
-      ? ` for three days or more (${rs(SCOOTER_RATES.oneDay)} for one day, ${rs(SCOOTER_RATES.twoDays * 2)} for two)`
+    scooterFrom === sr.threePlus
+      ? ` for three days or more (${rs(sr.oneDay)} for one day, ${rs(sr.twoDays * 2)} for two)`
       : "";
   const priceSummary = [
     scooterFrom ? `Scooters from ${rs(scooterFrom)} a day${scooterList}, ${deliveryPhrase(content, "scooter")}.` : "",

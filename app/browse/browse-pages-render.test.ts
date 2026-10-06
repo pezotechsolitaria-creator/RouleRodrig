@@ -623,3 +623,28 @@ describe("the English category pages write the brand unaccented (C17)", () => {
     });
   }
 });
+
+// ── THE OWNER'S SCOOTER LIST REACHES THE PAGE ("it should be auto") ─────────
+//
+// The list is edited in /admin on the Scooters category (dayRates). One edit
+// there must reprice the title, the copy and the Offer, with no deploy.
+describe("a scooter list set in /admin", () => {
+  function withList(list: { oneDay: number; twoDays: number; threePlus: number }) {
+    const content = setView();
+    const cats = content.vehicleCategories as unknown as { id: string; dayRates?: unknown }[];
+    cats.find((c) => c.id === "scooter")!.dayRates = list;
+  }
+
+  it("reprices the title, the intro and the Offer together", async () => {
+    withList({ oneDay: 1500, twoDays: 850, threePlus: 749 });
+    expect((await browseMeta("scooter")).title).toContain("from Rs 749");
+    const html = await renderBrowse("scooter");
+    expect(visible(html)).toContain("from Rs 749 a day for three days or more");
+    expect(visible(html)).not.toContain("799");
+    const offers = ofType(ld(html), "Motorcycle").map(
+      (n) => (n.offers as { priceSpecification: { price: number }[] }).priceSpecification.map((s) => s.price),
+    );
+    expect(offers.length).toBeGreaterThan(0);
+    for (const prices of offers) expect(prices).toEqual([1500, 850, 749]);
+  });
+});

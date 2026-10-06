@@ -8,6 +8,7 @@ import {
   priceBreakdown,
   rentalDays,
   SCOOTER_RATES,
+  scooterRates,
   scooterTotal,
   todayInRodrigues,
   validateRentalWindow,
@@ -84,7 +85,7 @@ describe("priceBreakdown", () => {
     expect(SCOOTER_RATES).toEqual({ oneDay: 1699, twoDays: 899, threePlus: 799 });
     const cases: [number, number][] = [[1, 1699], [2, 1798], [3, 2397], [5, 3995], [7, 5593], [8, 6392], [30, 23970]];
     for (const [days, rental] of cases) {
-      expect(scooterTotal(days), `${days} days`).toBe(rental);
+      expect(scooterTotal(days, SCOOTER_RATES), `${days} days`).toBe(rental);
       expect(priceBreakdown(SCOOTER, days)!.rental, `${days} days`).toBe(rental);
       expect(priceBreakdown({ price: "From Rs 699(free delivery)", category: "scooter" }, days)!.rental).toBe(rental);
     }
@@ -97,15 +98,49 @@ describe("priceBreakdown", () => {
   });
 
   it("refuses a day count that is not a whole positive number", () => {
-    for (const days of [0, -1, 1.5, NaN]) expect(scooterTotal(days)).toBeNull();
+    for (const days of [0, -1, 1.5, NaN]) expect(scooterTotal(days, SCOOTER_RATES)).toBeNull();
+  });
+
+  // ── THE OWNER SETS THE LIST IN /admin ("it should be auto", 6 Oct 2026) ──
+  describe("the list the owner set on the Scooters category", () => {
+    const OWN = [{ id: "scooter", dayRates: { oneDay: 1500, twoDays: 850, threePlus: 750 } }];
+
+    it("prices every length from it — the sheet and the server call this", () => {
+      expect(priceBreakdown(SCOOTER, 1, OWN)!.rental).toBe(1500);
+      expect(priceBreakdown(SCOOTER, 2, OWN)!.rental).toBe(1700);
+      expect(priceBreakdown(SCOOTER, 3, OWN)!.rental).toBe(2250);
+      expect(priceBreakdown(SCOOTER, 7, OWN)!.rental).toBe(5250);
+    });
+
+    it("advertises its 3-days-or-more rate on every scooter card", () => {
+      expect(vehicleDayRate(SCOOTER, OWN)).toBe(750);
+      expect(vehicleDayRate(CAR, OWN)).toBe(2500);
+    });
+
+    it("keeps the published default for a field left empty", () => {
+      expect(scooterRates([{ id: "scooter", dayRates: { threePlus: 749 } }])).toEqual({
+        oneDay: 1699,
+        twoDays: 899,
+        threePlus: 749,
+      });
+      expect(scooterRates(undefined)).toEqual(SCOOTER_RATES);
+      expect(scooterRates([{ id: "car", dayRates: { oneDay: 1 } }])).toEqual(SCOOTER_RATES);
+    });
+
+    it("never prices a scooter at Rs 0 or a typo", () => {
+      for (const bad of [0, -5, NaN, 1e9, "800" as unknown as number]) {
+        expect(scooterRates([{ id: "scooter", dayRates: { oneDay: bad } }]).oneDay, String(bad)).toBe(1699);
+      }
+      expect(scooterRates([{ id: "scooter", dayRates: { twoDays: 849.6 } }]).twoDays).toBe(850);
+    });
   });
 
   it("advertises the 3-days-or-more rate on a scooter, the price box on anything else", () => {
-    expect(vehicleDayRate(SCOOTER)).toBe(799);
-    expect(vehicleDayRate({ price: "Rs 699(free delivery)", category: "scooter" })).toBe(799);
-    expect(vehicleDayRate({ price: "on request", category: "scooter" })).toBe(0);
-    expect(vehicleDayRate(CAR)).toBe(2500);
-    expect(vehicleDayRate({ price: "Rs 1,899", category: "car" })).toBe(1899);
+    expect(vehicleDayRate(SCOOTER, undefined)).toBe(799);
+    expect(vehicleDayRate({ price: "Rs 699(free delivery)", category: "scooter" }, undefined)).toBe(799);
+    expect(vehicleDayRate({ price: "on request", category: "scooter" }, undefined)).toBe(0);
+    expect(vehicleDayRate(CAR, undefined)).toBe(2500);
+    expect(vehicleDayRate({ price: "Rs 1,899", category: "car" }, undefined)).toBe(1899);
   });
 
   it("rounds Due now UP at the half rupee, and Due at pickup is the rest", () => {

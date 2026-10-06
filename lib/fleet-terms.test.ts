@@ -194,7 +194,7 @@ describe("the booking sheet uses it too", () => {
   it("prices the vehicle list from the figure, not the owner's string", () => {
     // The owner's raw string carried "(Book for more than 2 days to get free
     // delivery!!)" inside it.
-    expect(src).toContain("convert(rs(vehicleDayRate(s)))");
+    expect(src).toContain("convert(rs(vehicleDayRate(s, categories)))");
     expect(src).not.toMatch(/\bs\.price\b/);
   });
 

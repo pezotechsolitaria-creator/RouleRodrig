@@ -41,7 +41,7 @@ import WhatsAppButton from "@/components/WhatsAppButton";
 import ScrollToTop from "@/components/ScrollToTop";
 import { readTransferFares } from "@/lib/rides/fares";
 import { modelCostTable } from "@/lib/vehicle-cost";
-import { securityHoldFrom } from "@/lib/booking-pricing";
+import { scooterRates, securityHoldFrom } from "@/lib/booking-pricing";
 import {
   AIRPORT_TRANSFER_PHRASE,
   carAirportPassage,
@@ -399,7 +399,7 @@ const VEHICLE_COPY: Record<
     // scooter's own note puts a condition on delivery (SEO audit 2026-09-29,
     // rule: nothing is "free" unless its charge is zero; C20).
     // The rate is the published 3-days-or-more rate (lib/booking-pricing
-    // SCOOTER_RATES), and says so: one and two days cost more, on the card
+    // scooterRates()), and says so: one and two days cost more, on the card
     // and in the sheet. Delivery is "included", never a "free" slogan (owner
     // brief, 6 Oct 2026) — and only when deliveryIsFree() agrees.
     intro: ({ from, freeDelivery, pay }) =>
@@ -622,7 +622,7 @@ export async function generateMetadata({
     const rates = fleet
       .filter((f) => (f.category ?? "scooter") === category)
       .filter(isSellableFleetItem)
-      .map((f) => vehiclePriceNumber(f))
+      .map((f) => vehiclePriceNumber(f, content.vehicleCategories))
       .filter((n): n is number => n != null);
     vehicleFrom = rates.length ? Math.min(...rates) : null;
     const first = fleet.find(
@@ -903,7 +903,7 @@ export default async function BrowsePage({
     // from the same fleet the cards render, so the copy can never advertise a
     // price the grid below does not show.
     const vRates = items
-      .map((i) => vehiclePriceNumber(i))
+      .map((i) => vehiclePriceNumber(i, content.vehicleCategories))
       .filter((n): n is number => n != null && n > 0);
     const vFrom = vRates.length ? Math.min(...vRates) : null;
     // The French twin, as a VISIBLE link and not only an hreflang annotation:
@@ -979,7 +979,7 @@ export default async function BrowsePage({
                 }, {}),
               ).map((units) => {
                 const prices = units
-                  .map((u) => vehiclePriceNumber(u))
+                  .map((u) => vehiclePriceNumber(u, content.vehicleCategories))
                   .filter((n): n is number => n != null && n > 0);
                 const first = units[0];
                 return productLd({
@@ -1010,6 +1010,7 @@ export default async function BrowsePage({
                   // The same kind the vehicle's own page passes, so the two
                   // pages never type one model differently.
                   rentalKind: kind,
+                  scooterRates: scooterRates(content.vehicleCategories),
                 });
               }),
             ],

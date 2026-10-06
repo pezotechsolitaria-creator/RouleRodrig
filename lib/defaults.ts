@@ -139,6 +139,13 @@ export interface VehicleCategory {
    * while costing nothing is how you lose a scooter to a no-show.
    */
   depositPct?: number;
+  /**
+   * The SCOOTER price list, per day by length (owner, 6 Oct 2026: "it should
+   * be auto"): 1 day, 2 days, 3 days or more. Read only on the "scooter"
+   * category, through lib/booking-pricing scooterRates(); a field left unset
+   * keeps the published default (SCOOTER_RATES). Cars price per vehicle.
+   */
+  dayRates?: { oneDay?: number; twoDays?: number; threePlus?: number };
   /** Body styles offered inside this category. */
   types?: VehicleType[];
   /**

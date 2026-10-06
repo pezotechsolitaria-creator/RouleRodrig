@@ -128,7 +128,7 @@ export function buildRentalsRail(content: SiteContent): RentalsRail {
       // inviting a tap would contradict it. The category door still leads
       // there.
       if (!unit || unit.available === false) continue;
-      vehicles.push({ name: vehicleName(unit), href, category, perDay: vehiclePriceNumber(unit) });
+      vehicles.push({ name: vehicleName(unit), href, category, perDay: vehiclePriceNumber(unit, content.vehicleCategories) });
     }
   }
 

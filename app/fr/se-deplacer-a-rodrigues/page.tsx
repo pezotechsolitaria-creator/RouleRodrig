@@ -125,8 +125,8 @@ export default async function SeDeplacerPage() {
     readTransferFares(),
   ]);
 
-  const scooterFrom = fleetFromPrice(fleet, "scooter");
-  const carFrom = fleetFromPrice(fleet, "car");
+  const scooterFrom = fleetFromPrice(fleet, "scooter", content.vehicleCategories);
+  const carFrom = fleetFromPrice(fleet, "car", content.vehicleCategories);
   const faq = FAQ(scooterFrom, carFrom, fares.airport);
 
   // The same researched entries Ti Roulé answers from, in French.

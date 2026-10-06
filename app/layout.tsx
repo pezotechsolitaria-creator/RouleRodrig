@@ -258,7 +258,7 @@ export default async function RootLayout({
   const content = await getContent();
   const scooterPrices = content.fleet
     .filter((f) => (f.category ?? "scooter") === "scooter")
-    .map((f) => vehiclePriceNumber(f))
+    .map((f) => vehiclePriceNumber(f, content.vehicleCategories))
     .filter((n): n is number => n != null && n > 0);
   const scooterDailyMur = scooterPrices.length
     ? Math.min(...scooterPrices)

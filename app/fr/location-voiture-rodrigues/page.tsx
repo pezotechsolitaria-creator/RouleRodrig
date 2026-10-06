@@ -52,8 +52,8 @@ const DESCRIPTION = (from: number) =>
   `Louez une voiture à Rodrigues dès Rs ${rs(from)}/jour. Automatique, climatisation, assurance incluse. Livraison à l'aéroport de Plaine Corail ou à votre hôtel.`;
 
 export async function generateMetadata(): Promise<Metadata> {
-  const { fleet } = await getFleetView();
-  return metadataFor(fleetFromPrice(fleet, "car"));
+  const { content, fleet } = await getFleetView();
+  return metadataFor(fleetFromPrice(fleet, "car", content.vehicleCategories));
 }
 
 const metadataFor = (from: number): Metadata => ({
@@ -137,7 +137,7 @@ const FAQ = (from: number, minAge: string | null, freeDelivery: boolean) => [
 export default async function LocationVoiturePage() {
   const { content, fleet, businessWhatsApp } = await getFleetView();
 
-  const from = fleetFromPrice(fleet, "car");
+  const from = fleetFromPrice(fleet, "car", content.vehicleCategories);
   // How many cars actually exist, counted from the live fleet rather than
   // stated. offerCount is a claim about inventory and inventing one on a page
   // that takes bookings is how a customer is told "available" about a car that

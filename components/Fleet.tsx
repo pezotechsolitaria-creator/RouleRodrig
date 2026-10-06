@@ -449,7 +449,7 @@ export default function Fleet({
             const scooter = u.item;
             const out = scooter.available === false;
             const busyToday = !out && scooter.soldOutToday === true;
-            const rate = vehicleDayRate(scooter);
+            const rate = vehicleDayRate(scooter, cats);
             const scooterRates = usesScooterRates(scooter);
             const chips = cardChips(scooter, language, deliveryFee(scooter, cats) === 0 ? r.deliveryIncluded : null);
             const rating = ratings?.[scooter.id];

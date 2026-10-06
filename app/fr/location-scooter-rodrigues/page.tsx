@@ -5,7 +5,7 @@ import { ArrowRight, Check, MessageCircle } from "lucide-react";
 import { getFleetView, fleetFromPrice } from "@/lib/site-data";
 import { SITE_URL } from "@/lib/site";
 import { breadcrumbLd } from "@/lib/schema";
-import { SCOOTER_RATES } from "@/lib/booking-pricing";
+import { scooterRates, type DayRates } from "@/lib/booking-pricing";
 import JsonLd from "@/components/JsonLd";
 import Navbar from "@/components/Navbar";
 import PageLanguage from "@/components/PageLanguage";
@@ -46,8 +46,8 @@ const DESCRIPTION = (from: number) =>
 // page renders. A static `metadata` object cannot read it, which is exactly how
 // the two drifted apart in the first place.
 export async function generateMetadata(): Promise<Metadata> {
-  const { fleet } = await getFleetView();
-  const from = fleetFromPrice(fleet, "scooter");
+  const { content, fleet } = await getFleetView();
+  const from = fleetFromPrice(fleet, "scooter", content.vehicleCategories);
   return metadataFor(from);
 }
 
@@ -96,17 +96,17 @@ const metadataFor = (from: number): Metadata => ({
 //
 // It is also the shape an assistant quotes when asked "is a scooter enough for
 // a family in Rodrigues?" — a real question, answered with a real price.
-// The price answers state the published scooter list (SCOOTER_RATES, owner
-// brief of 6 Oct 2026) in full — one day, two days, three or more — so the
+// The price answers state the scooter list the owner set in /admin (owner
+// brief of 6 Oct 2026; scooterRates()) in full — one day, two days, three or more — so the
 // "dès" figure in the title is never read as the price of a one-day hire.
-const FAQ = (from: number, carFrom: number) => [
+const FAQ = (from: number, carFrom: number, sr: DayRates) => [
   {
     q: "Combien coûte la location d'un scooter à Rodrigues ?",
-    a: `Une journée coûte Rs ${rs(SCOOTER_RATES.oneDay)}, deux jours Rs ${rs(SCOOTER_RATES.twoDays * 2)}, et dès trois jours Rs ${rs(from)} par jour pour toute la location. La livraison, un casque pour chaque passager et l'assurance au tiers sont inclus. Le prix affiché est le prix final : aucun frais de réservation, aucune commission.`,
+    a: `Une journée coûte Rs ${rs(sr.oneDay)}, deux jours Rs ${rs(sr.twoDays * 2)}, et dès trois jours Rs ${rs(from)} par jour pour toute la location. La livraison, un casque pour chaque passager et l'assurance au tiers sont inclus. Le prix affiché est le prix final : aucun frais de réservation, aucune commission.`,
   },
   {
     q: "Y a-t-il une durée minimale de location ?",
-    a: `Non. Vous pouvez louer pour une seule journée, à Rs ${rs(SCOOTER_RATES.oneDay)}. Le tarif de Rs ${rs(from)} par jour s'applique dès trois jours : réservez exactement les dates qui vous arrangent.`,
+    a: `Non. Vous pouvez louer pour une seule journée, à Rs ${rs(sr.oneDay)}. Le tarif de Rs ${rs(from)} par jour s'applique dès trois jours : réservez exactement les dates qui vous arrangent.`,
   },
   {
     q: "Faut-il un permis de conduire ?",
@@ -129,12 +129,12 @@ const FAQ = (from: number, carFrom: number) => [
 export default async function LocationScooterPage() {
   const { content, fleet, businessWhatsApp } = await getFleetView();
 
-  const from = fleetFromPrice(fleet, "scooter");
+  const from = fleetFromPrice(fleet, "scooter", content.vehicleCategories);
   // Read from the same live fleet as the scooter price. A car price typed by
   // hand here would drift from /fr/location-voiture-rodrigues the first time
   // the owner changed it, and the two pages would advertise different numbers.
-  const carFrom = fleetFromPrice(fleet, "car");
-  const faq = FAQ(from, carFrom);
+  const carFrom = fleetFromPrice(fleet, "car", content.vehicleCategories);
+  const faq = FAQ(from, carFrom, scooterRates(content.vehicleCategories));
 
   const wa = (businessWhatsApp ?? "").replace(/\D/g, "");
   const waHref = wa

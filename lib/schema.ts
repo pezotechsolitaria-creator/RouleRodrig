@@ -7,7 +7,7 @@
 // signal and gets structured data ignored (or the site penalised).
 import { SITE_URL } from "./site";
 import { METHOD_LABEL, PAYMENT_METHODS } from "./bookings/in-person";
-import { SCOOTER_RATES } from "./booking-pricing";
+import type { DayRates } from "./booking-pricing";
 
 const BRAND = "Roule Rodrigues";
 
@@ -215,6 +215,9 @@ type ProductInput = {
    *  is always a plain Product, whatever the category id says; undefined or
    *  "motor" keeps the Car / Motorcycle / Product choice by category. */
   rentalKind?: "motor" | "equipment";
+  /** The scooter list in force (booking-pricing scooterRates(content
+   *  .vehicleCategories)). A scooter Offer states all three rates from it. */
+  scooterRates?: DayRates;
 };
 
 // Model → manufacturer. Every entry is a real, checkable fact: Burgman and
@@ -240,9 +243,14 @@ function brandOf(name: string): string | null {
   return null;
 }
 
-/** A scooter priced from the published list, not a one-off price box. */
-function scooterTiered(p: ProductInput): boolean {
-  return p.rentalKind !== "equipment" && p.category === "scooter" && p.price === SCOOTER_RATES.threePlus;
+/** A scooter priced from the owner's list, not a one-off price box. */
+function scooterTiered(p: ProductInput): p is ProductInput & { scooterRates: DayRates } {
+  return (
+    p.rentalKind !== "equipment" &&
+    p.category === "scooter" &&
+    p.scooterRates != null &&
+    p.price === p.scooterRates.threePlus
+  );
 }
 
 function dayRate(price: number, days: { value: number } | { minValue: number }) {
@@ -315,15 +323,15 @@ export function productLd(p: ProductInput) {
             // "Rs 699" with no unit against a competitor's "per day" either
             // discards ours or misquotes it.
             businessFunction: "http://purl.org/goodrelations/v1#LeaseOut",
-            // A scooter's day rate depends on the length (SCOOTER_RATES, 6 Oct
-            // 2026): Rs 799 is true only from three days. Stating the three
-            // rates, each with the days it covers, keeps a crawler from
+            // A scooter's day rate depends on the length (the owner's list,
+            // 6 Oct 2026): Rs 799 is true only from three days. Stating the
+            // three rates, each with the days it covers, keeps a crawler from
             // quoting Rs 799 for a one-day hire that costs Rs 1,699.
             priceSpecification: scooterTiered(p)
               ? [
-                  dayRate(SCOOTER_RATES.oneDay, { value: 1 }),
-                  dayRate(SCOOTER_RATES.twoDays, { value: 2 }),
-                  dayRate(SCOOTER_RATES.threePlus, { minValue: 3 }),
+                  dayRate(p.scooterRates.oneDay, { value: 1 }),
+                  dayRate(p.scooterRates.twoDays, { value: 2 }),
+                  dayRate(p.scooterRates.threePlus, { minValue: 3 }),
                 ]
               : {
                   "@type": "UnitPriceSpecification",

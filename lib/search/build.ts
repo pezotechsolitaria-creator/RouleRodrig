@@ -97,7 +97,7 @@ export function buildDocs(content: SiteContent, extras: SearchExtras, lang: Sear
 
   for (const v of (content.fleet ?? []) as FleetItem[]) {
     if (!isSellableFleetItem(v)) continue;
-    const n = vehiclePriceNumber(v as { price: string; category?: string });
+    const n = vehiclePriceNumber(v as { price: string; category?: string }, content.vehicleCategories);
     const cat = (v as { category?: string }).category ?? "scooter";
     docs.push({
       id: `veh:${v.id}`,
