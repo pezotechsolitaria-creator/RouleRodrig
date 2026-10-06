@@ -1,7 +1,9 @@
 "use client";
 
+import { useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { MessageCircle } from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
 import {
   NAV_TABS,
@@ -11,6 +13,8 @@ import {
   type NavTab,
 } from "@/lib/nav-tabs";
 import { showsVisitorNav } from "@/lib/nav-scope";
+import { useNavContact } from "@/lib/nav-contact";
+import { useDockHeight } from "@/lib/use-dock-height";
 
 // Premium floating bottom navigation (mobile only). A rounded glass pill with a
 // blurred background, soft shadow and safe-area padding; the active tab gets an
@@ -27,6 +31,11 @@ export default function BottomNav() {
   const { t } = useLanguage();
   const pathname = usePathname() || "/";
   const { language } = useLanguage();
+  // A page that needs a person (a reservation waiting for payment) puts its
+  // WhatsApp link in Ti Roulé's place — see lib/nav-contact.ts.
+  const contact = useNavContact();
+  const dock = useRef<HTMLDivElement>(null);
+  useDockHeight(dock);
 
   // WHERE this bar belongs is decided in lib/nav-scope.ts, not here.
   //
@@ -47,6 +56,21 @@ export default function BottomNav() {
 
   const item = (tab: NavTab) => {
     const label = tabLabel(tab, language);
+    if (tab.action === "tiroule" && contact) {
+      return (
+        <a
+          key={tab.key}
+          href={contact.href}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label={contact.label}
+          className="flex min-w-[52px] flex-col items-center gap-1 rounded-2xl bg-[#25D366] px-2 py-1.5 shadow-[0_6px_18px_-4px_rgba(37,211,102,0.55)]"
+        >
+          <MessageCircle size={22} className="text-white" aria-hidden />
+          <span className="font-dm text-[10px] font-semibold leading-none text-white">WhatsApp</span>
+        </a>
+      );
+    }
     if (tab.action === "tiroule") {
       return (
         <button
@@ -116,7 +140,7 @@ export default function BottomNav() {
         aria-hidden
         className="h-[calc(3.875rem+max(0.75rem,env(safe-area-inset-bottom)))] md:hidden"
       />
-      <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 flex justify-center px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:hidden">
+      <div ref={dock} className="pointer-events-none fixed inset-x-0 bottom-0 z-40 flex justify-center px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:hidden">
         <nav
           aria-label={t.a11y.primary}
           className="pointer-events-auto flex w-full max-w-sm items-center justify-around rounded-2xl border border-white/12 bg-dark/80 px-1.5 py-1.5 shadow-[0_16px_44px_-12px_rgba(0,0,0,0.75)] backdrop-blur-xl"

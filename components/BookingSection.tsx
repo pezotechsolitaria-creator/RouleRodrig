@@ -23,6 +23,8 @@ import { displayUnits } from "@/lib/rentals/units";
 import { whatsappHref } from "@/lib/whatsapp-link";
 import { fleetTerm } from "@/lib/fleet-terms";
 import { OPEN_BOOKING_EVENT } from "@/lib/rentals/events";
+import { bookingReference } from "@/lib/activity";
+import { removePending, upsertPending } from "@/lib/pending/store";
 // Pricing is SHARED with /api/bookings — the line items the customer sees here
 // and the figures the server stores are the same arithmetic by construction.
 // rentalDays comes from the same module the SERVER prices with (RR012).
@@ -645,6 +647,24 @@ export default function BookingSection({
         pct: breakdown?.pct,
         inPerson: form.payment_preference === "in_person",
       });
+      // ── THE WAY BACK (6 Oct 2026) ──────────────────────────────────────────
+      // Closing this sheet used to lose the payment step for good. While an
+      // online amount is due, the bar on every page links back to the booking
+      // (lib/pending/store.ts); the email stays on this device so
+      // /manage-booking can open it without asking again.
+      const dueOnline = breakdown?.deposit ?? resData.depositAmount ?? 0;
+      if (resData.bookingId && dueOnline > 0 && form.payment_preference !== "in_person") {
+        upsertPending({
+          kind: "rental",
+          ref: bookingReference(String(resData.bookingId)),
+          email: form.email,
+          title: selectedUnit?.label ?? selectedScooter?.name ?? form.scooter,
+          range: fmtRange(form.start_date, effectiveEnd),
+          dueMur: dueOnline,
+          startDate: form.start_date,
+          savedAt: Date.now(),
+        });
+      }
       setFormState("success");
       setForm({ name: "", email: "", phone: "", scooter: "", start_date: "", end_date: "", pickup_time: "10:00", return_time: "10:00", message: "", partner_code: "", payment_preference: "online" });
       setShowPartnerCode(false);
@@ -776,7 +796,10 @@ export default function BookingSection({
                           depositMur={lastBooking.deposit ?? 0}
                           fullMur={lastBooking.totalMur}
                           kind="vehicle"
-                          onPaid={() => setDepositPaid(true)}
+                          onPaid={() => {
+                            setDepositPaid(true);
+                            if (lastBooking?.bookingId) removePending(bookingReference(lastBooking.bookingId));
+                          }}
                           onFailedChange={setPayPalFailed}
                         />
                       </div>

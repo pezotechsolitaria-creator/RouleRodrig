@@ -63,7 +63,12 @@ export default function TrackLookup({ initialRef = "" }: { initialRef?: string }
   const [error, setError] = useState<string | null>(null);
   const [activity, setActivity] = useState<Activity | null>(null);
 
-  const ready = ref.trim().length >= 4 && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim());
+  // The second box takes an email, or — for a reservation, which asks for a
+  // phone and only optionally an email — the phone number (6 Oct 2026).
+  const contact = email.trim();
+  const ready =
+    ref.trim().length >= 4 &&
+    (/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(contact) || contact.replace(/\D/g, "").length >= 7);
   // The card's own "this reservation has lapsed" state. holdUntil is only set
   // on a PENDING order, so this is an unpaid order whose clock ran out.
   const lapsed = !!activity && !!holdInfo(activity.holdUntil)?.expired;
@@ -85,6 +90,13 @@ export default function TrackLookup({ initialRef = "" }: { initialRef?: string }
       // lib/track/copy.i18n.ts. It is still preferred over ours, because a
       // sentence that names the actual problem beats a translated generic one.
       if (!res.ok) throw new Error(body.error || c.errors.notFound);
+      // A reservation answers with its own page — where the payment choice
+      // and the hold's countdown live — so the guest lands there, not on a
+      // status card that would send them looking for it again.
+      if (typeof body.redirect === "string" && body.redirect.startsWith("/booking/")) {
+        window.location.assign(body.redirect);
+        return;
+      }
       setActivity(body.activity as Activity);
     } catch (err) {
       setError(err instanceof Error ? err.message : c.errors.generic);
@@ -123,10 +135,13 @@ export default function TrackLookup({ initialRef = "" }: { initialRef?: string }
         <div className="mt-4">
           <span className={label}>{c.form.emailLabel}</span>
           <input
-            type="email"
+            type="text"
+            inputMode="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             autoComplete="email"
+            autoCapitalize="none"
+            spellCheck={false}
             placeholder={c.form.emailPlaceholder}
             className={field}
           />

@@ -16,6 +16,7 @@ import AnnouncementBar from "@/components/AnnouncementBar";
 import BuildWatcher from "@/components/BuildWatcher";
 import { ExperienceWorldProvider } from "@/context/ExperienceWorldContext";
 import BottomNav from "@/components/BottomNav";
+import ResumeBar from "@/components/pending/ResumeBar";
 import SiteFooter from "@/components/SiteFooter";
 import NavDepth from "@/components/NavDepth";
 import GlobalTiRoule from "@/components/GlobalTiRoule";
@@ -542,6 +543,9 @@ export default async function RootLayout({
                     <NavDepth />
                     <ReturnWelcome />
                     <FavoritesPanel />
+                    {/* "Finish paying Rs 1,999 · 11h 59m left": the way back to
+                        an unfinished booking from any page (6 Oct 2026). */}
+                    <ResumeBar />
                     <BottomNav />
                     <GlobalTiRoule
                       image={content.branding.mascotImage}

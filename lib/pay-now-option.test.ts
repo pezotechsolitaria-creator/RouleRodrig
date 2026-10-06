@@ -38,7 +38,9 @@ describe("the customer can pay immediately if they want to", () => {
   });
 
   it("marks the booking paid on success rather than leaving it pending", () => {
-    expect(BOOKING).toMatch(/onPaid=\{\(\) => setDepositPaid\(true\)\}/);
+    // A block since 6 Oct 2026: paying also clears the "finish your booking"
+    // bar (lib/pending/store.ts).
+    expect(BOOKING).toMatch(/onPaid=\{\(\) => \{\s*setDepositPaid\(true\);/);
   });
 
   it("never offers it without a booking or without an amount to charge", () => {

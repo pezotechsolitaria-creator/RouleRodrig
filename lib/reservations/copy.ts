@@ -56,6 +56,11 @@ type HubCopy = {
   back: string;
   retry: string;
   nextTitle: string;
+  /** The green button: Roulé on WhatsApp, the link to this page in the message. */
+  whatsapp: string;
+  /** Under the reference: this page's address is the guest's way back. */
+  keepLink: string;
+  copyLink: string;
   fields: Record<string, string>;
 };
 
@@ -126,6 +131,9 @@ export const HUB_COPY: Record<ResLang, HubCopy> = {
     back: "Back to Roulé",
     retry: "Try again",
     nextTitle: "WHAT HAPPENS NEXT",
+    whatsapp: "WhatsApp Roulé",
+    keepLink: "Leaving is fine — your hold keeps running. Keep this link to come back.",
+    copyLink: "Copy link",
     fields: {
       pickup_time: "Pickup time",
       flight_number: "Flight number",
@@ -202,6 +210,9 @@ export const HUB_COPY: Record<ResLang, HubCopy> = {
     back: "Retour à Roulé",
     retry: "Réessayer",
     nextTitle: "LA SUITE",
+    whatsapp: "WhatsApp Roulé",
+    keepLink: "Vous pouvez quitter cette page : la réservation reste bloquée. Gardez ce lien pour revenir.",
+    copyLink: "Copier le lien",
     fields: {
       pickup_time: "Heure de prise en charge",
       flight_number: "Numéro de vol",
@@ -278,6 +289,9 @@ export const HUB_COPY: Record<ResLang, HubCopy> = {
     back: "Retour lor Roulé",
     retry: "Seye ankor",
     nextTitle: "KI PE ARIVE APRE",
+    whatsapp: "WhatsApp Roulé",
+    keepLink: "Ou kapav kit sa paz-la : ou rezervasion res bloke. Gard sa lien-la pou retourne.",
+    copyLink: "Kopie lien",
     fields: {
       pickup_time: "Ler pou vinn pran ou",
       flight_number: "Nimero vol",
@@ -391,9 +405,15 @@ export const ADMIN_ALERT: Record<string, (v: { ref: string; product: string; nam
   info_received: (v) => `${v.name} answered your question on ${v.ref}. ${v.product}, ${v.date}.`,
 };
 
-/** The prefilled WhatsApp line a guest sends about a reservation. */
-export function waText(lang: ResLang, ref: string, product: string, date: string): string {
-  if (lang === "fr") return `Bonjour Roulé Rodrigues. Je vous écris au sujet de ${ref} — ${product}, ${date}.`;
-  if (lang === "cr") return `Bonzour Roulé Rodrigues. Mo pe ekrir ou lor ${ref} — ${product}, ${date}.`;
-  return `Hi Roulé Rodrigues. I'm writing about ${ref} — ${product}, ${date}.`;
+/**
+ * The prefilled WhatsApp line a guest sends about a reservation. With `link`
+ * (the guest's own page) the message carries it, so the guest's WhatsApp keeps
+ * the way back to "Choose a way to pay" (6 Oct 2026) — and Roulé can open the
+ * same page from the chat.
+ */
+export function waText(lang: ResLang, ref: string, product: string, date: string, link?: string): string {
+  const tail = link ? ` ${link}` : "";
+  if (lang === "fr") return `Bonjour Roulé Rodrigues. Je vous écris au sujet de ${ref} — ${product}, ${date}.${tail}`;
+  if (lang === "cr") return `Bonzour Roulé Rodrigues. Mo pe ekrir ou lor ${ref} — ${product}, ${date}.${tail}`;
+  return `Hi Roulé Rodrigues. I'm writing about ${ref} — ${product}, ${date}.${tail}`;
 }

@@ -10,6 +10,7 @@ import {
 } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { useDockHeight } from "@/lib/use-dock-height";
 import { usePathname } from "next/navigation";
 import {
   Heart,
@@ -204,6 +205,9 @@ export default function AppHome({
   const { t, language, setLanguage } = useLanguage();
   const { count } = useFavorites();
   const pathname = usePathname() || "/v2";
+  // The dock's height, for the "finish your booking" bar above it.
+  const dockRef = useRef<HTMLDivElement>(null);
+  useDockHeight(dockRef);
   const L = (t: Tri) =>
     language === "fr" ? t[1] : language === "cr" ? t[2] : t[0];
   const cycle = () =>
@@ -787,7 +791,7 @@ export default function AppHome({
       {/* ── Floating bottom app nav ─────────────────────────
           A detached rounded panel with a small gap on the sides and below
           (respecting the safe area). */}
-      <div className="fixed inset-x-0 bottom-0 z-40 px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] md:hidden">
+      <div ref={dockRef} className="fixed inset-x-0 bottom-0 z-40 px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] md:hidden">
         {/* ── THE DOCK IS PHONE-SIZED, SO IT MUST GROW ON A BIG SCREEN ───────
             Every measurement in here was fixed at phone scale: 20px icons and
             10px labels. On a phone that is right. Stretched across a laptop it

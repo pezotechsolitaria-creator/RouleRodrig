@@ -19,6 +19,7 @@ import {
   inPersonTimelineCompleted,
   isNoShow,
 } from "@/lib/bookings/customer-view";
+import { readPending, removePending } from "@/lib/pending/store";
 
 type Booking = {
   kind: "vehicle" | "place";
@@ -102,7 +103,12 @@ export default function ManageBookingPage() {
         });
         const j = await res.json();
         if (!res.ok) throw new Error(j.error || M.errNotFound);
-        setBooking(j.booking as Booking);
+        const found = j.booking as Booking;
+        setBooking(found);
+        // Nothing left to come back for: the bar on other pages lets it go.
+        if (found.depositPaid || ["cancelled", "completed", "rejected", "declined", "expired"].includes(found.status)) {
+          removePending(found.ref || r);
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : M.errNotFound);
       } finally {
@@ -164,6 +170,14 @@ export default function ManageBookingPage() {
         }
       } catch {
         /* not signed in, or auth unavailable — the form below still works */
+      }
+      // Arrived from the "finish your booking" bar: the email this device
+      // kept when the booking was made (lib/pending/store.ts — never a URL).
+      const kept = readPending().find((e) => e.kind === "rental" && e.ref === cleaned);
+      if (!cancelled && kept && kept.kind === "rental" && kept.email) {
+        setEmail(kept.email);
+        void lookup(cleaned, kept.email);
+        return;
       }
       if (!cancelled) emailRef.current?.focus({ preventScroll: true });
     })();

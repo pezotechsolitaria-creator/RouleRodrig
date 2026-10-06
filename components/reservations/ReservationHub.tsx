@@ -9,6 +9,9 @@ import { HUB_COPY, waText, type ResLang } from "@/lib/reservations/copy";
 import { formatMur } from "@/lib/reservations/policy";
 import { countdown, hubView, type NodeState, type TimelineNode } from "@/lib/reservations/timeline";
 import type { GuestView } from "@/lib/reservations/view";
+import { SITE_URL } from "@/lib/site";
+import { removePending, upsertPending } from "@/lib/pending/store";
+import { setNavContact } from "@/lib/nav-contact";
 import ReservationPayPal from "./ReservationPayPal";
 
 // ── The guest's reservation hub ─────────────────────────────────────────────
@@ -241,9 +244,48 @@ function Hub({
     return out;
   }, [v.events, lang]);
 
+  // This page's own address: the guest's way back (it carries the token, the
+  // same credential as the link Roulé emails). The host the guest is actually
+  // on once mounted; SITE_URL for the server's first render.
+  const [origin, setOrigin] = useState(SITE_URL);
+  useEffect(() => setOrigin(window.location.origin), []);
+  const pageUrl = `${origin}/booking/${token}`;
   const wa = whatsapp
-    ? `https://wa.me/${whatsapp.replace(/\D/g, "")}?text=${encodeURIComponent(waText(lang, v.reference, title, when))}`
+    ? `https://wa.me/${whatsapp.replace(/\D/g, "")}?text=${encodeURIComponent(waText(lang, v.reference, title, when, pageUrl))}`
     : null;
+
+  // ── LEAVING IS NOT CANCELLING (6 Oct 2026) ────────────────────────────────
+  // The hold lives on the server and ends there. What was missing was the
+  // way back: this page now leaves a note on the device while something is
+  // still to do (being checked, a question, a payment), and the bar on every
+  // other page (components/pending/ResumeBar.tsx) offers it until settled.
+  const reported = hub.state === "pay" && !!v.paymentReportedAt;
+  useEffect(() => {
+    if (hub.state === "checking" || hub.state === "needs_information" || hub.state === "pay") {
+      upsertPending({
+        kind: "reservation",
+        ref: v.reference,
+        token,
+        title,
+        // Paid and reported: the guest has done their part; Roulé checks.
+        state: reported ? "checking" : hub.state,
+        dueMur: dueNow(v) || null,
+        deadline: hub.state === "pay" && !reported ? v.paymentDeadlineAt : null,
+        slotDate: v.slotDate,
+        savedAt: Date.now(),
+      });
+    } else {
+      removePending(v.reference);
+    }
+  }, [hub.state, reported, v, token, title]);
+
+  // Ti Roulé's centre button becomes WhatsApp while this page is open: a
+  // guest choosing how to pay needs Roulé's line, not the island guide.
+  useEffect(() => {
+    if (!wa) return;
+    setNavContact({ href: wa, label: c.whatsapp });
+    return () => setNavContact(null);
+  }, [wa, c.whatsapp]);
 
   return (
     <div className="mx-auto max-w-lg px-4 pt-6">
@@ -256,6 +298,12 @@ function Hub({
         <h1 className="font-bebas text-[2.75rem] leading-none tracking-[0.06em] text-offwhite">{v.reference}</h1>
         <CopyButton value={v.reference} label={c.copy} done={c.copied} compact />
       </div>
+      {!ended && (
+        <div className="mt-2 flex items-center gap-3">
+          <p className="min-w-0 flex-1 font-dm text-xs leading-relaxed text-muted">{c.keepLink}</p>
+          <CopyButton value={pageUrl} label={c.copyLink} done={c.copied} aria={c.copyLink} />
+        </div>
+      )}
 
       {/* ── What it is ── */}
       <section className="mt-5 overflow-hidden rounded-xl border border-dark-border bg-dark-card">
@@ -338,6 +386,29 @@ function Hub({
         <PaymentPanel view={v} lang={lang} left={left} loading={loading} token={token} paypalClientId={paypalClientId} act={act} refresh={refresh} />
       )}
 
+      {/* ── A person, in one tap (owner, 6 Oct 2026: "so that it is
+          noticeable") — green, beside the payment choice, and the message
+          carries this page's link so the chat is a way back too. ── */}
+      {wa && (
+        <a
+          href={wa}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={() => {
+            // A note for the desk that the guest reached out; never blocks the tap.
+            void fetch(`/api/reservations/${token}`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ action: "message_opened" }),
+              keepalive: true,
+            }).catch(() => {});
+          }}
+          className="mt-4 flex min-h-[52px] items-center justify-center gap-2 rounded-xl bg-[#25D366] px-5 font-syne text-[15px] font-bold text-white shadow-[0_8px_24px_-10px_rgba(37,211,102,0.7)] transition-[filter] hover:brightness-110"
+        >
+          <MessageCircle size={18} aria-hidden /> {c.whatsapp}
+        </a>
+      )}
+
       {/* ── What happens next ── */}
       {c.next[hub.state] && !(hub.state === "pay" && v.paymentReportedAt) && (
         <section className="mt-6">
@@ -362,25 +433,6 @@ function Hub({
           >
             <CalendarDays size={16} aria-hidden /> {c.requestAgain}
           </Link>
-        )}
-        {wa && (
-          <a
-            href={wa}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={() => {
-              // A note for the desk that the guest reached out; never blocks the tap.
-              void fetch(`/api/reservations/${token}`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ action: "message_opened" }),
-                keepalive: true,
-              }).catch(() => {});
-            }}
-            className="flex min-h-[48px] items-center justify-center gap-2 rounded-xl border border-dark-border px-5 font-dm text-sm text-offwhite transition-colors hover:border-yellow/40 hover:text-yellow"
-          >
-            <MessageCircle size={16} aria-hidden /> {c.message}
-          </a>
         )}
       </div>
 
@@ -725,13 +777,26 @@ function useCopy(value: string) {
   return { done, copy };
 }
 
-function CopyButton({ value, label, done: doneLabel, compact }: { value: string; label: string; done: string; compact?: boolean }) {
+function CopyButton({
+  value,
+  label,
+  done: doneLabel,
+  compact,
+  aria,
+}: {
+  value: string;
+  label: string;
+  done: string;
+  compact?: boolean;
+  /** Overrides the spoken label — a long link is not read out in full. */
+  aria?: string;
+}) {
   const { done, copy } = useCopy(value);
   return (
     <button
       type="button"
       onClick={() => void copy()}
-      aria-label={`${label} ${value}`}
+      aria-label={aria ?? `${label} ${value}`}
       className={`inline-flex min-h-[44px] min-w-[44px] items-center justify-center gap-1.5 rounded-lg text-muted transition-colors hover:text-yellow ${compact ? "" : "border border-dark-border px-3"}`}
     >
       {done ? <Check size={16} className="text-yellow" aria-hidden /> : <Copy size={16} aria-hidden />}

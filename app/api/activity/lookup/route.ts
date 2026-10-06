@@ -7,6 +7,7 @@ import {
 } from "@/lib/activity";
 import { STATUS_LABEL, type OrderStatus } from "@/lib/orders/status";
 import { vehicleName } from "@/lib/vehicle-name";
+import { reservationPathFor, reservationReference } from "@/lib/reservations/resume-lookup";
 
 // ── ONE LOOKUP FOR EVERY KIND OF ACTIVITY ──────────────────────────────────
 //
@@ -51,6 +52,26 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       { error: "Enter your reference and the email you used." },
       { status: 400 },
+    );
+  }
+
+  // ── A RESERVATION (RR-8F42K): straight back to its own page ──────────────
+  // The 5-character shape belongs to the reservation engine alone, so this
+  // either opens the guest's page or ends in the shared not-found below. The
+  // second box may hold the PHONE here: reservations ask for a phone and only
+  // optionally an email (lib/reservations/resume-lookup.ts).
+  if (reservationReference(ref)) {
+    try {
+      const path = await reservationPathFor(ref, email);
+      if (path) return NextResponse.json({ redirect: path });
+    } catch (err) {
+      console.error("activity lookup: reservation lookup failed", err);
+      return NextResponse.json({ error: "Something went wrong. Please try again." }, { status: 500 });
+    }
+    // The same answer for a wrong reference and a wrong contact.
+    return NextResponse.json(
+      { error: "We couldn't find anything with that reference and email or phone. Check both and try again." },
+      { status: 404 },
     );
   }
 

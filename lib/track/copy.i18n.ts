@@ -93,8 +93,8 @@ const EN = {
      *  holding an order number assumes this is the rentals page. */
     refHelp:
       "Rentals, boat trips, massages, shop orders, food and tickets — all of them.",
-    emailLabel: "THE EMAIL YOU USED",
-    emailPlaceholder: "you@example.com",
+    emailLabel: "THE EMAIL OR PHONE YOU USED",
+    emailPlaceholder: "you@example.com or 5 123 4567",
     submit: "Find it",
   },
 
@@ -231,8 +231,8 @@ const FR: TrackCopy = {
     refPlaceholder: "RR-A1B2C3 ou RR260811-D9220F",
     refHelp:
       "Locations, sorties en bateau, massages, commandes boutique, plats et billets — tout.",
-    emailLabel: "L’E-MAIL UTILISÉ",
-    emailPlaceholder: "you@example.com",
+    emailLabel: "L’E-MAIL OU LE TÉLÉPHONE UTILISÉ",
+    emailPlaceholder: "vous@exemple.com ou 5 123 4567",
     submit: "Trouver",
   },
 
@@ -332,8 +332,8 @@ const CR: TrackCopy = {
     refPlaceholder: "RR-A1B2C3 ouswa RR260811-D9220F",
     refHelp:
       "Lokasion, sorti bato, masaz, komann laboutik, manze ek tiket — tou sa.",
-    emailLabel: "EMAIL KI OU FINN SERVI",
-    emailPlaceholder: "you@example.com",
+    emailLabel: "EMAIL OUSWA TELEFONN KI OU FINN SERVI",
+    emailPlaceholder: "you@example.com ouswa 5 123 4567",
     submit: "Trouv li",
   },
 
